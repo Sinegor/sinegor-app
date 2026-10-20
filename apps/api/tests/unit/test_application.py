@@ -49,6 +49,17 @@ def test_liveness_does_not_require_database(app):
         assert len(response.headers["X-Request-ID"]) == 32
 
 
+def test_agreement_openapi_declares_pdf_upload_and_download(app):
+    paths = app.openapi()["paths"]
+    upload = paths["/api/admin/orders/{order_id}/agreement/initial"]["post"]
+    assert set(upload["requestBody"]["content"]) == {"application/pdf"}
+    assert upload["requestBody"]["content"]["application/pdf"]["schema"]["format"] == "binary"
+    assert any(p["name"] == "X-Agreement-Revision" and p["required"] for p in upload["parameters"])
+    for role in ("admin", "customer"):
+        download = paths[f"/api/{role}/orders/{{order_id}}/agreement/{{kind}}"]["get"]
+        assert set(download["responses"]["200"]["content"]) == {"application/pdf"}
+
+
 @pytest.mark.parametrize("component", ["header", "cookie"])
 @pytest.mark.parametrize("invalid", ["missing", "forged", "expired", "other_session", "oversized"])
 def test_csrf_rejects_invalid_header_or_cookie(app, component, invalid):

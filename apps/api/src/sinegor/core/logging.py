@@ -30,11 +30,12 @@ def configure_logging(level: str) -> None:
             "disable_existing_loggers": False,
             "formatters": {"json": {"()": JsonFormatter}},
             "handlers": {
+                "discard": {"class": "logging.NullHandler"},
                 "console": {
                     "class": "logging.StreamHandler",
                     "stream": "ext://sys.stdout",
                     "formatter": "json",
-                }
+                },
             },
             "root": {"handlers": ["console"], "level": level},
             "loggers": {
@@ -44,6 +45,8 @@ def configure_logging(level: str) -> None:
                 "httpx": {"handlers": [], "propagate": False, "level": "WARNING"},
                 "httpx2": {"handlers": [], "propagate": False, "level": "WARNING"},
                 "httpcore": {"handlers": [], "propagate": False, "level": "WARNING"},
+                # Parser diagnostics can contain fragments of private PDF objects.
+                "pypdf": {"handlers": ["discard"], "propagate": False},
             },
         }
     )

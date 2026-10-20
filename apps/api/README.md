@@ -1,6 +1,6 @@
 # SINEGOR API
 
-Этапы B1–B4: запускаемый FastAPI backend с PostgreSQL, SQLAlchemy 2, Alembic, настройками окружения, JSON-логами и pytest. Реализованы авторизация, приглашения, серверные сессии, карточки заказчиков, заказы, ручная оплата и журналирование. Модель и ограничения описаны в `../../docs/data-model.md`, контракт B4 — в `../../docs/orders.md`.
+Этапы B1–B5: запускаемый FastAPI backend с PostgreSQL, SQLAlchemy 2, Alembic, настройками окружения, JSON-логами и pytest. Реализованы авторизация, приглашения, серверные сессии, карточки заказчиков, заказы, ручная оплата, журналирование и обмен PDF-соглашениями с проверкой администратором. Модель и ограничения описаны в `../../docs/data-model.md`, контракты B4/B5 — в `../../docs/orders.md` и `../../docs/agreements.md`.
 
 ## Требования
 
@@ -106,3 +106,9 @@ JSON-логи в stdout: событие, уровень, UTC timestamp, request 
 ## Заказчики и заказы B4
 
 API, допустимые переходы, ручная оплата, отметки передачи и журнал описаны в [контракте B4](../../docs/orders.md). Примените миграцию `0005_customer_events` через `uv run --locked alembic upgrade head`. Настройте периодический запуск `uv run --locked python -m sinegor.jobs.process_orders` для переходов после утверждения соглашения и завершения через 14 дней после уведомления. Образец расписания: `../../infra/scheduler/orders.cron.example`. SMTP использует те же настройки, что приглашения B3; ошибка уведомления не переводит заказ в готовое состояние.
+
+## Соглашения B5
+
+Примените миграцию `0006_agreements` через `uv run --locked alembic upgrade head`. Новая зависимость pypdf зафиксирована в uv.lock; обновление окружения — `uv sync --locked`. Закрытые PDF по умолчанию хранятся в `apps/api/storage/agreements`, настройка VPS — `AGREEMENT_STORAGE_DIR=/var/lib/sinegor/agreements`. Каталог должен иметь права 0700 и принадлежать пользователю приложения. Максимальный размер PDF задаётся AGREEMENT_MAX_BYTES (по умолчанию 20 МиБ).
+
+Загрузка принимает raw application/pdf и X-Agreement-Revision; утверждение выполняется по версии просмотренного файла. При утверждении заказ сразу переходит в awaiting_materials. Периодическая очистка временных файлов: `uv run --locked python -m sinegor.jobs.cleanup_agreements`. Контракт, ошибки, восстановление и образец curl — в [документации B5](../../docs/agreements.md).

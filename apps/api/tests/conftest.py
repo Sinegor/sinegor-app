@@ -22,6 +22,8 @@ def isolated_environment(monkeypatch):
         "ADMIN_SESSION_TTL_SECONDS",
         "CSRF_TTL_SECONDS",
         "AUTH_RATE_WINDOW_SECONDS",
+        "AGREEMENT_STORAGE_DIR",
+        "AGREEMENT_MAX_BYTES",
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("SINEGOR_ENV_FILE", "/dev/null")

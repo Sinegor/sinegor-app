@@ -40,6 +40,21 @@ class Settings(BaseSettings):
     smtp_username: str | None = None
     smtp_password: SecretStr | None = None
     smtp_from: EmailStr | None = None
+    agreement_storage_dir: Path = API_ROOT / "storage" / "agreements"
+    agreement_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1, le=50 * 1024 * 1024)
+
+    @field_validator("agreement_storage_dir")
+    @classmethod
+    def validate_agreement_storage(cls, value: Path) -> Path:
+        if not value.is_absolute():
+            raise ValueError("AGREEMENT_STORAGE_DIR must be absolute")
+        resolved = value.resolve()
+        public_roots = (API_ROOT.parent / app / "public" for app in ("web", "cms"))
+        if resolved == Path("/") or any(
+            resolved.is_relative_to(root.resolve()) for root in public_roots
+        ):
+            raise ValueError("Agreement storage must be a private directory")
+        return resolved
 
     @field_validator(
         "session_secret",
