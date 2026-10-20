@@ -416,6 +416,29 @@ def test_review_csrf_survives_second_tab_fetch(auth, actors):
     assert response.status_code == 202
 
 
+@pytest.mark.parametrize("authenticated", [False, True])
+@pytest.mark.parametrize("reverse_responses", [False, True])
+def test_initial_csrf_requests_allow_both_tabs(auth, actors, authenticated, reverse_responses):
+    if authenticated:
+        login_customer(auth)
+    # Both in-flight requests contain the same cookie snapshot, without a CSRF cookie.
+    pending = [auth.client.build_request("GET", "/api/auth/csrf") for _ in range(2)]
+    responses = [None, None]
+    for index in (1, 0) if reverse_responses else (0, 1):
+        responses[index] = auth.client.send(pending[index])
+    tokens = [response.json()["csrf_token"] for response in responses]
+    assert tokens[0] != tokens[1]
+    winner = tokens[0 if reverse_responses else 1]
+    assert auth.client.cookies.get(auth.settings.csrf_cookie_name) == winner
+    for token in tokens:
+        response = auth.client.post(
+            "/api/auth/magic-link/request",
+            json={"email": actors.customer.email},
+            headers={"Origin": "http://testserver", "X-CSRF-Token": token},
+        )
+        assert response.status_code == 202, response.text
+
+
 def test_review_failed_resend_preserves_delivered_link(auth, actors):
     assert (
         post(auth, "/api/auth/magic-link/request", {"email": actors.customer.email}).status_code

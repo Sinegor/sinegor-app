@@ -26,7 +26,12 @@ def issue_and_send_link(
     db: DBSession, settings: Settings, mailer: AuthMailer, customer: Customer, purpose: TokenPurpose
 ) -> None:
     # Capture earlier links under the customer lock; preserve them until SMTP succeeds.
-    db.scalar(select(Customer).where(Customer.id == customer.id).with_for_update())
+    db.scalar(
+        select(Customer)
+        .where(Customer.id == customer.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
     previous_ids = list(
         db.scalars(
             select(AuthToken.id).where(
@@ -106,6 +111,12 @@ def create_session(
 
 
 def consume_link(db: DBSession, settings: Settings, token: str, old_cookie: str) -> str:
+    owner_id = db.scalar(
+        select(AuthToken.customer_id).where(AuthToken.token_hash == secret_hash(token))
+    )
+    if owner_id is not None:
+        # Serialize with email edits so an old link cannot create a session after revocation.
+        db.scalar(select(Customer).where(Customer.id == owner_id).with_for_update())
     now = datetime.now(UTC)
     # UPDATE is atomic: concurrent requests cannot consume the same credential twice.
     customer_id = db.scalar(

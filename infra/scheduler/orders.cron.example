@@ -1,0 +1,4 @@
+# Replace /absolute/path/sinegor-app with the checkout path; run as the application user.
+# Install dependencies and apply migrations first. Default config is apps/api/.env.
+# Use SINEGOR_ENV_FILE=/secure/path/backend.env before the Python command if needed.
+* * * * * cd /absolute/path/sinegor-app/apps/api && .venv/bin/python -m sinegor.jobs.process_orders

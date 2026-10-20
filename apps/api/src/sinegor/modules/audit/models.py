@@ -35,3 +35,14 @@ class OrderEvent(Entity, Base):
     order: Mapped[Order] = relationship(back_populates="events")
     actor_customer: Mapped[Customer | None] = relationship()
     actor_admin: Mapped[AdminUser | None] = relationship()
+
+
+class CustomerEvent(Entity, Base):
+    __tablename__ = "customer_events"
+    __table_args__ = (
+        CheckConstraint("event_type ~ '^[a-z][a-z0-9_]*$'", name="event_type_format"),
+        Index("ix_customer_events_customer_id_created_at", "customer_id", "created_at"),
+    )
+    customer_id: Mapped[UUID] = mapped_column(ForeignKey("customers.id", ondelete="RESTRICT"))
+    event_type: Mapped[str] = mapped_column(String(64))
+    actor_admin_id: Mapped[UUID] = mapped_column(ForeignKey("admin_users.id", ondelete="RESTRICT"))

@@ -13,6 +13,7 @@ from sqlalchemy.exc import OperationalError
 from sinegor.core.config import Settings
 from sinegor.core.logging import JsonFormatter
 from sinegor.main import create_app
+from sinegor.modules.auth.security import csrf_token, new_secret
 
 
 @pytest.fixture
@@ -46,6 +47,42 @@ def test_liveness_does_not_require_database(app):
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
         assert len(response.headers["X-Request-ID"]) == 32
+
+
+@pytest.mark.parametrize("component", ["header", "cookie"])
+@pytest.mark.parametrize("invalid", ["missing", "forged", "expired", "other_session", "oversized"])
+def test_csrf_rejects_invalid_header_or_cookie(app, component, invalid):
+    @app.post("/api/test/csrf", status_code=204)
+    def protected():
+        pass
+
+    raw_session = new_secret()
+    key = app.state.csrf_key
+    header = csrf_token(key, raw_session)
+    cookie = csrf_token(key, raw_session)
+    bad = {
+        "missing": "",
+        "forged": "forged",
+        "expired": csrf_token(key, raw_session, now=0),
+        "other_session": csrf_token(key, "other_session"),
+        "oversized": "x" * 257,
+    }[invalid]
+    if component == "header":
+        header = bad
+    else:
+        cookie = bad
+    with TestClient(app) as client:
+        client.cookies.set(app.state.settings.session_cookie_name, raw_session)
+        client.cookies.set(app.state.settings.csrf_cookie_name, cookie)
+        response = client.post(
+            "/api/test/csrf",
+            headers={
+                "Origin": str(app.state.settings.public_origin).rstrip("/"),
+                "X-CSRF-Token": header,
+            },
+        )
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "csrf_failed"
 
 
 def test_missing_route_uses_error_envelope(app):

@@ -16,14 +16,16 @@ class AuthMailer(Protocol):
     def send_login_link(self, recipient: str, link: str) -> None: ...
 
 
+class OrderMailer(Protocol):
+    def send_result_ready(self, recipient: str, order_number: int) -> None: ...
+
+
 class SMTPAuthMailer:
     def __init__(self, settings: Settings):
         self.settings = settings
 
     def send_login_link(self, recipient: str, link: str) -> None:
         settings = self.settings
-        if not all((settings.smtp_username, settings.smtp_password, settings.smtp_from)):
-            raise MailDeliveryError("SMTP is not configured")
         message = EmailMessage()
         message["From"] = str(settings.smtp_from)
         message["To"] = recipient
@@ -34,6 +36,25 @@ class SMTPAuthMailer:
             + f"\nСсылка действует {settings.magic_link_ttl_seconds // 60} мин. "
             "Если вы не запрашивали вход, проигнорируйте письмо."
         )
+        self._send(message)
+
+    def send_result_ready(self, recipient: str, order_number: int) -> None:
+        message = EmailMessage()
+        message["From"] = str(self.settings.smtp_from or "")
+        message["To"] = recipient
+        message["Subject"] = f"SINEGOR — результат заказа №{order_number} готов"
+        message.set_content(
+            f"Результат заказа №{order_number} размещён в папке заказа на Яндекс Диске.\n"
+            f"Личный кабинет: {str(self.settings.public_origin).rstrip('/')}/customer/orders\n"
+            "Заказ будет завершён через 14 календарных дней после этого уведомления.\n"
+            "Для уточнений ответьте исполнителю по электронной почте."
+        )
+        self._send(message)
+
+    def _send(self, message: EmailMessage) -> None:
+        settings = self.settings
+        if not all((settings.smtp_username, settings.smtp_password, settings.smtp_from)):
+            raise MailDeliveryError("SMTP is not configured")
         try:
             with smtplib.SMTP_SSL(
                 settings.smtp_host,

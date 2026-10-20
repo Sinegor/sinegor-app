@@ -34,3 +34,40 @@ def test_smtp_is_fail_closed_without_credentials():
         SMTPAuthMailer(settings).send_login_link(
             "client@example.ru", "https://example.ru/auth#token=secret"
         )
+
+
+def test_result_notification_uses_tls_and_contains_order_reference():
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql+psycopg://u:p@localhost/db",
+        public_origin="https://example.ru",
+        smtp_username="sender@example.ru",
+        smtp_password="app_password",
+        smtp_from="sender@example.ru",
+    )
+    with patch("sinegor.integrations.email.smtp.smtplib.SMTP_SSL") as smtp:
+        connection = smtp.return_value.__enter__.return_value
+        connection.send_message.return_value = {}
+        SMTPAuthMailer(settings).send_result_ready("client@example.ru", 217)
+        message = connection.send_message.call_args.args[0]
+        assert message["To"] == "client@example.ru"
+        assert "217" in message["Subject"]
+        assert "14 календарных дней" in message.get_content()
+        assert "https://example.ru/customer/orders" in message.get_content()
+        assert smtp.call_args.kwargs["context"].check_hostname
+
+
+def test_result_notification_refused_recipient_is_a_delivery_failure():
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql+psycopg://u:p@localhost/db",
+        smtp_username="sender@example.ru",
+        smtp_password="app_password",
+        smtp_from="sender@example.ru",
+    )
+    with patch("sinegor.integrations.email.smtp.smtplib.SMTP_SSL") as smtp:
+        smtp.return_value.__enter__.return_value.send_message.return_value = {
+            "client@example.ru": (550, b"refused")
+        }
+        with pytest.raises(MailDeliveryError):
+            SMTPAuthMailer(settings).send_result_ready("client@example.ru", 217)

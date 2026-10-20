@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from sinegor.db.types import TokenPurpose
 from sinegor.integrations.email.smtp import MailDeliveryError
+from sinegor.modules.audit.models import CustomerEvent
 from sinegor.modules.auth import service
 from sinegor.modules.auth.dependencies import Admin, Authenticated, Customer, Database, OwnedOrder
 from sinegor.modules.auth.models import Session
@@ -17,12 +18,12 @@ from sinegor.modules.auth.schemas import (
     CustomerRead,
     EmailInput,
     MagicLinkInput,
-    OrderAccessRead,
     PrincipalRead,
 )
 from sinegor.modules.auth.security import csrf_token, valid_csrf
 from sinegor.modules.customers.models import Customer as CustomerModel
 from sinegor.modules.orders.models import Order
+from sinegor.modules.orders.schemas import OrderRead
 
 router = APIRouter(tags=["auth"])
 
@@ -143,6 +144,12 @@ def create_customer(payload: CustomerCreate, request: Request, principal: Admin,
     customer = CustomerModel(**payload.model_dump())
     db.add(customer)
     try:
+        db.flush()
+        db.add(
+            CustomerEvent(
+                customer_id=customer.id, event_type="customer_created", actor_admin_id=principal.id
+            )
+        )
         db.commit()
     except IntegrityError as exc:
         db.rollback()
@@ -183,13 +190,13 @@ def invite_customer(customer_id: UUID, request: Request, principal: Admin, db: D
     return {"message": "Invitation submitted to SMTP"}
 
 
-@router.get("/customer/orders", response_model=list[OrderAccessRead])
+@router.get("/customer/orders", response_model=list[OrderRead])
 def customer_orders(principal: Customer, db: Database):
     return db.scalars(
         select(Order).where(Order.customer_id == principal.id).order_by(Order.number)
     ).all()
 
 
-@router.get("/customer/orders/{order_id}", response_model=OrderAccessRead)
+@router.get("/customer/orders/{order_id}", response_model=OrderRead)
 def customer_order(order: OwnedOrder):
     return order

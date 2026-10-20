@@ -1,6 +1,5 @@
 """Application factory for uvicorn; importing this module needs no credentials."""
 
-import hmac
 import logging
 from contextlib import asynccontextmanager
 from time import perf_counter
@@ -17,6 +16,8 @@ from sinegor.db.session import create_db_engine, create_session_factory
 from sinegor.integrations.email.smtp import SMTPAuthMailer
 from sinegor.modules.auth.router import router as auth_router
 from sinegor.modules.auth.security import new_secret, valid_csrf
+from sinegor.modules.customers.router import router as customers_router
+from sinegor.modules.orders.router import router as orders_router
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +50,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.auth_mailer = SMTPAuthMailer(settings)
+    app.state.order_mailer = SMTPAuthMailer(settings)
     app.state.csrf_key = (
         settings.session_secret.get_secret_value() if settings.session_secret else new_secret()
     )
     register_error_handlers(app)
     app.include_router(health_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
+    app.include_router(customers_router, prefix="/api")
+    app.include_router(orders_router, prefix="/api")
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
@@ -74,9 +78,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 csrf_ok = (
                     request.headers.get("Origin") == origin
                     and len(header) <= 256
-                    and hmac.compare_digest(header.encode(), cookie.encode())
+                    and len(cookie) <= 256
                     and valid_csrf(
                         header, app.state.csrf_key, raw_session, settings.csrf_ttl_seconds
+                    )
+                    # Initial requests in different tabs may issue distinct valid tokens.
+                    and valid_csrf(
+                        cookie, app.state.csrf_key, raw_session, settings.csrf_ttl_seconds
                     )
                 )
                 if not csrf_ok:
