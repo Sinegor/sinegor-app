@@ -1,0 +1,34 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+# Node / build
+node_modules/
+.react-router/
+.strapi/
+.cache/
+.tmp/
+build/
+dist/
+coverage/
+playwright-report/
+test-results/
+# Private files / backups
+storage/
+backups/
+*.dump
+*.log
+# Editors / OS
+.idea/
+.DS_Store

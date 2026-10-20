@@ -1,0 +1,20 @@
+# Compatible with Compose v1 and v2.
+version: "3.8"
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: sinegor
+      POSTGRES_USER: sinegor
+      POSTGRES_PASSWORD: sinegor_dev
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sinegor -d sinegor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+volumes:
+  postgres_dev_data:
