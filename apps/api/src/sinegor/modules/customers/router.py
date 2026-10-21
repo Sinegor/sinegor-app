@@ -3,7 +3,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from sinegor.modules.audit.models import CustomerEvent
@@ -30,9 +30,24 @@ def get_customer(db: Database, customer_id: UUID, *, lock: bool = False) -> Cust
 
 
 @router.get("", response_model=list[CustomerRead])
-def list_customers(principal: Admin, db: Database, limit: Limit = 50, offset: Offset = 0):
+def list_customers(
+    principal: Admin,
+    db: Database,
+    limit: Limit = 50,
+    offset: Offset = 0,
+    q: Annotated[str | None, Query(max_length=320)] = None,
+):
+    statement = select(Customer)
+    if q and (query := q.strip()):
+        statement = statement.where(
+            or_(
+                Customer.email.icontains(query, autoescape=True),
+                Customer.display_name.icontains(query, autoescape=True),
+                Customer.phone.icontains(query, autoescape=True),
+            )
+        )
     return db.scalars(
-        select(Customer).order_by(Customer.created_at, Customer.id).limit(limit).offset(offset)
+        statement.order_by(Customer.created_at, Customer.id).limit(limit).offset(offset)
     ).all()
 
 

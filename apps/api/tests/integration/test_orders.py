@@ -12,6 +12,7 @@ from sinegor.modules.agreements.models import Agreement
 from sinegor.modules.audit.models import CustomerEvent, OrderEvent
 from sinegor.modules.auth.models import AuthToken, Session
 from sinegor.modules.auth.security import new_secret, secret_hash
+from sinegor.modules.customers.models import Customer
 from sinegor.modules.orders.service import process_lifecycle
 
 pytestmark = pytest.mark.integration
@@ -340,3 +341,31 @@ def test_private_mutations_require_authentication_and_csrf(auth, actors):
         mutate(auth, "PATCH", f"/api/admin/customers/{uuid4()}", {"phone": "123"}).status_code
         == 404
     )
+
+
+def test_customer_search_covers_fields_and_filters_before_pagination(admin, actors):
+    actors.customer.display_name = "Иван Петров"
+    actors.customer.phone = "+7 900 123-45-67"
+    actors.other.display_name = "Иван Сидоров"
+    literal = Customer(email="literal@example.ru", display_name="Code %_ / literal")
+    admin.db.add(literal)
+    admin.db.commit()
+    path = "/api/admin/customers"
+
+    def search(query, **params):
+        response = admin.client.get(path, params={"q": query, **params})
+        assert response.status_code == 200
+        return response.json()
+
+    assert [row["id"] for row in search("  CLIENT@EXAMPLE  ")] == [str(actors.customer.id)]
+    assert [row["id"] for row in search("123-45")] == [str(actors.customer.id)]
+    matches = search("иван")
+    assert {row["id"] for row in matches} == {str(actors.customer.id), str(actors.other.id)}
+    assert search("иван", limit=1, offset=0) == matches[:1]
+    assert search("иван", limit=1, offset=1) == matches[1:2]
+    assert [row["id"] for row in search("%_")] == [str(literal.id)]
+    assert search("no-match") == []
+    assert len(search(" ")) == 3
+    assert admin.client.get(path, params={"q": "a" * 321}).status_code == 422
+    login_customer(admin)
+    assert admin.client.get(path, params={"q": "иван"}).status_code == 403
