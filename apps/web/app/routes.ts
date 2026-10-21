@@ -9,9 +9,12 @@ export default [
     index("routes/public/home.tsx"),
     route("auth/magic-link", "routes/auth/magic-link.tsx"),
     route("auth/admin", "routes/auth/admin.tsx"),
+    route("auth/login", "routes/auth/login.tsx"),
   ]),
   route("customer", "layouts/customer.tsx", [
-    index("routes/customer/home.tsx"),
+    index("routes/customer/index.tsx"),
+    route("orders", "routes/customer/home.tsx"),
+    route("orders/:orderId", "routes/customer/order.tsx"),
   ]),
   route("admin", "layouts/admin.tsx", [
     index("routes/admin/home.tsx"),

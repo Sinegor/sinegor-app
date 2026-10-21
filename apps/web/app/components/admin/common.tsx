@@ -17,7 +17,7 @@ import {
 import { date, statuses, services, eventLabels } from "../../lib/admin/labels";
 import { Button, Notice, Table } from "../ui";
 
-export function useOperation() {
+export function useOperation(loginPath = "/auth/admin") {
   const [busy, setBusy] = useState(false);
   const locked = useRef(false);
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(
@@ -40,7 +40,7 @@ export function useOperation() {
       return result;
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
-        await navigate("/auth/admin", { replace: true });
+        await navigate(loginPath, { replace: true });
         return;
       }
       setNotice({

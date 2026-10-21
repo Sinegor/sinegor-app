@@ -369,3 +369,30 @@ def test_customer_search_covers_fields_and_filters_before_pagination(admin, acto
     assert admin.client.get(path, params={"q": "a" * 321}).status_code == 422
     login_customer(admin)
     assert admin.client.get(path, params={"q": "иван"}).status_code == 403
+
+
+def test_customer_reads_only_own_handover_without_creating_or_changing_it(auth, actors):
+    path = f"/api/customer/orders/{actors.order.id}/materials"
+    assert auth.client.get(path).status_code == 401
+    login_admin(auth, actors)
+    assert auth.client.get(path).status_code == 403
+    approve(auth, actors)
+    actors.order.status = OrderStatus.AWAITING_MATERIALS
+    auth.db.commit()
+    login_customer(auth)
+    events_before = auth.db.scalar(select(func.count()).select_from(OrderEvent))
+    assert auth.client.get(path).json() is None
+    assert auth.db.scalar(select(func.count()).select_from(OrderEvent)) == events_before
+    submitted = post(auth, path, {"note": "Материалы переданы на Диск"})
+    assert submitted.status_code == 200
+    assert auth.client.get(path).json() == submitted.json()
+    assert post(auth, path, {"note": "Повтор"}).json() == submitted.json()
+    actors.order.status = OrderStatus.CANCELLED
+    actors.order.closed_at = datetime.now(UTC)
+    auth.db.commit()
+    assert auth.client.get(path).json() == submitted.json()
+    assert (
+        auth.client.get(f"/api/customer/orders/{actors.other_order.id}/materials").status_code
+        == 404
+    )
+    assert auth.client.get(f"/api/customer/orders/{uuid4()}/materials").status_code == 404

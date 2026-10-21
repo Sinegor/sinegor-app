@@ -355,7 +355,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** Read Customer Materials */
+    get: operations["read_customer_materials_api_customer_orders__order_id__materials_get"];
     put?: never;
     /** Hand Over Materials */
     post: operations["hand_over_materials_api_customer_orders__order_id__materials_post"];
@@ -1874,6 +1875,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EventRead"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_customer_materials_api_customer_orders__order_id__materials_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        order_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HandoverRead"] | null;
         };
       };
       /** @description Validation Error */

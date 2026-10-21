@@ -174,3 +174,8 @@ def hand_over_materials(payload: NoteInput, principal: Customer, owned: OwnedOrd
 @router.get("/admin/orders/{order_id}/materials", response_model=HandoverRead | None)
 def read_materials(order_id: UUID, principal: Admin, db: Database):
     return read_order(order_id, principal, db).material_handover
+
+
+@router.get("/customer/orders/{order_id}/materials", response_model=HandoverRead | None)
+def read_customer_materials(owned: OwnedOrder):
+    return owned.material_handover
