@@ -25,6 +25,7 @@ from sinegor.modules.disk.router import disk_error
 from sinegor.modules.disk.router import router as disk_router
 from sinegor.modules.notifications.router import router as notifications_router
 from sinegor.modules.orders.router import router as orders_router
+from sinegor.modules.retention.router import router as retention_router
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(agreements_router, prefix="/api")
     app.include_router(disk_router, prefix="/api")
     app.include_router(notifications_router, prefix="/api")
+    app.include_router(retention_router, prefix="/api")
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):

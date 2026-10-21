@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 from sinegor.core.config import Settings
 from sinegor.db.types import (
     AgreementStatus,
-    DeletionReason,
     DeletionStatus,
     OrderStatus,
     TokenPurpose,
@@ -23,6 +22,7 @@ from sinegor.modules.customers.models import Customer
 from sinegor.modules.disk.models import DiskFolder
 from sinegor.modules.notifications.models import Notification
 from sinegor.modules.orders.models import Order
+from sinegor.modules.retention.service import effective_due_at
 
 logger = logging.getLogger(__name__)
 
@@ -114,12 +114,7 @@ def deletion_deadline(order: Order) -> datetime | None:
     if deletion is not None:
         if deletion.status == DeletionStatus.PERFORMED:
             return None
-        due = deletion.due_at
-        if deletion.reason != DeletionReason.EARLY_PERMISSION:
-            due = max(due, order.result_notified_at + timedelta(days=14))
-        elif deletion.early_authorized_at:
-            due = max(due, deletion.early_authorized_at)
-        return max(due, deletion.deferred_until or due)
+        return effective_due_at(order, deletion)
     return order.result_notified_at + timedelta(days=14)
 
 
