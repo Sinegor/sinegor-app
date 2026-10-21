@@ -5,7 +5,7 @@
 - `compose/` — локальная PostgreSQL (`backend.dev.yaml`); будущие конфигурации остальных сервисов.
 - `caddy/` — TLS и reverse proxy: `/api/*` → FastAPI, остальные публичные маршруты → SSR web.
 - `postgres/init/` — создание отдельных БД и пользователей FastAPI / Strapi.
-- `scheduler/` — образцы вызова CLI: `orders.cron.example` для переходов заказов B4, `agreements.cron.example` для очистки устаревших PDF B5. Формирование запросов удаления материалов и уведомления относятся к B8. Повторный запуск должен быть идемпотентным.
+- `scheduler/` — образцы вызова CLI: `orders.cron.example` для переходов заказов, запросов удаления и истечения отсрочек B8; `agreements.cron.example` для очистки устаревших PDF B5; `notifications.cron.example` для очереди email/Telegram и напоминаний B7. Образцы не устанавливают расписание автоматически. Используйте рабочий dotenv и БД приложения; TEST_DATABASE_URL предназначен только для тестов. `purge_auth` можно запускать ежедневно для очистки истёкшей авторизации.
 
 Сервисы: web, api, cms, postgres, scheduler, caddy. Отдельные тома: postgres_data, agreements, cms_uploads. Соглашения доступны только через авторизованные API-маршруты. Наружу публикуются только нужные порты proxy; CMS Admin доступен через защищённый административный канал.
 

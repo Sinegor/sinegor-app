@@ -1,6 +1,6 @@
 # SINEGOR API
 
-Этапы B1–B5: запускаемый FastAPI backend с PostgreSQL, SQLAlchemy 2, Alembic, настройками окружения, JSON-логами и pytest. Реализованы авторизация, приглашения, серверные сессии, карточки заказчиков, заказы, ручная оплата, журналирование и обмен PDF-соглашениями с проверкой администратором. Модель и ограничения описаны в `../../docs/data-model.md`, контракты B4/B5 — в `../../docs/orders.md` и `../../docs/agreements.md`.
+Этапы B1–B8: FastAPI backend с PostgreSQL, SQLAlchemy 2, Alembic, настройками окружения, JSON-логами и pytest. Реализованы авторизация, карточки заказчиков, заказы, ручная оплата, журнал, обмен PDF, ограниченная интеграция Яндекс Диска, сохраняемая очередь email/Telegram и полуавтоматическое удаление материалов. Модель и ограничения — в `../../docs/data-model.md`; эксплуатационные контракты — в `../../docs/authentication.md`, `orders.md`, `agreements.md`, `disk.md`, `notifications.md`, `retention.md`.
 
 ## Требования
 
@@ -11,12 +11,14 @@ Python 3.12+ (проект закреплён на 3.12), uv, Docker с Compose 
 Команды выполняются из `apps/api`:
 
 ```bash
-cp .env.development.example .env
+test -f .env || cp .env.development.example .env
 uv sync --locked
 docker compose -f ../../infra/compose/backend.dev.yaml up -d --wait
 uv run --locked alembic upgrade head
 uv run --locked uvicorn sinegor.main:create_app --factory --reload --host 127.0.0.1 --port 8000 --no-access-log --no-proxy-headers
 ```
+
+Копирование нужно только при отсутствии `.env`: не перезаписывайте уже заполненные настройки интеграций и ключи. Перед запуском проверьте `DATABASE_URL` в существующем файле. Локальная рабочая база Compose — `sinegor`; строка для неё приведена в `.env.development.example`. Приложение не читает шаблоны `.example` автоматически и не получает рабочий URL из `TEST_DATABASE_URL`. Если PostgreSQL уже запущен другим Compose-проектом, используйте этот экземпляр, не запускайте второй на занятом порту.
 
 PostgreSQL публикуется только на `127.0.0.1:5432`. Если порт занят, задайте `POSTGRES_PORT` при запуске Compose и измените порт в `DATABASE_URL`. Пароль в dev-шаблоне используется только в локальном окружении. В текущей среде установлен Docker Compose v1 (`docker-compose`). Для него используйте ту же конфигурацию, заменив `docker compose` на `docker-compose`, а `up -d --wait` на `up -d`; перед миграциями дождитесь успешного `docker-compose -f ../../infra/compose/backend.dev.yaml exec postgres pg_isready -U sinegor -d sinegor`.
 
@@ -35,12 +37,14 @@ PostgreSQL публикуется только на `127.0.0.1:5432`. Если �
 | Переменная | Назначение |
 |---|---|
 | `APP_ENV` | `development`, `test`, `production` |
-| `DATABASE_URL` | Обязательный URL `postgresql+psycopg://user:password@host:port/database` |
+| `DATABASE_URL` | Обязательный URL рабочей БД `postgresql+psycopg://user:password@host:port/database`; локально база `sinegor` |
 | `PUBLIC_ORIGIN` | Origin frontend, в production обязателен HTTPS |
 | `LOG_LEVEL` | DEBUG/INFO/WARNING/ERROR/CRITICAL; DEBUG в production запрещён |
 | `DB_CONNECT_TIMEOUT` | Таймаут соединения, 1–30 секунд; по умолчанию 5 |
 
 Пароли со специальными символами нужно URL-кодировать. Дополнительные query-параметры DATABASE_URL пока не поддерживаются. Настройки подключения расширяются отдельными проверяемыми параметрами по необходимости.
+
+Параметры SMTP и Telegram описаны в [B7](../../docs/notifications.md), токен и корень Диска — в [B6](../../docs/disk.md). Меняйте отправителя и реквизиты почты через окружение, без изменения кода.
 
 Production-шаблон: `.env.production.example`. Укажите реальные реквизиты БД и домен, затем:
 
@@ -61,7 +65,9 @@ uv run --locked alembic check
 uv run --locked alembic revision --autogenerate -m "describe change"
 ```
 
-`0001_backend_baseline` фиксирует начальную точку; `0002_domain_models` создаёт все 11 доменных таблиц B2; `0003_auth_security` добавляет состояние защиты входа B3. Подключение и metadata едины с приложением. Все модели импортируются через `sinegor.db.models` в `migrations/env.py`; при добавлении модели обновляйте реестр; сгенерированный diff нужно проверить. Откат на тестовой БД: `uv run --locked alembic downgrade base`.
+Текущий head — `0009_notifications`: 15 таблиц приложения и `alembic_version`. `0002_domain_models` создаёт 11 доменных таблиц, `0003_auth_security` — состояние авторизации, `0005_customer_events` — журнал карточек, `0006_agreements` — версии/очистку PDF, `0007_disk_operations` и `0008_disk_deletion_intent` — состояние операций Диска, `0009_notifications` — очередь уведомлений. B8 использует существующую модель запросов удаления без новой миграции.
+
+Для проверки уже выполненного обновления достаточно `alembic current` и `alembic check`: current должен совпадать с head, а check — не находить новых операций. Эти проверки не применяют миграции. Подключение и metadata едины с приложением; модели регистрируются через `sinegor.db.models`. Откаты `alembic downgrade base` допускаются только на выделенной тестовой БД, не на рабочей `sinegor`.
 
 ## Тесты
 
@@ -71,16 +77,17 @@ uv run --locked ruff check .
 uv run --locked ruff format --check .
 ```
 
-Для интеграционных проверок создайте отдельную пустую БД:
+Для полного набора интеграционных проверок создайте отдельную роль с собственным паролем и пустую БД. В примере `createuser` запросит пароль интерактивно; замените `TEST_PASSWORD` в URL на выбранный пароль с URL-кодированием специальных символов:
 
 ```bash
-docker compose -f ../../infra/compose/backend.dev.yaml exec postgres createdb -U sinegor sinegor_test
-TEST_DATABASE_URL=postgresql+psycopg://sinegor:sinegor_dev@127.0.0.1:5432/sinegor_test uv run --locked pytest
+docker compose -f ../../infra/compose/backend.dev.yaml exec postgres createuser -U sinegor --pwprompt sinegor_test
+docker compose -f ../../infra/compose/backend.dev.yaml exec postgres createdb -U sinegor -O sinegor_test sinegor_test
+TEST_DATABASE_URL='postgresql+psycopg://sinegor_test:TEST_PASSWORD@127.0.0.1:5432/sinegor_test' uv run --locked pytest
 ```
 
 Интеграционные тесты пропускаются без TEST_DATABASE_URL. Имя тестовой БД должно оканчиваться на `_test`; миграционный тест требует БД без данных и посторонних таблиц. Он проверяет B1 → B2, повторный upgrade, проверку расхождений metadata, downgrade и восстановление head. Тесты моделей выполняются в откатываемых транзакциях. Не подключайте этот набор к БД приложения.
 
-Полный набор включает production-проверку cookies, которая запрещает пароль `sinegor_dev`. Для полного запуска создайте отдельную тестовую роль с собственным паролем и тестовую БД, принадлежащую этой роли; укажите их в TEST_DATABASE_URL. Пример выше со стандартным dev-паролем подходит для остальных интеграционных сценариев.
+Полный набор включает production-проверку cookies, которая запрещает пароль `sinegor_dev`. Поэтому тестовая роль использует отдельный пароль; рабочие реквизиты и DATABASE_URL в `.env` для запуска тестов не заменяются.
 
 Тесты не читают рабочий dotenv. Проверяются настройки development/production, обработка 404/422/500/503, отсутствие секретов в ответах и логах, корреляция request ID, закрытие/rollback сессий, реальное подключение и миграции PostgreSQL.
 
@@ -94,8 +101,8 @@ JSON-логи в stdout: событие, уровень, UTC timestamp, request 
 - `core/` — настройки и логирование.
 - `db/` — metadata, engine, request session. Коммит выполняет бизнес-сервис явно; ошибка вызывает rollback, завершение запроса закрывает сессию.
 - `modules/` — auth, customers, orders, agreements, disk, notifications, retention, audit.
-- `integrations/` — будущие серверные адаптеры SMTP, Telegram, Яндекс Диска, закрытых PDF.
-- `jobs/` — будущие CLI фоновых задач.
+- `integrations/` — серверные адаптеры SMTP, Telegram и Яндекс Диска; закрытые PDF обслуживает `modules/agreements/storage.py`.
+- `jobs/` — отдельные CLI создания администратора, обработки заказов/уведомлений и очистки.
 
 Подключённые справочники: [FastAPI lifespan](https://fastapi.tiangolo.com/advanced/events/), [SQLAlchemy pooling](https://docs.sqlalchemy.org/en/20/core/pooling.html), [Alembic](https://alembic.sqlalchemy.org/en/latest/tutorial.html), [uv projects](https://docs.astral.sh/uv/guides/projects/).
 
@@ -105,10 +112,30 @@ JSON-логи в stdout: событие, уровень, UTC timestamp, request 
 
 ## Заказчики и заказы B4
 
-API, допустимые переходы, ручная оплата, отметки передачи и журнал описаны в [контракте B4](../../docs/orders.md). Примените миграцию `0005_customer_events` через `uv run --locked alembic upgrade head`. Настройте периодический запуск `uv run --locked python -m sinegor.jobs.process_orders` для переходов после утверждения соглашения и завершения через 14 дней после уведомления. Образец расписания: `../../infra/scheduler/orders.cron.example`. SMTP использует те же настройки, что приглашения B3; ошибка уведомления не переводит заказ в готовое состояние.
+API, допустимые переходы, ручная оплата, отметки передачи и журнал описаны в [контракте заказов](../../docs/orders.md). Примените миграции до head. `process_orders` переводит ранее утверждённые заказы в ожидание материалов, завершает готовые спустя 14 дней и создаёт запросы удаления B8. Готовность фиксируется после SMTP-уведомления B7; ошибка отправки оставляет задание для повтора.
 
 ## Соглашения B5
 
 Примените миграцию `0006_agreements` через `uv run --locked alembic upgrade head`. Новая зависимость pypdf зафиксирована в uv.lock; обновление окружения — `uv sync --locked`. Закрытые PDF по умолчанию хранятся в `apps/api/storage/agreements`, настройка VPS — `AGREEMENT_STORAGE_DIR=/var/lib/sinegor/agreements`. Каталог должен иметь права 0700 и принадлежать пользователю приложения. Максимальный размер PDF задаётся AGREEMENT_MAX_BYTES (по умолчанию 20 МиБ).
 
 Загрузка принимает raw application/pdf и X-Agreement-Revision; утверждение выполняется по версии просмотренного файла. При утверждении заказ сразу переходит в awaiting_materials. Периодическая очистка временных файлов: `uv run --locked python -m sinegor.jobs.cleanup_agreements`. Контракт, ошибки, восстановление и образец curl — в [документации B5](../../docs/agreements.md).
+
+## Диск, уведомления и удаление B6–B8
+
+- [B6: настройки, привязка папок, асинхронное удаление и восстановление после потери ответа](../../docs/disk.md).
+- [B7: SMTP/Telegram, ответы API и повторная доставка](../../docs/notifications.md).
+- [B8: досрочное разрешение, подтверждение, отсрочка и независимое завершение](../../docs/retention.md).
+
+Команды запускаются из `apps/api`, с одним рабочим dotenv и тем же закрытым хранилищем, что API:
+
+| Команда после `uv run --locked python -m` | Назначение / расписание |
+|---|---|
+| `sinegor.jobs.process_orders` | Переходы заказов, запросы удаления, истечение отсрочек; `orders.cron.example` |
+| `sinegor.jobs.process_notifications` | Напоминания и доставка очереди; `notifications.cron.example` |
+| `sinegor.jobs.cleanup_agreements` | Удаление устаревших и потерянных временных PDF; `agreements.cron.example` |
+| `sinegor.jobs.purge_auth` | Очистка истёкших токенов, сессий и счётчиков; можно запускать ежедневно |
+| `sinegor.jobs.create_admin --email admin@example.ru` | Однократное интерактивное создание администратора с TOTP |
+
+Образцы находятся в `infra/scheduler/`; замените абсолютный путь и при необходимости задайте `SINEGOR_ENV_FILE`. Они не устанавливаются автоматически. `process_orders` не удаляет материалы: после решения администратора используется HTTP-маршрут папки. Окончательные PDF и журнал заказов сохраняются. Перед ручным запуском `process_notifications` на рабочей БД учитывайте, что команда отправит доступные задания реальным получателям.
+
+Если `uv` недоступен, но `.venv` уже установлен по lock-файлу, используйте `.venv/bin/python -m pytest`, `.venv/bin/python -m alembic ...`, `.venv/bin/python -m sinegor.jobs...` и `.venv/bin/ruff`. Это не заменяет установку зависимостей через `uv sync --locked` при развёртывании.

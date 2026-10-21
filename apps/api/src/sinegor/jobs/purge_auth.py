@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete
 
 from sinegor.core.config import load_settings
+from sinegor.db import models  # noqa: F401 -- register relationships in this standalone CLI
 from sinegor.db.session import create_db_engine, create_session_factory
 from sinegor.modules.auth.models import AuthRateLimit, AuthToken, Session
 
