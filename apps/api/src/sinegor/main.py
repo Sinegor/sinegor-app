@@ -14,6 +14,7 @@ from sinegor.core.logging import configure_logging
 from sinegor.db import models  # noqa: F401 -- register ORM relationships at startup
 from sinegor.db.session import create_db_engine, create_session_factory
 from sinegor.integrations.email.smtp import SMTPAuthMailer
+from sinegor.integrations.telegram.client import TelegramNotifier
 from sinegor.integrations.yandex_disk.client import DiskError, YandexDisk
 from sinegor.modules.agreements.router import router as agreements_router
 from sinegor.modules.agreements.storage import AgreementStorage
@@ -22,6 +23,7 @@ from sinegor.modules.auth.security import new_secret, valid_csrf
 from sinegor.modules.customers.router import router as customers_router
 from sinegor.modules.disk.router import disk_error
 from sinegor.modules.disk.router import router as disk_router
+from sinegor.modules.notifications.router import router as notifications_router
 from sinegor.modules.orders.router import router as orders_router
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.auth_mailer = SMTPAuthMailer(settings)
     app.state.order_mailer = SMTPAuthMailer(settings)
+    app.state.notification_mailer = SMTPAuthMailer(settings)
+    app.state.telegram_notifier = TelegramNotifier(settings)
     app.state.agreement_storage = AgreementStorage(settings.agreement_storage_dir)
     app.state.csrf_key = (
         settings.session_secret.get_secret_value() if settings.session_secret else new_secret()
@@ -69,6 +73,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(orders_router, prefix="/api")
     app.include_router(agreements_router, prefix="/api")
     app.include_router(disk_router, prefix="/api")
+    app.include_router(notifications_router, prefix="/api")
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):

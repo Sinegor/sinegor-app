@@ -5,7 +5,15 @@ from pathlib import Path
 from typing import Literal
 
 from cryptography.fernet import Fernet
-from pydantic import AnyHttpUrl, EmailStr, Field, SecretStr, field_validator, model_validator
+from pydantic import (
+    AliasChoices,
+    AnyHttpUrl,
+    EmailStr,
+    Field,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -43,7 +51,16 @@ class Settings(BaseSettings):
     smtp_port: int = Field(default=465, ge=1, le=65535)
     smtp_username: str | None = None
     smtp_password: SecretStr | None = None
-    smtp_from: EmailStr | None = None
+    smtp_from: EmailStr | None = Field(
+        default=None, validation_alias=AliasChoices("smtp_from", "SMTP_FROM_EMAIL", "SMTP_FROM")
+    )
+    smtp_from_name: str = Field(default="SINEGOR", max_length=100)
+    smtp_use_ssl: bool = True
+    smtp_timeout: int = Field(default=10, ge=1, le=30)
+    notification_admin_email: EmailStr | None = None
+    telegram_bot_token: SecretStr | None = None
+    telegram_admin_chat_id: SecretStr | None = None
+    telegram_timeout: int = Field(default=10, ge=1, le=30)
     agreement_storage_dir: Path = API_ROOT / "storage" / "agreements"
     agreement_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1, le=50 * 1024 * 1024)
 
@@ -68,11 +85,21 @@ class Settings(BaseSettings):
         "smtp_username",
         "smtp_password",
         "smtp_from",
+        "notification_admin_email",
+        "telegram_bot_token",
+        "telegram_admin_chat_id",
         mode="before",
     )
     @classmethod
     def empty_optional_setting(cls, value):
         return None if value == "" else value
+
+    @field_validator("smtp_host", "smtp_username", "smtp_from_name")
+    @classmethod
+    def validate_mail_header(cls, value):
+        if value is not None and any(ord(c) < 32 or ord(c) == 127 for c in value):
+            raise ValueError("Mail configuration must not contain control characters")
+        return value
 
     @field_validator("yandex_disk_root")
     @classmethod

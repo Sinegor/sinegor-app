@@ -5,7 +5,6 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 
-from sinegor.db.types import TokenPurpose
 from sinegor.integrations.email.smtp import MailDeliveryError
 from sinegor.modules.audit.models import CustomerEvent
 from sinegor.modules.auth import service
@@ -22,6 +21,7 @@ from sinegor.modules.auth.schemas import (
 )
 from sinegor.modules.auth.security import csrf_token, valid_csrf
 from sinegor.modules.customers.models import Customer as CustomerModel
+from sinegor.modules.notifications.service import deliver_from_app, enqueue, queue_invitation
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.schemas import OrderRead
 
@@ -88,7 +88,9 @@ def get_csrf(request: Request, response: Response):
 @router.post("/auth/magic-link/request", status_code=202)
 def request_magic_link(payload: EmailInput, request: Request, db: Database, tasks: BackgroundTasks):
     throttle(request, db, "magic_request", str(payload.email))
-    tasks.add_task(service.deliver_requested_link, request.app, str(payload.email))
+    identifier = enqueue(db, "magic_link", recipient=str(payload.email))
+    db.commit()
+    tasks.add_task(deliver_from_app, request.app, identifier)
     return {"message": "If access is available, a sign-in email will be sent"}
 
 
@@ -155,13 +157,9 @@ def create_customer(payload: CustomerCreate, request: Request, principal: Admin,
         db.rollback()
         raise HTTPException(409, "Customer already exists") from exc
     try:
-        service.issue_and_send_link(
-            db,
-            request.app.state.settings,
-            request.app.state.auth_mailer,
-            customer,
-            TokenPurpose.INVITATION,
-        )
+        identifier = queue_invitation(db, customer)
+        if not deliver_from_app(request.app, identifier, force=True):
+            raise MailDeliveryError("Invitation queued for retry")
     except MailDeliveryError as exc:
         raise HTTPException(
             503,
@@ -178,13 +176,9 @@ def invite_customer(customer_id: UUID, request: Request, principal: Admin, db: D
     if customer is None:
         raise HTTPException(404, "Customer not found")
     try:
-        service.issue_and_send_link(
-            db,
-            request.app.state.settings,
-            request.app.state.auth_mailer,
-            customer,
-            TokenPurpose.INVITATION,
-        )
+        identifier = queue_invitation(db, customer)
+        if not deliver_from_app(request.app, identifier, force=True):
+            raise MailDeliveryError("Invitation queued for retry")
     except MailDeliveryError as exc:
         raise HTTPException(503, "Invitation delivery failed") from exc
     return {"message": "Invitation submitted to SMTP"}

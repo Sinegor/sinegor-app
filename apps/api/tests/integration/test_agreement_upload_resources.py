@@ -19,6 +19,7 @@ from sinegor.modules.audit.models import OrderEvent
 from sinegor.modules.auth.models import AdminUser, Session
 from sinegor.modules.auth.security import new_secret, secret_hash
 from sinegor.modules.customers.models import Customer
+from sinegor.modules.notifications.models import Notification
 from sinegor.modules.orders.models import Order
 
 pytestmark = pytest.mark.integration
@@ -158,6 +159,7 @@ def test_upload_releases_database_while_receiving_and_validating(
     finally:
         validation_release.set()
         with engine.begin() as connection:
+            connection.execute(delete(Notification).where(Notification.order_id == order_id))
             connection.execute(
                 delete(AgreementFileDeletion).where(AgreementFileDeletion.order_id == order_id)
             )

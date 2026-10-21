@@ -2,13 +2,14 @@ from contextlib import contextmanager
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request, Response
 from starlette.concurrency import run_in_threadpool
 
 from sinegor.modules.agreements import service
 from sinegor.modules.agreements.schemas import AgreementRead, RejectionInput, ReviewInput
 from sinegor.modules.agreements.storage import AgreementStorageError
 from sinegor.modules.auth.dependencies import Admin, Customer, Database, OwnedOrder, Principal
+from sinegor.modules.notifications.service import deliver_order_from_app
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.service import locked_order, record_event
 
@@ -80,7 +81,12 @@ def customer_metadata(order: OwnedOrder, db: Database):
     openapi_extra=PDF_BODY,
 )
 async def upload_initial(
-    order_id: UUID, request: Request, principal: Admin, db: Database, revision: Revision
+    order_id: UUID,
+    request: Request,
+    principal: Admin,
+    db: Database,
+    revision: Revision,
+    tasks: BackgroundTasks,
 ):
     await run_in_threadpool(require_order, db, order_id)
     # Authorization only read data; return its connection before receiving/parsing the PDF.
@@ -97,7 +103,9 @@ async def upload_initial(
             principal.id,
             initial=True,
         )
-    return AgreementRead.from_agreement(agreement)
+    result = AgreementRead.from_agreement(agreement)
+    tasks.add_task(deliver_order_from_app, request.app, order_id)
+    return result
 
 
 @router.post(
@@ -106,7 +114,12 @@ async def upload_initial(
     openapi_extra=PDF_BODY,
 )
 async def upload_returned(
-    request: Request, principal: Customer, order: OwnedOrder, db: Database, revision: Revision
+    request: Request,
+    principal: Customer,
+    order: OwnedOrder,
+    db: Database,
+    revision: Revision,
+    tasks: BackgroundTasks,
 ):
     order_id = order.id  # Rollback expires ORM instances; keep the scalar before releasing the DB.
     await run_in_threadpool(db.rollback)
@@ -122,21 +135,37 @@ async def upload_returned(
             principal.id,
             initial=False,
         )
-    return AgreementRead.from_agreement(agreement)
+    result = AgreementRead.from_agreement(agreement)
+    tasks.add_task(deliver_order_from_app, request.app, order_id)
+    return result
 
 
 @router.post("/admin/orders/{order_id}/agreement/approve", response_model=AgreementRead)
-def approve(order_id: UUID, payload: ReviewInput, request: Request, principal: Admin, db: Database):
+def approve(
+    order_id: UUID,
+    payload: ReviewInput,
+    request: Request,
+    principal: Admin,
+    db: Database,
+    tasks: BackgroundTasks,
+):
     with storage_errors():
         agreement = service.review(
             db, request.app.state.agreement_storage, order_id, payload.revision, principal.id
         )
-    return AgreementRead.from_agreement(agreement)
+    result = AgreementRead.from_agreement(agreement)
+    tasks.add_task(deliver_order_from_app, request.app, order_id)
+    return result
 
 
 @router.post("/admin/orders/{order_id}/agreement/reject", response_model=AgreementRead)
 def reject(
-    order_id: UUID, payload: RejectionInput, request: Request, principal: Admin, db: Database
+    order_id: UUID,
+    payload: RejectionInput,
+    request: Request,
+    principal: Admin,
+    db: Database,
+    tasks: BackgroundTasks,
 ):
     with storage_errors():
         agreement = service.review(
@@ -147,7 +176,9 @@ def reject(
             principal.id,
             reason=payload.reason,
         )
-    return AgreementRead.from_agreement(agreement)
+    result = AgreementRead.from_agreement(agreement)
+    tasks.add_task(deliver_order_from_app, request.app, order_id)
+    return result
 
 
 def download(order_id: UUID, kind: Kind, request: Request, principal: Principal, db: Database):

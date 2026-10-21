@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -9,6 +10,7 @@ from sinegor.integrations.email.smtp import MailDeliveryError
 from sinegor.modules.audit.models import OrderEvent
 from sinegor.modules.auth.dependencies import Admin, Customer, Database, OwnedOrder
 from sinegor.modules.customers.router import Limit, Offset, get_customer
+from sinegor.modules.notifications.service import deliver_from_app, enqueue
 from sinegor.modules.orders import service
 from sinegor.modules.orders.models import MaterialHandover, Order, PaymentRecord
 from sinegor.modules.orders.schemas import (
@@ -83,6 +85,25 @@ def change_status(
     order_id: UUID, payload: StatusChange, request: Request, principal: Admin, db: Database
 ):
     order = service.locked_order(db, order_id)
+    if payload.status == OrderStatus.RESULT_READY:
+        if payload.status not in service.TRANSITIONS[order.status]:
+            raise HTTPException(409, "Order status transition is not allowed")
+        service.require_agreement(db, order)
+        identifier = enqueue(
+            db,
+            "result_ready",
+            order_id=order.id,
+            customer_id=order.customer_id,
+            recipient=order.customer.email,
+            payload={"admin_id": str(principal.id)},
+            dedup_key=f"result_ready:{order.id}:{hashlib.sha256(order.customer.email.encode()).hexdigest()}",
+            retry_cancelled=True,
+        )
+        db.commit()
+        if not deliver_from_app(request.app, identifier, force=True):
+            raise HTTPException(503, "Result notification queued for retry; order status unchanged")
+        db.refresh(order)
+        return order
     try:
         service.transition(
             db, order, payload.status, principal.id, mailer=request.app.state.order_mailer

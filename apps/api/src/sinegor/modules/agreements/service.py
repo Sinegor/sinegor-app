@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from sinegor.db.types import AgreementStatus, OrderStatus
 from sinegor.modules.agreements.models import Agreement, AgreementFileDeletion
 from sinegor.modules.agreements.storage import AgreementStorage, AgreementStorageError, validate_pdf
+from sinegor.modules.notifications.service import enqueue
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.service import locked_order, record_event, transition
 
@@ -149,6 +150,16 @@ def upload(
         admin_id=actor_id if initial else None,
         customer_id=None if initial else actor_id,
     )
+    kind = "agreement_initial" if initial else "agreement_returned"
+    enqueue(
+        db,
+        kind,
+        order_id=order.id,
+        customer_id=order.customer_id,
+        recipient=order.customer.email if initial else None,
+        payload={"revision": agreement.revision},
+        dedup_key=f"{kind}:{order.id}:{agreement.revision}",
+    )
     finish(db, storage, order_id)
     return agreement
 
@@ -187,6 +198,16 @@ def review(
     record_event(db, order, event_type, admin_id)
     if reason is None:
         transition(db, order, OrderStatus.AWAITING_MATERIALS, admin_id)
+    kind = "agreement_approved" if reason is None else "agreement_rejected"
+    enqueue(
+        db,
+        kind,
+        order_id=order.id,
+        customer_id=order.customer_id,
+        recipient=order.customer.email,
+        payload={"revision": agreement.revision},
+        dedup_key=f"{kind}:{order.id}:{agreement.revision}",
+    )
     finish(db, storage, order_id)
     return agreement
 
