@@ -5,6 +5,10 @@ import pytest
 def isolated_environment(monkeypatch):
     """Developer dotenv and shell variables must not change unit test behaviour."""
     for name in (
+        "YANDEX_DISK_TOKEN",
+        "YANDEX_DISK_ROOT",
+        "YANDEX_DISK_TIMEOUT",
+        "YANDEX_DISK_TEST_ROOT",
         "DATABASE_URL",
         "APP_ENV",
         "PUBLIC_ORIGIN",

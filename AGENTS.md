@@ -1,3 +1,31 @@
+# Project Documentation & Requirements
+The following documents are authoritative sources for project requirements:
+  -docs/Анализатор-217. Меморандум.md — business purpose, services, and organizational requirements.
+  -docs/Анализатор-217.md — MVP functionality, workflows, order lifecycle, and document handling.
+  -docs/Анализатор-архитектура.md — approved technical architecture, infrastructure, and integration boundaries.
+
+Verify the actual file paths before relying on them.
+
+Before implementing or modifying functionality, consult the relevant documentation.
+  -Do not independently change approved product or architectural decisions.
+  -Do not implement features explicitly excluded from the MVP.
+  -Distinguish approved requirements from proposals and unresolved questions.
+  -Report contradictions or missing requirements instead of silently inventing solutions.
+  -Do not modify project documentation unless explicitly requested.
+
+# Implementation Boundaries
+Keep business logic in the modular FastAPI backend.
+Use Strapi exclusively for public website content.
+Maintain React Router Framework Mode with SSR for public pages.
+Client document transfer and result delivery take place directly through Yandex Disk, not through the website.
+Yandex Disk API integration must remain within the approved administrative operations.
+Access permissions for shared Yandex Disk folders are managed manually.
+Signed agreements must be stored separately from deletable order materials.
+Order completion and document deletion are separate processes.
+Document deletion requires explicit administrator confirmation.
+Do not introduce additional infrastructure components or automation without a demonstrated need and approval.
+Prefer minimal changes consistent with existing architecture and conventions.
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization

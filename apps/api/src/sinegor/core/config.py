@@ -35,6 +35,10 @@ class Settings(BaseSettings):
     auth_rate_window_seconds: int = Field(default=900, ge=60, le=3600)
     auth_ip_limit: int = Field(default=30, ge=1, le=1000)
     auth_account_limit: int = Field(default=5, ge=1, le=100)
+    yandex_disk_token: SecretStr | None = None
+    yandex_disk_root: str | None = None
+    yandex_disk_timeout: int = Field(default=10, ge=1, le=30)
+
     smtp_host: str = "smtp.yandex.ru"
     smtp_port: int = Field(default=465, ge=1, le=65535)
     smtp_username: str | None = None
@@ -57,6 +61,8 @@ class Settings(BaseSettings):
         return resolved
 
     @field_validator(
+        "yandex_disk_token",
+        "yandex_disk_root",
         "session_secret",
         "auth_encryption_key",
         "smtp_username",
@@ -67,6 +73,15 @@ class Settings(BaseSettings):
     @classmethod
     def empty_optional_setting(cls, value):
         return None if value == "" else value
+
+    @field_validator("yandex_disk_root")
+    @classmethod
+    def validate_disk_root(cls, value: str | None) -> str | None:
+        if value is not None:
+            from sinegor.integrations.yandex_disk.paths import canonical_path
+
+            return canonical_path(value)
+        return value
 
     @property
     def session_cookie_name(self) -> str:

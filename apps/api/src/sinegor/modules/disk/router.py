@@ -1,0 +1,102 @@
+from uuid import UUID
+
+from fastapi import APIRouter, HTTPException, Request, Response
+
+from sinegor.db.types import AgreementStatus
+from sinegor.integrations.yandex_disk.client import DiskConflict, DiskError
+from sinegor.modules.auth.dependencies import Admin, Customer, Database, OwnedOrder
+from sinegor.modules.disk import service
+from sinegor.modules.disk.schemas import (
+    AttachFolder,
+    CustomerFolderRead,
+    DeleteFolder,
+    FolderLink,
+    FolderRead,
+)
+from sinegor.modules.orders.models import Order
+from sinegor.modules.orders.service import locked_order, record_event
+
+router = APIRouter(tags=["disk"])
+
+
+@router.post("/admin/orders/{order_id}/folder", response_model=FolderRead)
+def create_folder(order_id: UUID, request: Request, principal: Admin, db: Database):
+    return service.provision(db, request.app.state.yandex_disk, order_id, principal.id)
+
+
+@router.put("/admin/orders/{order_id}/folder", response_model=FolderRead)
+def attach_folder(
+    order_id: UUID, payload: AttachFolder, request: Request, principal: Admin, db: Database
+):
+    return service.provision(
+        db, request.app.state.yandex_disk, order_id, principal.id, payload.disk_path
+    )
+
+
+@router.get("/admin/orders/{order_id}/folder", response_model=FolderRead)
+def read_folder(order_id: UUID, principal: Admin, db: Database):
+    order = db.get(Order, order_id)
+    if order is None:
+        raise HTTPException(404, "Order not found")
+    return service.folder_for(db, order)
+
+
+@router.get("/admin/orders/{order_id}/folder/open")
+def open_folder(order_id: UUID, principal: Admin, db: Database):
+    return {"folder_url": service.admin_url(read_folder(order_id, principal, db))}
+
+
+@router.put("/admin/orders/{order_id}/folder/link", response_model=FolderRead)
+def set_folder_link(order_id: UUID, payload: FolderLink, principal: Admin, db: Database):
+    order = locked_order(db, order_id)
+    folder = service.folder_for(db, order)
+    service.admin_url(folder)
+    if folder.folder_url != payload.folder_url:
+        folder.folder_url = payload.folder_url
+        record_event(db, order, "disk_folder_link_updated", principal.id)
+        db.commit()
+    return folder
+
+
+@router.get("/customer/orders/{order_id}/folder", response_model=CustomerFolderRead)
+def customer_folder(principal: Customer, owned: OwnedOrder, db: Database):
+    if owned.agreement is None or owned.agreement.status != AgreementStatus.APPROVED:
+        raise HTTPException(404, "Order folder not available")
+    folder = service.folder_for(db, owned)
+    if (
+        not folder.folder_url
+        or folder.deleted_at
+        or folder.deletion_operation_id
+        or folder.deletion_succeeded
+    ):
+        raise HTTPException(404, "Order folder not available")
+    return CustomerFolderRead(folder_url=folder.folder_url)
+
+
+@router.post("/admin/orders/{order_id}/folder/delete", response_model=FolderRead)
+def delete_folder(
+    order_id: UUID,
+    payload: DeleteFolder,
+    request: Request,
+    response: Response,
+    principal: Admin,
+    db: Database,
+):
+    folder = service.delete_folder(
+        db,
+        request.app.state.yandex_disk,
+        order_id,
+        payload.deletion_request_id,
+        principal.id,
+        permanent_deletion_verified=payload.permanent_deletion_verified,
+    )
+    if folder.deleted_at is None:
+        response.status_code = 202
+    return folder
+
+
+async def disk_error(request: Request, exc: DiskError):
+    from sinegor.api.errors import error_response
+
+    status = 409 if isinstance(exc, DiskConflict) else 503
+    return error_response(request, status, f"disk_{status}", str(exc))
