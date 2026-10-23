@@ -15,6 +15,10 @@ test("home reloads its video after CMS replacement and removal", async ({
   const cms = createServer((request, response) => {
     const path = new URL(request.url!, "http://localhost").pathname;
     if (path.startsWith("/uploads/")) {
+      if (path === "/uploads/2.mp4") {
+        response.writeHead(404).end();
+        return;
+      }
       response.writeHead(200, {
         "Content-Type": "video/mp4",
         "Content-Length": movie.length,
@@ -82,11 +86,23 @@ test("home reloads its video after CMS replacement and removal", async ({
     await expect(
       page.getByRole("heading", { name: "Видео 2", exact: true }),
     ).toBeVisible();
+    await expect(page.getByRole("alert")).toContainText(
+      "Не удалось загрузить видео",
+    );
+    await expect(
+      page.getByRole("link", { name: "Открыть видео отдельно" }),
+    ).toHaveAttribute("href", `${cmsOrigin}/uploads/2.mp4`);
+    version = 3;
+    await page.locator(".brand").click();
+    await expect(
+      page.getByRole("heading", { name: "Видео 3", exact: true }),
+    ).toBeVisible();
     await expect
       .poll(() =>
         video.evaluate((element: HTMLVideoElement) => element.currentSrc),
       )
-      .toBe(`${cmsOrigin}/uploads/2.mp4`);
+      .toBe(`${cmsOrigin}/uploads/3.mp4`);
+    await expect(page.getByRole("alert")).toHaveCount(0);
     version = null;
     await page.locator(".brand").click();
     await expect(

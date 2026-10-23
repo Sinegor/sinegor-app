@@ -2,7 +2,7 @@
 
 Сервис сопровождения заказов на исследование юридических материалов и техническую подготовку документов.
 
-Реализованы B1–B8: FastAPI backend с PostgreSQL, Alembic, авторизацией, карточками заказчиков, заказами, ручной оплатой и журналом. Работают обмен PDF, проверка администратором, закрытое хранение, ограниченный API Яндекс Диска, очередь email/Telegram, автоматическое завершение и полуавтоматическое удаление по подтверждению администратора. Frontend и CMS пока представлены каркасом. Исходная документация сохранена в `docs/`.
+Реализованы FastAPI backend B1–B8, SSR frontend с публичным сайтом, кабинетом заказчика и админкой, Strapi 5 для опубликованного контента. Работают обмен PDF и ручная проверка, закрытое хранение соглашений, ограниченный API Яндекс Диска, очередь email/Telegram, автоматическое завершение и отдельное подтверждаемое удаление материалов. По результатам T1 создан постоянный изолированный интеграционный E2E-контур. Production-развёртывание, TLS, резервирование и проверка восстановления относятся к T2.
 
 ## Структура
 
@@ -21,9 +21,9 @@ apps/
     tests/                Доменные, интеграционные и security-проверки
   cms/                    Strapi 5, только публичный контент
 contracts/openapi/        Контракт FastAPI для генерации клиента TypeScript
-infra/                    Docker Compose, Caddy, PostgreSQL, scheduler
-scripts/                  Проверки, резервирование и восстановление
-tests/                   Сквозные сценарии Playwright
+infra/                    Dev PostgreSQL, инициализация CMS-БД, образцы cron
+scripts/                  Проверка структуры, экспорт OpenAPI, подготовка CMS-БД
+tests/e2e/                Изолированный живой Playwright-контур
 ```
 
 ## Архитектурные ограничения
@@ -37,7 +37,7 @@ tests/                   Сквозные сценарии Playwright
 
 ## Начало разработки
 
-Backend запускается по [инструкции backend](apps/api/README.md): uv, Python 3.12, локальная PostgreSQL через Docker Compose, применение миграций и запуск Uvicorn.
+Порядок локального запуска: [backend](apps/api/README.md) (Python 3.12, uv, PostgreSQL), [CMS](apps/cms/README.md) (отдельная роль/БД и публикация контента), [web](apps/web/README.md) (Node.js 22.12–26, npm). Dev proxy frontend направляет `/api` в FastAPI; собранному SSR требуется внешний proxy.
 
 - [Карта компонентов](docs/project-structure.md).
 - [Авторизация и доступ](docs/authentication.md).
@@ -48,7 +48,15 @@ Backend запускается по [инструкции backend](apps/api/READ
 - [Завершение, отсрочки и подтверждение удаления](docs/retention.md).
 - [Модель данных](docs/data-model.md).
 - [Состояние реализации](docs/implementation-status.md).
+- [Эксплуатация backend и проверки](docs/development/backend-operations.md).
+- [Работа с репозиторием](docs/development/repository-workflow.md).
 - Проверка структуры: `python3 scripts/check_structure.py`.
 - Backend-тесты: из `apps/api` выполнить `uv run --locked pytest` (PostgreSQL-тесты требуют TEST_DATABASE_URL).
 
-Web и CMS инициализируются на соответствующих этапах плана. Полный production deployment относится к T2.
+Для совместной проверки всех приложений без рабочих `.env` и БД выполните из корня:
+
+```bash
+apps/api/.venv/bin/python tests/e2e/run.py
+```
+
+Подготовка, покрытие, безопасные результаты и очистка — в [README E2E](tests/e2e/README.md). Внутренние API настоящие; внешние SMTP, Telegram и Диск представлены локальными протокольными fixtures. Реальные облачные операции и доставляемость требуют отдельных тестовых ресурсов.

@@ -679,6 +679,9 @@ test("in-flight deletion keeps its confirmation dialog open until a response", a
     .toBe(1);
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByRole("dialog").getByRole("status")).toContainText(
+    "Выполняется",
+  );
   await expect(
     page.getByRole("button", { name: "Закрыть", exact: true }),
   ).toBeDisabled();

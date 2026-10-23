@@ -87,6 +87,20 @@ export function Notice({
     </div>
   );
 }
+export function LoadingStatus({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`loading-status ${className}`} role="status">
+      <span className="loading-spinner" aria-hidden="true" />
+      <span>{children}</span>
+    </div>
+  );
+}
 export function Table({
   caption,
   columns,
@@ -180,6 +194,7 @@ export function Modal({
         {title}
       </h2>
       {children}
+      {busy && <LoadingStatus>Выполняется…</LoadingStatus>}
       <Button disabled={busy} onClick={() => ref.current?.close()}>
         Закрыть
       </Button>

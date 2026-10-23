@@ -1,6 +1,6 @@
 import { Brand } from "./brand";
 import { LabArt } from "./lab-art";
-import { Notice } from "./ui";
+import { LoadingStatus } from "./ui";
 
 export function PageLoading({ children }: { children: string }) {
   return (
@@ -11,7 +11,7 @@ export function PageLoading({ children }: { children: string }) {
       <main id="main" className="container">
         <div className="loading-state">
           <LabArt compact />
-          <Notice>{children}</Notice>
+          <LoadingStatus>{children}</LoadingStatus>
         </div>
       </main>
     </>

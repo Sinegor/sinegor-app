@@ -23,6 +23,8 @@ export async function loader() {
   };
 }
 import { Link } from "react-router";
+import { LabArt } from "../../components/lab-art";
+import { VideoPresentation } from "../../components/video-presentation";
 import {
   Services,
   PublicationsPreview,
@@ -42,6 +44,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     return (
       <div className="public-page">
         <section className="public-hero">
+          <LabArt className="hero-art" />
           <div>
             <p className="eyebrow">SINEGOR LAB · Право и технологии</p>
             <h1>{content.title}</h1>
@@ -51,25 +54,12 @@ export default function Home({ loaderData }: Route.ComponentProps) {
               Запросить консультацию
             </Link>
           </div>
-          <figure className="hero-video">
-            <video
-              key={content.video?.url || "/media/sinegor-lab-preview.mp4"}
-              controls
-              playsInline
-              preload="metadata"
-              poster={content.image?.url || "/media/sinegor-lab-preview.jpg"}
-              aria-label="Видеопрезентация SINEGOR LAB"
-            >
-              <source
-                src={content.video?.url || "/media/sinegor-lab-preview.mp4"}
-                type={content.video?.mime || "video/mp4"}
-              />
-            </video>
-            <figcaption>
-              {content.videoCaption ||
-                "Временный анимационный ролик без звука. Полная видеопрезентация готовится."}
-            </figcaption>
-          </figure>
+          <VideoPresentation
+            src={content.video?.url}
+            type={content.video?.mime}
+            poster={content.image?.url}
+            caption={content.videoCaption || undefined}
+          />
         </section>
         <section>
           <h2>Услуги</h2>
@@ -103,6 +93,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <div className="public-page">
       <section className="public-hero">
+        <LabArt className="hero-art" />
         <div>
           <p className="eyebrow">SINEGOR LAB · Право и технологии</p>
           <h1>Исследование юридических документов</h1>
@@ -117,23 +108,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             Запросить консультацию
           </Link>
         </div>
-        <figure className="hero-video">
-          <video
-            controls
-            playsInline
-            preload="metadata"
-            poster="/media/sinegor-lab-preview.jpg"
-            aria-label="Временная видеопрезентация SINEGOR LAB"
-          >
-            <source src="/media/sinegor-lab-preview.mp4" type="video/mp4" />
-            Ваш браузер не поддерживает видео.{" "}
-            <a href="/media/sinegor-lab-preview.mp4">Скачать ролик</a>
-          </video>
-          <figcaption>
-            Временный анимационный ролик. Полная видеопрезентация готовится.
-            Ролик без звука: SINEGOR LAB — исследование и подготовка документов.
-          </figcaption>
-        </figure>
+        <VideoPresentation />
       </section>
       <Services />
       <section>

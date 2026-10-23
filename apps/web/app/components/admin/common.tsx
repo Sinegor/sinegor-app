@@ -15,7 +15,7 @@ import {
   type Models,
 } from "../../lib/admin/api";
 import { date, statuses, services, eventLabels } from "../../lib/admin/labels";
-import { Button, Notice, Table } from "../ui";
+import { Button, LoadingStatus, Notice, Table } from "../ui";
 import { PageLoading } from "../page-loading";
 
 export function useOperation(loginPath = "/auth/admin") {
@@ -54,16 +54,25 @@ export function useOperation(loginPath = "/auth/admin") {
       setBusy(false);
     }
   }
-  return { run, busy: busy || revalidator.state !== "idle", notice, setNotice };
+  return {
+    run,
+    busy: busy || revalidator.state !== "idle",
+    pending: busy,
+    notice,
+    setNotice,
+  };
 }
 export type Operation = ReturnType<typeof useOperation>;
 export function Feedback({ op }: { op: Operation }) {
   return (
-    op.notice && (
-      <Notice error={op.notice.error} tone="success">
-        {op.notice.text}
-      </Notice>
-    )
+    <>
+      {op.pending && !op.notice && <LoadingStatus>Выполняется…</LoadingStatus>}
+      {op.notice && (
+        <Notice error={op.notice.error} tone="success">
+          {op.notice.text}
+        </Notice>
+      )}
+    </>
   );
 }
 export function AdminErrorBoundary() {

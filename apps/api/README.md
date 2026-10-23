@@ -20,7 +20,7 @@ uv run --locked uvicorn sinegor.main:create_app --factory --reload --host 127.0.
 
 Копирование нужно только при отсутствии `.env`: не перезаписывайте уже заполненные настройки интеграций и ключи. Перед запуском проверьте `DATABASE_URL` в существующем файле. Локальная рабочая база Compose — `sinegor`; строка для неё приведена в `.env.development.example`. Приложение не читает шаблоны `.example` автоматически и не получает рабочий URL из `TEST_DATABASE_URL`. Если PostgreSQL уже запущен другим Compose-проектом, используйте этот экземпляр, не запускайте второй на занятом порту.
 
-PostgreSQL публикуется только на `127.0.0.1:5432`. Если порт занят, задайте `POSTGRES_PORT` при запуске Compose и измените порт в `DATABASE_URL`. Пароль в dev-шаблоне используется только в локальном окружении. В текущей среде установлен Docker Compose v1 (`docker-compose`). Для него используйте ту же конфигурацию, заменив `docker compose` на `docker-compose`, а `up -d --wait` на `up -d`; перед миграциями дождитесь успешного `docker-compose -f ../../infra/compose/backend.dev.yaml exec postgres pg_isready -U sinegor -d sinegor`.
+PostgreSQL публикуется только на `127.0.0.1:5432`. Если порт занят, задайте `POSTGRES_PORT` при запуске Compose и измените порт в `DATABASE_URL`. Пароль в dev-шаблоне используется только в локальном окружении. Если доступен только Docker Compose v1 (`docker-compose`), используйте ту же конфигурацию, заменив `docker compose` на `docker-compose`, а `up -d --wait` на `up -d`; перед миграциями дождитесь успешного `docker-compose -f ../../infra/compose/backend.dev.yaml exec postgres pg_isready -U sinegor -d sinegor`.
 
 Остановка БД: `docker compose -f ../../infra/compose/backend.dev.yaml down` (том сохраняется).
 
@@ -91,6 +91,8 @@ TEST_DATABASE_URL='postgresql+psycopg://sinegor_test:TEST_PASSWORD@127.0.0.1:543
 
 Тесты не читают рабочий dotenv. Проверяются настройки development/production, обработка 404/422/500/503, отсутствие секретов в ответах и логах, корреляция request ID, закрытие/rollback сессий, реальное подключение и миграции PostgreSQL.
 
+Живой совместный прогон FastAPI, PostgreSQL, Strapi и SSR запускается из корня командой `apps/api/.venv/bin/python tests/e2e/run.py`. Он сам создаёт и удаляет тестовые БД и не использует рабочие `.env`; внешние каналы локальные. Подготовка и границы — в [README E2E](../../tests/e2e/README.md). Эксплуатационные команды собраны в [backend-operations](../../docs/development/backend-operations.md).
+
 ## Логи и ошибки
 
 JSON-логи в stdout: событие, уровень, UTC timestamp, request ID, HTTP-метод, статус и длительность. URL, query, тело, cookie, SQL-параметры и текст неожиданных исключений не выводятся. Ошибки имеют `error.code`, `error.message`, `request_id`; каждый ответ получает `X-Request-ID`. Стандартный access log Uvicorn отключайте через `--no-access-log`, чтобы не записывать ссылки авторизации.
@@ -116,7 +118,7 @@ API, допустимые переходы, ручная оплата, отме�
 
 ## Соглашения B5
 
-Примените миграцию `0006_agreements` через `uv run --locked alembic upgrade head`. Новая зависимость pypdf зафиксирована в uv.lock; обновление окружения — `uv sync --locked`. Закрытые PDF по умолчанию хранятся в `apps/api/storage/agreements`, настройка VPS — `AGREEMENT_STORAGE_DIR=/var/lib/sinegor/agreements`. Каталог должен иметь права 0700 и принадлежать пользователю приложения. Максимальный размер PDF задаётся AGREEMENT_MAX_BYTES (по умолчанию 20 МиБ).
+Версии и очистка PDF добавлены миграцией `0006_agreements`; применяйте все миграции до head через `uv run --locked alembic upgrade head`. Новая зависимость pypdf зафиксирована в uv.lock; обновление окружения — `uv sync --locked`. Закрытые PDF по умолчанию хранятся в `apps/api/storage/agreements`, настройка VPS — `AGREEMENT_STORAGE_DIR=/var/lib/sinegor/agreements`. Каталог должен иметь права 0700 и принадлежать пользователю приложения. Максимальный размер PDF задаётся AGREEMENT_MAX_BYTES (по умолчанию 20 МиБ).
 
 Загрузка принимает raw application/pdf и X-Agreement-Revision; утверждение выполняется по версии просмотренного файла. При утверждении заказ сразу переходит в awaiting_materials. Периодическая очистка временных файлов: `uv run --locked python -m sinegor.jobs.cleanup_agreements`. Контракт, ошибки, восстановление и образец curl — в [документации B5](../../docs/agreements.md).
 
