@@ -9,7 +9,7 @@ import { adminLoad, value, offset, PAGE_SIZE } from "../../lib/admin/api";
 import { Field, Button, Table } from "../../components/ui";
 import { Pagination } from "../../components/admin/common";
 export { AdminErrorBoundary as ErrorBoundary } from "../../components/admin/common";
-export const meta = () => [{ title: "Заказчики — SINEGOR" }];
+export const meta = () => [{ title: "Заказчики — SINEGOR LAB" }];
 export function clientLoader({ request }: ClientLoaderFunctionArgs) {
   const url = new URL(request.url),
     start = offset(url),
@@ -47,11 +47,20 @@ export default function Customers() {
           defaultValue={q}
           maxLength={320}
         />
-        <Button type="submit">Найти</Button>
+        <Button type="submit" variant="secondary">
+          Найти
+        </Button>
         <Link to="/admin/customers">Сбросить</Link>
       </SearchForm>
       <Table
         caption="Заказчики"
+        emptyMessage={
+          start > 0
+            ? "На этой странице нет заказчиков."
+            : q
+              ? "По вашему запросу заказчики не найдены."
+              : "Заказчиков пока нет. Создайте первую карточку."
+        }
         columns={["Заказчик", "Email", "Телефон"]}
         rows={rows.map((row) => [
           <Link to={`/admin/customers/${row.id}`}>

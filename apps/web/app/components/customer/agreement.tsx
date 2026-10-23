@@ -34,8 +34,10 @@ export function CustomerAgreement({
   return (
     <Card title="Соглашение">
       <p>
-        <span className="badge">{agreements[agreement.status]}</span> Версия
-        документа {agreement.revision}
+        <span className={`badge ${agreement.status}`}>
+          {agreements[agreement.status]}
+        </span>{" "}
+        Версия документа {agreement.revision}
       </p>
       {agreement.rejection_reason && (
         <Notice error>

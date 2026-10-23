@@ -5,7 +5,7 @@ import { message } from "../../lib/admin/api";
 import { Button, Field, Form } from "../../components/ui";
 import { formData, text } from "../../components/admin/common";
 export const meta = () => [
-  { title: "Вход администратора — SINEGOR" },
+  { title: "Вход администратора — SINEGOR LAB" },
   { name: "robots", content: "noindex, nofollow" },
 ];
 export default function AdminLogin() {

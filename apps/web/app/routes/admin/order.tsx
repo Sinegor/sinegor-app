@@ -27,7 +27,7 @@ import { AgreementPanel } from "../../components/admin/agreement";
 import { FolderPanel } from "../../components/admin/folder";
 import { RetentionPanel } from "../../components/admin/retention";
 export { AdminErrorBoundary as ErrorBoundary } from "../../components/admin/common";
-export const meta = () => [{ title: "Карточка заказа — SINEGOR" }];
+export const meta = () => [{ title: "Карточка заказа — SINEGOR LAB" }];
 export function clientLoader({ params, request }: ClientLoaderFunctionArgs) {
   const id = params.orderId!,
     start = offset(new URL(request.url), "events_offset"),

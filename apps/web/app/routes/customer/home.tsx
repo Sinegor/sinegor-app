@@ -8,7 +8,7 @@ import { customerLoad, value } from "../../lib/customer/api";
 import { date, money, services, statuses } from "../../lib/admin/labels";
 import { Button, Card } from "../../components/ui";
 export { CustomerErrorBoundary as ErrorBoundary } from "../../components/customer/common";
-export const meta = () => [{ title: "Мои заказы — SINEGOR" }];
+export const meta = () => [{ title: "Мои заказы — SINEGOR LAB" }];
 export function clientLoader({ request }: ClientLoaderFunctionArgs) {
   return customerLoad((api) =>
     value(api.GET("/api/customer/orders", { signal: request.signal })),

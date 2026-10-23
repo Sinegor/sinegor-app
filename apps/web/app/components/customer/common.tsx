@@ -2,13 +2,10 @@ import { Link, useRouteError } from "react-router";
 import { ApiError } from "../../lib/api/client";
 import { message } from "../../lib/admin/api";
 import { Notice, Button } from "../ui";
+import { PageLoading } from "../page-loading";
 export { Feedback, Check, formData, text } from "../admin/common";
 export function CustomerLoading() {
-  return (
-    <main id="main" className="container">
-      <Notice>Загрузка личного кабинета…</Notice>
-    </main>
-  );
+  return <PageLoading>Загрузка личного кабинета…</PageLoading>;
 }
 export function CustomerErrorBoundary() {
   const error = useRouteError();

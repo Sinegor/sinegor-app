@@ -443,7 +443,11 @@ test("terms can be edited before agreement and status filters apply server-side"
     .getByRole("combobox", { name: "Статус", exact: true })
     .selectOption("completed");
   await page.getByRole("button", { name: "Применить", exact: true }).click();
-  await expect(page.getByText("Нет данных", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Заказы с выбранными фильтрами не найдены.", {
+      exact: true,
+    }),
+  ).toBeVisible();
 });
 
 test("agreement can be approved or rejected only after review of the downloaded version", async ({

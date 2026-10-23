@@ -3,6 +3,7 @@ The following documents are authoritative sources for project requirements:
   -docs/Анализатор-217. Меморандум.md — business purpose, services, and organizational requirements.
   -docs/Анализатор-217.md — MVP functionality, workflows, order lifecycle, and document handling.
   -docs/Анализатор-архитектура.md — approved technical architecture, infrastructure, and integration boundaries.
+  - docs/План разработки SINEGOR — MVP.md 
 
 Verify the actual file paths before relying on them.
 

@@ -10,10 +10,19 @@ import {
 
 export function Button({
   children,
+  variant,
+  className = "",
+  type = "button",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "secondary" | "text";
+}) {
   return (
-    <button type="button" {...props}>
+    <button
+      type={type}
+      className={`button button--${variant ?? (type === "submit" ? "primary" : "secondary")} ${className}`}
+      {...props}
+    >
       {children}
     </button>
   );
@@ -46,12 +55,14 @@ export function Field({
 export function Card({
   title,
   children,
+  className = "",
 }: {
   title: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="card">
+    <section className={`card ${className}`}>
       <h2>{title}</h2>
       {children}
     </section>
@@ -60,13 +71,16 @@ export function Card({
 export function Notice({
   children,
   error = false,
+  tone = "info",
 }: {
   children: ReactNode;
   error?: boolean;
+  tone?: "info" | "success" | "warning";
 }) {
   return (
     <div
       className={`notice${error ? " error" : ""}`}
+      data-tone={error ? "error" : tone}
       role={error ? "alert" : "status"}
     >
       {children}
@@ -77,10 +91,12 @@ export function Table({
   caption,
   columns,
   rows,
+  emptyMessage = "Нет данных",
 }: {
   caption: string;
   columns: string[];
   rows: ReactNode[][];
+  emptyMessage?: ReactNode;
 }) {
   return (
     <div
@@ -111,7 +127,9 @@ export function Table({
             ))
           ) : (
             <tr>
-              <td colSpan={columns.length}>Нет данных</td>
+              <td className="table-empty" colSpan={columns.length}>
+                {emptyMessage}
+              </td>
             </tr>
           )}
         </tbody>
@@ -125,23 +143,32 @@ export function Modal({
   children,
   onClose,
   busy = false,
+  id: dialogId,
+  className = "",
 }: {
   open: boolean;
   title: string;
   children: ReactNode;
   onClose: () => void;
   busy?: boolean;
+  id?: string;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const id = useId();
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      headingRef.current?.focus();
+    } else if (!open && dialog.open) dialog.close();
   }, [open]);
   return (
     <dialog
+      id={dialogId}
+      className={className}
       ref={ref}
       aria-labelledby={id}
       onCancel={(event) => {
@@ -149,7 +176,9 @@ export function Modal({
       }}
       onClose={onClose}
     >
-      <h2 id={id}>{title}</h2>
+      <h2 id={id} ref={headingRef} tabIndex={-1}>
+        {title}
+      </h2>
       {children}
       <Button disabled={busy} onClick={() => ref.current?.close()}>
         Закрыть

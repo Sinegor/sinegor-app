@@ -27,7 +27,7 @@ export function CustomerRetention({
     !request?.early_authorized_at &&
     (!request || ["waiting", "deferred"].includes(request.status));
   return (
-    <Card title="Хранение и удаление материалов">
+    <Card title="Хранение и удаление материалов" className="retention-card">
       <p>
         Завершение заказа и удаление исходных документов и результата происходят
         отдельно. Подписанное соглашение сохраняется.
@@ -35,7 +35,9 @@ export function CustomerRetention({
       {request ? (
         <>
           <p>
-            <span className="badge">{labels[request.status]}</span>
+            <span className={`badge ${request.status}`}>
+              {labels[request.status]}
+            </span>
           </p>
           {request.early_authorized_at && (
             <p>Ваше разрешение получено {date(request.early_authorized_at)}.</p>
@@ -60,6 +62,7 @@ export function CustomerRetention({
             можете разрешить их досрочное удаление.
           </p>
           <Button
+            className="danger"
             disabled={op.busy}
             onClick={() => {
               op.setNotice(null);

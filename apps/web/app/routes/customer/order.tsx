@@ -22,7 +22,7 @@ import { CustomerAgreement } from "../../components/customer/agreement";
 import { CustomerRetention } from "../../components/customer/retention";
 import { Button, Card, Field, Form, Notice } from "../../components/ui";
 export { CustomerErrorBoundary as ErrorBoundary } from "../../components/customer/common";
-export const meta = () => [{ title: "Мой заказ — SINEGOR" }];
+export const meta = () => [{ title: "Мой заказ — SINEGOR LAB" }];
 export function clientLoader({ request, params }: ClientLoaderFunctionArgs) {
   const path = { order_id: params.orderId! },
     options = { params: { path }, signal: request.signal };

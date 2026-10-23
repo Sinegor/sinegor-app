@@ -22,7 +22,7 @@ export function RetentionPanel({
   );
   if (!request)
     return (
-      <Card title="Удаление материалов">
+      <Card title="Удаление материалов" className="retention-card">
         <p>
           Запрос на удаление пока не сформирован. Завершение заказа и удаление
           материалов — отдельные процессы.
@@ -32,9 +32,11 @@ export function RetentionPanel({
   const performed = request.status === "performed" || !!folder?.deleted_at;
   const started = !!folder?.deletion_started_at;
   return (
-    <Card title="Удаление материалов">
+    <Card title="Удаление материалов" className="retention-card">
       <p>
-        <span className="badge">{deletions[request.status]}</span>
+        <span className={`badge ${request.status}`}>
+          {deletions[request.status]}
+        </span>
       </p>
       <dl className="facts">
         <dt>Основание</dt>
@@ -121,7 +123,7 @@ export function RetentionPanel({
             </p>
           )}
           {started && (
-            <Notice>
+            <Notice tone="warning">
               Операция уже начата. Отсрочка недоступна. Проверяйте её результат
               отдельным действием; незавершённая операция ещё не означает
               удаления.

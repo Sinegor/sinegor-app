@@ -11,6 +11,7 @@ import {
 } from "react-router";
 import type { ReactNode } from "react";
 import "./styles/app.css";
+import manropeFont from "../assets/fonts/Manrope-variable.ttf";
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -19,6 +20,13 @@ export function Layout({ children }: { children: ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="referrer" content="no-referrer" />
+        <link
+          rel="preload"
+          href={manropeFont}
+          as="font"
+          type="font/ttf"
+          crossOrigin="anonymous"
+        />
         <Meta />
         <Links />
       </head>

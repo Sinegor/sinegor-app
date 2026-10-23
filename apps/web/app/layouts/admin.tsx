@@ -1,7 +1,9 @@
-import { Link, NavLink, Outlet, redirect } from "react-router";
+import { NavLink, Outlet, redirect } from "react-router";
 import { adminLoad, value } from "../lib/admin/api";
 import { Button } from "../components/ui";
 import { Feedback, useOperation } from "../components/admin/common";
+import { Brand } from "../components/brand";
+import { MobileNavigation } from "../components/mobile-navigation";
 export { headers } from "./customer";
 export {
   AdminErrorBoundary as ErrorBoundary,
@@ -18,31 +20,43 @@ clientLoader.hydrate = true as const;
 export const shouldRevalidate = () => true;
 export default function AdminLayout() {
   const op = useOperation();
+  const links = (
+    <>
+      <NavLink to="/admin/customers">Заказчики</NavLink>
+      <NavLink to="/admin/orders">Заказы</NavLink>
+    </>
+  );
+  const logout = (
+    <Button
+      variant="text"
+      disabled={op.busy}
+      onClick={() =>
+        op.run(async (api) => {
+          await api.POST("/api/auth/logout");
+          window.location.assign("/auth/admin");
+        }, "")
+      }
+    >
+      Выйти
+    </Button>
+  );
   return (
     <>
-      <header>
-        <Link className="brand" to="/">
-          SINEGOR
-        </Link>
-        <span>Административная панель</span>
-        <Button
-          disabled={op.busy}
-          onClick={() =>
-            op.run(async (api) => {
-              await api.POST("/api/auth/logout");
-              window.location.assign("/auth/admin");
-            }, "")
-          }
-        >
-          Выйти
-        </Button>
+      <header className="site-header">
+        <Brand compact />
+        <span className="desktop-navigation header-caption">
+          Административная панель
+        </span>
+        <div className="desktop-navigation">{logout}</div>
+        <MobileNavigation title="Разделы" label="Открыть разделы">
+          {links}
+          {logout}
+          <Feedback op={op} />
+        </MobileNavigation>
       </header>
       <div className="admin-shell">
-        <aside>
-          <nav aria-label="Разделы администратора">
-            <NavLink to="/admin/customers">Заказчики</NavLink>
-            <NavLink to="/admin/orders">Заказы</NavLink>
-          </nav>
+        <aside className="desktop-sidebar">
+          <nav aria-label="Разделы администратора">{links}</nav>
           <p>Сроки и даты показаны по московскому времени.</p>
         </aside>
         <main id="main" className="admin-main">

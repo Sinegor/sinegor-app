@@ -4,7 +4,7 @@ import { message } from "../../lib/admin/api";
 import { Form, Field, Button, Notice } from "../../components/ui";
 import { formData, text } from "../../components/customer/common";
 export const meta = () => [
-  { title: "Вход в личный кабинет — SINEGOR" },
+  { title: "Вход в личный кабинет — SINEGOR LAB" },
   { name: "robots", content: "noindex, nofollow" },
 ];
 export default function CustomerLogin() {

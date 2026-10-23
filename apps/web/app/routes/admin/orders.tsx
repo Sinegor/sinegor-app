@@ -19,7 +19,7 @@ import {
 } from "../../components/admin/common";
 import { Button, Field } from "../../components/ui";
 export { AdminErrorBoundary as ErrorBoundary } from "../../components/admin/common";
-export const meta = () => [{ title: "Заказы — SINEGOR" }];
+export const meta = () => [{ title: "Заказы — SINEGOR LAB" }];
 export function clientLoader({ request }: ClientLoaderFunctionArgs) {
   const url = new URL(request.url),
     start = offset(url);
@@ -80,10 +80,21 @@ export default function Orders() {
           name="customer_id"
           defaultValue={customerId}
         />
-        <Button type="submit">Применить</Button>
+        <Button type="submit" variant="secondary">
+          Применить
+        </Button>
         <Link to="/admin/orders">Сбросить</Link>
       </SearchForm>
-      <OrdersTable rows={rows} />
+      <OrdersTable
+        rows={rows}
+        emptyMessage={
+          start > 0
+            ? "На этой странице нет заказов."
+            : status || customerId
+              ? "Заказы с выбранными фильтрами не найдены."
+              : "Заказов пока нет. Создайте первый заказ."
+        }
+      />
       <Pagination count={rows.length} start={start} />
     </>
   );

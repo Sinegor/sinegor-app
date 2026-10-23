@@ -3,6 +3,8 @@ import { customerLoad, value } from "../lib/customer/api";
 import { useOperation } from "../components/admin/common";
 import { Feedback } from "../components/customer/common";
 import { Button } from "../components/ui";
+import { Brand } from "../components/brand";
+import { MobileNavigation } from "../components/mobile-navigation";
 export {
   CustomerErrorBoundary as ErrorBoundary,
   CustomerLoading as HydrateFallback,
@@ -24,27 +26,40 @@ export const shouldRevalidate = () => true;
 export default function CustomerLayout() {
   const principal = useLoaderData<typeof clientLoader>();
   const op = useOperation("/auth/login");
+  const logout = (
+    <Button
+      variant="text"
+      disabled={op.busy}
+      onClick={() =>
+        op.run(async (api) => {
+          await api.POST("/api/auth/logout");
+          window.location.assign("/auth/login");
+        }, "")
+      }
+    >
+      Выйти
+    </Button>
+  );
   return (
     <>
-      <header>
-        <Link className="brand" to="/">
-          SINEGOR
-        </Link>
-        <nav aria-label="Навигация личного кабинета">
+      <header className="site-header">
+        <Brand compact />
+        <nav
+          className="desktop-navigation"
+          aria-label="Навигация личного кабинета"
+        >
           <Link to="/customer/orders">Мои заказы</Link>
         </nav>
-        <span className="break-word">{principal.email}</span>
-        <Button
-          disabled={op.busy}
-          onClick={() =>
-            op.run(async (api) => {
-              await api.POST("/api/auth/logout");
-              window.location.assign("/auth/login");
-            }, "")
-          }
-        >
-          Выйти
-        </Button>
+        <div className="desktop-navigation account-actions">
+          <span className="break-word">{principal.email}</span>
+          {logout}
+        </div>
+        <MobileNavigation title="Личный кабинет" label="Открыть меню кабинета">
+          <p className="menu-account break-word">{principal.email}</p>
+          <Link to="/customer/orders">Мои заказы</Link>
+          {logout}
+          <Feedback op={op} />
+        </MobileNavigation>
       </header>
       <main id="main" className="container customer-main">
         <Feedback op={op} />

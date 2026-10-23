@@ -8,7 +8,7 @@ import {
   formData,
   text,
 } from "../../components/admin/common";
-export const meta = () => [{ title: "Новый заказчик — SINEGOR" }];
+export const meta = () => [{ title: "Новый заказчик — SINEGOR LAB" }];
 export default function CustomerNew() {
   const op = useOperation(),
     navigate = useNavigate();

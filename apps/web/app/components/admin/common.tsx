@@ -16,6 +16,7 @@ import {
 } from "../../lib/admin/api";
 import { date, statuses, services, eventLabels } from "../../lib/admin/labels";
 import { Button, Notice, Table } from "../ui";
+import { PageLoading } from "../page-loading";
 
 export function useOperation(loginPath = "/auth/admin") {
   const [busy, setBusy] = useState(false);
@@ -57,7 +58,13 @@ export function useOperation(loginPath = "/auth/admin") {
 }
 export type Operation = ReturnType<typeof useOperation>;
 export function Feedback({ op }: { op: Operation }) {
-  return op.notice && <Notice error={op.notice.error}>{op.notice.text}</Notice>;
+  return (
+    op.notice && (
+      <Notice error={op.notice.error} tone="success">
+        {op.notice.text}
+      </Notice>
+    )
+  );
 }
 export function AdminErrorBoundary() {
   const error = useRouteError();
@@ -81,7 +88,7 @@ export function AdminErrorBoundary() {
   );
 }
 export function Loading() {
-  return <Notice>Загрузка административной панели…</Notice>;
+  return <PageLoading>Загрузка административной панели…</PageLoading>;
 }
 export function Pagination({
   count,
@@ -108,10 +115,17 @@ export function Pagination({
     </nav>
   );
 }
-export function OrdersTable({ rows }: { rows: Models["OrderRead"][] }) {
+export function OrdersTable({
+  rows,
+  emptyMessage,
+}: {
+  rows: Models["OrderRead"][];
+  emptyMessage?: string;
+}) {
   return (
     <Table
       caption="Заказы"
+      emptyMessage={emptyMessage ?? "Заказов пока нет."}
       columns={["Номер", "Услуга", "Статус", "Стоимость", "Создан"]}
       rows={rows.map((row) => [
         <Link to={`/admin/orders/${row.id}`}>№ {row.number}</Link>,

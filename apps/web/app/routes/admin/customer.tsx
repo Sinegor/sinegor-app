@@ -21,7 +21,7 @@ import {
   Pagination,
 } from "../../components/admin/common";
 export { AdminErrorBoundary as ErrorBoundary } from "../../components/admin/common";
-export const meta = () => [{ title: "Карточка заказчика — SINEGOR" }];
+export const meta = () => [{ title: "Карточка заказчика — SINEGOR LAB" }];
 export function clientLoader({ params, request }: ClientLoaderFunctionArgs) {
   const id = params.customerId!,
     start = offset(new URL(request.url));

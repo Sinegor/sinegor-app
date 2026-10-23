@@ -5,7 +5,7 @@ import { takeMagicToken } from "../../lib/api/magic-link";
 import { message } from "../../lib/admin/api";
 import { Button, Notice } from "../../components/ui";
 export const meta = () => [
-  { title: "Подтверждение входа — SINEGOR" },
+  { title: "Подтверждение входа — SINEGOR LAB" },
   { name: "robots", content: "noindex, nofollow" },
 ];
 export default function MagicLink() {

@@ -39,7 +39,7 @@ export function clientLoader({ request }: ClientLoaderFunctionArgs) {
     return { rows, selected, q };
   });
 }
-export const meta = () => [{ title: "Новый заказ — SINEGOR" }];
+export const meta = () => [{ title: "Новый заказ — SINEGOR LAB" }];
 export default function OrderNew() {
   const { rows, selected, q } = useLoaderData<typeof clientLoader>();
   const op = useOperation(),
@@ -57,7 +57,9 @@ export default function OrderNew() {
             maxLength={320}
             defaultValue={q}
           />
-          <Button type="submit">Найти</Button>
+          <Button type="submit" variant="secondary">
+            Найти
+          </Button>
         </SearchForm>
         <p>
           Показаны первые 100 совпадений. Уточните поиск, если нужного заказчика
