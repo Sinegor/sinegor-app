@@ -1,8 +1,20 @@
+import type { Route } from "./+types/about";
+import { loadPage } from "../../lib/cms.server";
+import {
+  ContentPage,
+  ContentSections,
+  contentMeta,
+} from "../../components/cms-content";
+export const loader = () => loadPage("pages", "about");
 import { Link } from "react-router";
 import { AboutSummary, publicMeta } from "../../components/public-content";
-export const meta = () =>
+const fallbackMeta = () =>
   publicMeta("Об исполнителе", "IT-лаборатория адвоката Артемьева Д. В.");
-export default function About() {
+export const meta = ({ data }: Route.MetaArgs) =>
+  data?.content ? contentMeta(data.content) : fallbackMeta();
+export default function About({ loaderData }: Route.ComponentProps) {
+  const content = loaderData.content;
+  if (content) return <ContentPage content={content} />;
   return (
     <article className="public-page public-prose">
       <p className="eyebrow">SINEGOR LAB</p>

@@ -984,3 +984,10 @@ dialog h2 {
     gap: 32px;
   }
 }
+
+.cms-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-card);
+}

@@ -1,11 +1,23 @@
+import type { Route } from "./+types/analysis";
+import { loadPage } from "../../lib/cms.server";
+import {
+  ContentPage,
+  ContentSections,
+  contentMeta,
+} from "../../components/cms-content";
+export const loader = () => loadPage("services", "ai-analysis");
 import { Link } from "react-router";
 import { publicMeta } from "../../components/public-content";
-export const meta = () =>
+const fallbackMeta = () =>
   publicMeta(
     "ИИ-анализ документов",
     "Исследование больших массивов юридических материалов с применением ИИ.",
   );
-export default function Page() {
+export const meta = ({ data }: Route.MetaArgs) =>
+  data?.content ? contentMeta(data.content) : fallbackMeta();
+export default function Page({ loaderData }: Route.ComponentProps) {
+  const content = loaderData.content;
+  if (content) return <ContentPage content={content} />;
   return (
     <article className="public-page public-prose">
       <p className="eyebrow">Услуги SINEGOR LAB</p>

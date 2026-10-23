@@ -1,11 +1,23 @@
+import type { Route } from "./+types/technical";
+import { loadPage } from "../../lib/cms.server";
+import {
+  ContentPage,
+  ContentSections,
+  contentMeta,
+} from "../../components/cms-content";
+export const loader = () => loadPage("services", "technical");
 import { Link } from "react-router";
 import { publicMeta } from "../../components/public-content";
-export const meta = () =>
+const fallbackMeta = () =>
   publicMeta(
     "Техническая обработка",
     "Самостоятельная услуга по технической подготовке цифровых документов.",
   );
-export default function Page() {
+export const meta = ({ data }: Route.MetaArgs) =>
+  data?.content ? contentMeta(data.content) : fallbackMeta();
+export default function Page({ loaderData }: Route.ComponentProps) {
+  const content = loaderData.content;
+  if (content) return <ContentPage content={content} />;
   return (
     <article className="public-page public-prose">
       <p className="eyebrow">Услуги SINEGOR LAB</p>

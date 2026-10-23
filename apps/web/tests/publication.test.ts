@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router";
 import Publication, { loader } from "../app/routes/public/publication";
 import { publications } from "../app/components/public-content";
 
-it("loads the requested article and renders its full text as safe SSR markup", () => {
+it("loads the requested article and renders its full text as safe SSR markup", async () => {
   const article = {
     slug: "test",
     title: "Тестовая статья",
@@ -15,7 +15,7 @@ it("loads the requested article and renders its full text as safe SSR markup", (
   };
   publications.push(article);
   try {
-    const data = loader({ params: { slug: "test" } } as Parameters<
+    const data = await loader({ params: { slug: "test" } } as Parameters<
       typeof loader
     >[0]);
     const markup = renderToStaticMarkup(
@@ -31,9 +31,9 @@ it("loads the requested article and renders its full text as safe SSR markup", (
     expect(markup).toContain("Первый абзац");
     expect(markup).toContain("&lt;script&gt;");
     expect(markup).not.toContain("<script>");
-    expect(() =>
+    await expect(
       loader({ params: { slug: "missing" } } as Parameters<typeof loader>[0]),
-    ).toThrow();
+    ).rejects.toMatchObject({ status: 404 });
   } finally {
     publications.pop();
   }

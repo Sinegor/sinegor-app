@@ -9,6 +9,8 @@ export default [
     index("routes/public/home.tsx"),
     route("services/ai-analysis", "routes/public/analysis.tsx"),
     route("services/technical", "routes/public/technical.tsx"),
+    route("pages/:slug", "routes/public/page.tsx"),
+    route("services/:slug", "routes/public/service.tsx"),
     route("about", "routes/public/about.tsx"),
     route("publications", "routes/public/publications.tsx"),
     route("publications/:slug", "routes/public/publication.tsx"),

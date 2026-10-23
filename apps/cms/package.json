@@ -1,0 +1,28 @@
+{
+  "name": "@sinegor/cms",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "develop": "strapi develop",
+    "build": "strapi build",
+    "start": "strapi start",
+    "strapi": "strapi",
+    "seed": "node scripts/seed.js",
+    "test:integration": "node tests/smoke.js"
+  },
+  "dependencies": {
+    "@strapi/strapi": "5.59.0",
+    "@strapi/plugin-users-permissions": "5.59.0",
+    "pg": "8.16.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.30.1",
+    "styled-components": "^6.1.19"
+  },
+  "engines": {
+    "node": ">=22.0.0 <27"
+  },
+  "strapi": {
+    "uuid": "sinegor-public-cms"
+  }
+}
