@@ -7,6 +7,12 @@ import {
 export default [
   layout("layouts/public.tsx", [
     index("routes/public/home.tsx"),
+    route("services/ai-analysis", "routes/public/analysis.tsx"),
+    route("services/technical", "routes/public/technical.tsx"),
+    route("about", "routes/public/about.tsx"),
+    route("publications", "routes/public/publications.tsx"),
+    route("publications/:slug", "routes/public/publication.tsx"),
+    route("contacts", "routes/public/contacts.tsx"),
     route("auth/magic-link", "routes/auth/magic-link.tsx"),
     route("auth/admin", "routes/auth/admin.tsx"),
     route("auth/login", "routes/auth/login.tsx"),

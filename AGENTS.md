@@ -1,77 +1,77 @@
-# Project Documentation & Requirements
-The following documents are authoritative sources for project requirements:
-  -docs/Анализатор-217. Меморандум.md — business purpose, services, and organizational requirements.
-  -docs/Анализатор-217.md — MVP functionality, workflows, order lifecycle, and document handling.
-  -docs/Анализатор-архитектура.md — approved technical architecture, infrastructure, and integration boundaries.
-  - docs/План разработки SINEGOR — MVP.md 
 
-Verify the actual file paths before relying on them.
+# Project Instructions
 
-Before implementing or modifying functionality, consult the relevant documentation.
-  -Do not independently change approved product or architectural decisions.
-  -Do not implement features explicitly excluded from the MVP.
-  -Distinguish approved requirements from proposals and unresolved questions.
-  -Report contradictions or missing requirements instead of silently inventing solutions.
-  -Do not modify project documentation unless explicitly requested.
+## Authoritative Documentation
 
-# Implementation Boundaries
-Keep business logic in the modular FastAPI backend.
-Use Strapi exclusively for public website content.
-Maintain React Router Framework Mode with SSR for public pages.
-Client document transfer and result delivery take place directly through Yandex Disk, not through the website.
-Yandex Disk API integration must remain within the approved administrative operations.
-Access permissions for shared Yandex Disk folders are managed manually.
-Signed agreements must be stored separately from deletable order materials.
-Order completion and document deletion are separate processes.
-Document deletion requires explicit administrator confirmation.
-Do not introduce additional infrastructure components or automation without a demonstrated need and approval.
-Prefer minimal changes consistent with existing architecture and conventions.
+The following documents define the approved project requirements:
 
-# Repository Guidelines
+- `docs/Анализатор-217. Меморандум.md` — business purpose, services, and organizational requirements.
+- `docs/Анализатор-217.md` — MVP functionality, workflows, order lifecycle, and document handling.
+- `docs/Анализатор-архитектура.md` — approved architecture, infrastructure, and integration boundaries.
+- `docs/План разработки SINEGOR — MVP.md` — implementation stages and sequence.
 
-## Project Structure & Module Organization
+Verify actual file paths before use.
 
-- `apps/api/src/sinegor/` contains the FastAPI backend: `modules/` for business domains, `integrations/` for external services, `db/` for persistence, and `jobs/` for CLI tasks.
-- `apps/api/migrations/versions/` holds Alembic revisions; backend tests live in `apps/api/tests/`.
-- `apps/web/` and `apps/cms/` are scaffolds for React/TypeScript and Strapi. Static assets belong in their `public/` directories. Frontend package scripts are not initialized yet.
-- `contracts/openapi/` reserves API contracts; `tests/e2e/` reserves browser tests.
-- `docs/` contains requirements, architecture, and implementation status; `infra/compose/` contains local infrastructure.
+Read the relevant documents before implementing or modifying functionality.
+Consult the development plan before starting a new implementation stage.
 
-## Build, Test, and Development Commands
+Do not independently change approved product or architectural decisions.
+Do not implement features explicitly excluded from the MVP.
+Distinguish approved requirements from proposals and unresolved questions.
+Report contradictions or missing requirements instead of inventing solutions.
+Do not modify project documentation unless explicitly requested.
 
-Use Python 3.12 and uv. Run these commands from `apps/api/`:
+## Architecture & Business Boundaries
 
-```bash
-cp .env.development.example .env
-uv sync --locked
-docker compose -f ../../infra/compose/backend.dev.yaml up -d --wait
-uv run --locked alembic upgrade head
-uv run --locked uvicorn sinegor.main:create_app --factory --reload --host 127.0.0.1 --port 8000 --no-access-log --no-proxy-headers
-uv run --locked pytest -m "not integration"
-uv run --locked ruff check .
-uv run --locked ruff format --check .
-```
+- Keep business logic in the modular FastAPI backend.
+- Use Strapi exclusively for public website content.
+- Maintain React Router Framework Mode with SSR for public pages.
+- Transfer client documents and deliver results directly through Yandex Disk, not through the website.
+- Limit Yandex Disk API integration to approved administrative operations.
+- Manage access permissions for shared Yandex Disk folders manually.
+- Store signed agreements separately from deletable order materials.
+- Treat order completion and document deletion as separate processes.
+- Require explicit administrator confirmation for document deletion.
+- Do not introduce infrastructure components or automation without demonstrated need and approval.
+- Prefer minimal changes consistent with approved architecture.
 
-These install dependencies, start PostgreSQL, migrate the database, launch the API, and run local checks. See `apps/api/README.md` for Compose v1 alternatives. From the repository root, run `python3 scripts/check_structure.py` to validate the scaffold.
+## Security
 
-## Coding Style & Naming Conventions
+- Keep secrets in untracked environment files.
+- Never log authentication links, cookies, document contents, or SQL values.
+- Enforce authorization in the backend.
+- Do not perform destructive operations without appropriate authorization.
 
-Follow `.editorconfig`: UTF-8, LF, two-space indentation generally and four spaces for Python. Ruff enforces formatting, import ordering, and a 100-character Python line limit. Use `snake_case` functions/modules, `PascalCase` classes, and `UPPER_SNAKE_CASE` constants.
+## Development Guidance
 
-Register new ORM models in `sinegor.db.models`. Add new Alembic revisions for schema changes and inspect generated migrations.
+- Follow existing project conventions and configuration.
+- Inspect relevant code and configuration before modifying them.
+- Use existing tools and dependencies where possible.
+- Run relevant checks after code changes and report their results.
+- Do not claim verification unless checks were actually performed.
 
-## Testing Guidelines
+## Additional Instructions
 
-Use pytest with `test_*.py` files and `test_*` functions. Place database tests in `tests/integration/` and mark them `integration`. Add regression tests for bug fixes; no numeric coverage threshold is configured.
+- For backend implementation, follow `apps/api/AGENTS.md`.
+- For backend setup, migrations, development commands, and testing procedures, consult `docs/development/backend-operations.md`.
+- For repository structure, commit conventions, and pull requests, consult `docs/development/repository-workflow.md`.
 
-Run the full suite with `TEST_DATABASE_URL` set and `uv run --locked pytest`. Use a dedicated empty PostgreSQL database ending in `_test`: migration tests perform destructive downgrades. Without this variable, integration tests skip.
+Do not load unrelated documentation solely because it is listed here.
 
-## Commit & Pull Request Guidelines
+## Git Operations
 
-Git history is unavailable in this checkout. Use concise imperative messages, optionally scoped: `auth: preserve links after SMTP failure`.
+Git staging and commits are managed exclusively by the user.
 
-PRs should explain the behavior change, link relevant issues, report validation commands/results, and identify migrations or configuration changes. Include screenshots for UI changes.
+- Read-only Git operations are allowed, including
+  `git status`, `git diff`, `git log`, and `git show`.
+- Do not stage or unstage files (`git add`, `git restore --staged`,
+  `git reset`).
+- Do not create, amend, or delete commits.
+- Do not perform Git operations that modify the index,
+  commit history, branches, or repository metadata.
+- Do not bypass these restrictions through scripts,
+  Skills, subagents, plugins, or MCP tools.
 
-## Security & Configuration
+Modify project files and run relevant checks as needed.
+Leave staging, committing, and repository management to the user.
 
-Keep secrets in untracked environment files. Never log authentication links, cookies, document contents, or SQL values. Enforce authorization in the backend; Strapi owns public content only.

@@ -72,8 +72,8 @@ test("public mobile menu exposes both existing login routes", async ({
   page,
 }) => {
   await page.goto("/");
-  await page.getByRole("button", { name: "Открыть входы" }).click();
-  const menu = page.getByRole("dialog", { name: "Вход в SINEGOR LAB" });
+  await page.getByRole("button", { name: "Открыть меню" }).click();
+  const menu = page.getByRole("dialog", { name: "Навигация SINEGOR LAB" });
   await expect(
     menu.getByRole("link", { name: "Вход заказчика" }),
   ).toHaveAttribute("href", "/auth/login");

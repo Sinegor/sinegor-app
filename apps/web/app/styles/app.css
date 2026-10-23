@@ -905,3 +905,82 @@ dialog h2 {
     transition: none !important;
   }
 }
+
+/* Public website: the approved hero keeps text left and video right. */
+.public-page {
+  display: grid;
+  gap: var(--space-12);
+  padding-block: 24px 48px;
+}
+.public-hero {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr;
+  align-items: center;
+  gap: 32px;
+}
+.public-hero h1 {
+  font-size: clamp(2rem, 3.4vw, 3.5rem);
+  line-height: 1.15;
+}
+.public-hero .lead {
+  font-size: 1.25rem;
+  color: var(--text);
+}
+.hero-video {
+  margin: 0;
+  min-width: 0;
+}
+.hero-video video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 16px;
+  background: #171c20;
+}
+.hero-video figcaption {
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+.public-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.public-page a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+.public-prose {
+  max-width: 850px;
+  gap: 20px;
+  margin-inline: auto;
+}
+.public-prose h1,
+.public-prose h2 {
+  margin-bottom: 0;
+}
+.public-prose li {
+  margin-block: 12px;
+}
+.consultation {
+  scroll-margin-top: 24px;
+}
+@media (min-width: 1024px) {
+  .site-header:has(.public-navigation) {
+    flex-wrap: wrap;
+  }
+  .public-navigation {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 767px) {
+  .public-hero,
+  .public-grid {
+    grid-template-columns: 1fr;
+  }
+  .public-page {
+    gap: 32px;
+  }
+}
