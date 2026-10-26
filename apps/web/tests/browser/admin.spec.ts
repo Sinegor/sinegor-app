@@ -42,9 +42,7 @@ test("customer role cannot view admin records", async ({ page }) => {
   const state = await mockApi(page);
   state.role = "customer";
   await page.goto("/admin/customers");
-  await expect(
-    page.getByRole("heading", { name: "Вход администратора" }),
-  ).toBeVisible();
+  await expect(page).toHaveURL("/customer/orders");
   await expect(page.getByText("Иван Петров", { exact: true })).toHaveCount(0);
 });
 

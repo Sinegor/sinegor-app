@@ -4,6 +4,9 @@ import { browserApi, ApiError } from "../../lib/api/client";
 import { message } from "../../lib/admin/api";
 import { Button, Field, Form } from "../../components/ui";
 import { formData, text } from "../../components/admin/common";
+export { loginLoader as clientLoader } from "../../lib/api/login";
+export { SessionLoading as HydrateFallback } from "../../components/session-status";
+export { headers } from "../../layouts/customer";
 export const meta = () => [
   { title: "Вход администратора — SINEGOR LAB" },
   { name: "robots", content: "noindex, nofollow" },

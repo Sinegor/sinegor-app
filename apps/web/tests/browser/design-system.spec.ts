@@ -71,6 +71,8 @@ test("customer mobile menu keeps email, own orders and authenticated logout", as
 test("public mobile menu exposes both existing login routes", async ({
   page,
 }) => {
+  const state = await mockApi(page);
+  state.authenticated = false;
   await page.goto("/");
   await page.getByRole("button", { name: "Открыть меню" }).click();
   const menu = page.getByRole("dialog", { name: "Навигация SINEGOR LAB" });

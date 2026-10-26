@@ -4,6 +4,7 @@ import { Button } from "../components/ui";
 import { Feedback, useOperation } from "../components/admin/common";
 import { Brand } from "../components/brand";
 import { MobileNavigation } from "../components/mobile-navigation";
+import { usePrivateDocument } from "../lib/private-document";
 export { headers } from "./customer";
 export {
   AdminErrorBoundary as ErrorBoundary,
@@ -19,6 +20,7 @@ export async function clientLoader() {
 clientLoader.hydrate = true as const;
 export const shouldRevalidate = () => true;
 export default function AdminLayout() {
+  usePrivateDocument();
   const op = useOperation();
   const links = (
     <>

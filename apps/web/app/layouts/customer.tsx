@@ -5,6 +5,7 @@ import { Feedback } from "../components/customer/common";
 import { Button } from "../components/ui";
 import { Brand } from "../components/brand";
 import { MobileNavigation } from "../components/mobile-navigation";
+import { usePrivateDocument } from "../lib/private-document";
 export {
   CustomerErrorBoundary as ErrorBoundary,
   CustomerLoading as HydrateFallback,
@@ -24,6 +25,7 @@ export async function clientLoader() {
 clientLoader.hydrate = true as const;
 export const shouldRevalidate = () => true;
 export default function CustomerLayout() {
+  usePrivateDocument();
   const principal = useLoaderData<typeof clientLoader>();
   const op = useOperation("/auth/login");
   const logout = (

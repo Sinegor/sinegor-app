@@ -13,6 +13,85 @@ const {
   runtimeErrors,
 } = require("./helpers.cjs");
 
+async function checkSessionNavigation(page, role) {
+  const destination =
+    role === "admin" ? "/admin/customers" : "/customer/orders";
+  const session = await read(page.request, "/api/auth/session");
+  expect(session.role).toBe(role);
+  const cookies = await page.context().cookies();
+  const cookie = cookies.find((item) => item.name === "sinegor_session");
+  expect(!!cookie && cookie.httpOnly && cookie.path === "/").toBe(true);
+  await page.getByRole("link", { name: /SINEGOR LAB/ }).click();
+  await expect(page).toHaveURL(config.origin + "/");
+  // A successful API read here distinguishes a lost session from a broken login page.
+  expect(
+    (await read(page.request, "/api/auth/session")).id === session.id,
+  ).toBe(true);
+  expect(
+    (await page.context().cookies()).some(
+      (item) => item.name === cookie.name && item.value === cookie.value,
+    ),
+  ).toBe(true);
+  for (const login of ["Вход заказчика", "Вход администратора"]) {
+    await page.getByRole("link", { name: login, exact: true }).click();
+    await expect(page).toHaveURL(config.origin + destination);
+    await page.getByRole("link", { name: /SINEGOR LAB/ }).click();
+  }
+  for (const login of ["/auth/login", "/auth/admin"]) {
+    const response = await page.goto(login);
+    expect(response.headers()["cache-control"]).toContain("no-store");
+    await expect(page).toHaveURL(config.origin + destination);
+  }
+}
+
+async function checkLogoutHistory(
+  page,
+  browser,
+  role,
+  list,
+  detail,
+  sensitive,
+) {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(list);
+  await expect(
+    page.getByRole("button", { name: "Выйти", exact: true }),
+  ).toBeVisible();
+  await page.goto(detail);
+  await expect(
+    page.getByText(sensitive, { exact: true }).first(),
+  ).toBeVisible();
+  // Keep the old cookie only in memory to prove server-side revocation, too.
+  const stale = await browser.newContext({
+    baseURL: config.origin,
+    storageState: await page.context().storageState(),
+  });
+  try {
+    await page.getByRole("button", { name: "Выйти", exact: true }).click();
+    const login =
+      config.origin + (role === "admin" ? "/auth/admin" : "/auth/login");
+    await expect(page).toHaveURL(login);
+    for (const context of [page.context(), stale]) {
+      expect((await context.request.get("/api/auth/session")).status()).toBe(
+        401,
+      );
+      const response = await context.request.get("/api" + list);
+      expect(response.status()).toBe(401);
+      expect(response.headers()["cache-control"]).toContain("no-store");
+    }
+    for (let i = 0; i < 2; i++) {
+      await page.goBack();
+      await expect(page).toHaveURL(login);
+      await expect(page.getByText(sensitive, { exact: true })).toHaveCount(0);
+    }
+    await page.goto(detail);
+    await expect(page).toHaveURL(login);
+    await expect(page.getByText(sensitive, { exact: true })).toHaveCount(0);
+  } finally {
+    await stale.close();
+  }
+}
+
 test("order lifecycle preserves authorization, delivery, retention and signed agreement", async ({
   page: admin,
   browser,
@@ -39,6 +118,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         .fill(data("totp").code);
       await admin.getByRole("button", { name: "Войти", exact: true }).click();
       await expect(admin).toHaveURL(config.origin + "/admin/customers");
+      await checkSessionNavigation(admin, "admin");
       await admin.goto("/admin/customers/new");
       await admin
         .getByLabel("Email", { exact: true })
@@ -92,6 +172,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         .getByRole("button", { name: "Подтвердить вход", exact: true })
         .click();
       await expect(customer).toHaveURL(config.origin + "/customer/orders");
+      await checkSessionNavigation(customer, "customer");
       await customer.goto("/customer/orders/" + orderId);
       const initialHash = await download(
         customer,
@@ -451,12 +532,22 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
           ),
         ).toBe(true);
       }
-      expect(
-        (await mutate(customer.request, "/api/auth/logout", {})).status(),
-      ).toBe(204);
-      expect(
-        (await customer.request.get("/api/customer/orders")).status(),
-      ).toBe(401);
+      await checkLogoutHistory(
+        customer,
+        browser,
+        "customer",
+        "/customer/orders",
+        "/customer/orders/" + orderId,
+        "E2E согласованные условия",
+      );
+      await checkLogoutHistory(
+        admin,
+        browser,
+        "admin",
+        "/admin/customers",
+        "/admin/customers/" + customerId,
+        "E2E заказчик",
+      );
       expect(customerErrors.length).toBe(0);
       expect(errors.length).toBe(0);
     });

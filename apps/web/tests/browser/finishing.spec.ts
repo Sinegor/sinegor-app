@@ -160,6 +160,9 @@ for (const width of [1440, 390]) {
   test(`public, authentication and error states fit ${width}px`, async ({
     page,
   }) => {
+    await page.route("**/api/auth/session", (route) =>
+      route.fulfill({ status: 401, json: {} }),
+    );
     await page.setViewportSize({ width, height: 900 });
     for (const [name, path] of [
       ["home", "/"],

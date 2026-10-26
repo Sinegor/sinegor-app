@@ -3,6 +3,9 @@ import { browserApi } from "../../lib/api/client";
 import { message } from "../../lib/admin/api";
 import { Form, Field, Button, Notice } from "../../components/ui";
 import { formData, text } from "../../components/customer/common";
+export { loginLoader as clientLoader } from "../../lib/api/login";
+export { SessionLoading as HydrateFallback } from "../../components/session-status";
+export { headers } from "../../layouts/customer";
 export const meta = () => [
   { title: "Вход в личный кабинет — SINEGOR LAB" },
   { name: "robots", content: "noindex, nofollow" },

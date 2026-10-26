@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { ApiError, browserApi } from "../lib/api/client";
-import { Notice } from "./ui";
+import { LoadingStatus, Notice } from "./ui";
+export function SessionLoading() {
+  return <LoadingStatus>Проверка сессии…</LoadingStatus>;
+}
 export function SessionStatus({ role }: { role: "admin" | "customer" }) {
   const [status, setStatus] = useState("Проверка сессии…");
   useEffect(() => {

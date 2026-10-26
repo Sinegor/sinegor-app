@@ -137,6 +137,7 @@ test("invalid and already used links provide a fresh-link path without automatic
   page,
 }) => {
   const state = await customerApi(page);
+  state.authenticated = false;
   state.verifyStatus = 401;
   await page.goto("/auth/magic-link#token=invalid");
   await expect(
@@ -230,6 +231,7 @@ test("request rate limiting and failed CSRF show errors without consuming a link
   page,
 }) => {
   const state = await customerApi(page);
+  state.authenticated = false;
   state.requestStatus = 429;
   await page.goto("/auth/login");
   await page.getByLabel("Ваш email").fill("client@example.test");
@@ -281,9 +283,7 @@ test("empty order list and administrator sessions do not expose customer records
   state.empty = false;
   state.role = "admin";
   await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "Войти по ссылке", exact: true }),
-  ).toBeVisible();
+  await expect(page).toHaveURL("/admin/customers");
   await expect(
     page.getByText("Согласованный анализ документов", { exact: true }),
   ).toHaveCount(0);
