@@ -22,7 +22,7 @@ API_ROOT = Path(__file__).resolve().parents[3]
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=API_ROOT / ".env",
+        env_file=API_ROOT / ".env.development",
         env_file_encoding="utf-8",
         extra="ignore",
         hide_input_in_errors=True,
@@ -177,5 +177,5 @@ class Settings(BaseSettings):
 
 def load_settings() -> Settings:
     """Environment overrides the selected dotenv; never read unrelated root secrets."""
-    env_file = os.environ.get("SINEGOR_ENV_FILE", str(API_ROOT / ".env"))
+    env_file = os.environ.get("SINEGOR_ENV_FILE", str(API_ROOT / ".env.development"))
     return Settings(_env_file=env_file)
