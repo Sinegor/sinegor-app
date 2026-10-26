@@ -15,6 +15,7 @@ import manropeFont from "../assets/fonts/Manrope-variable.ttf";
 import { Brand } from "./components/brand";
 import { LabArt } from "./components/lab-art";
 import { LoadingStatus } from "./components/ui";
+import { PublicCanonical } from "./components/public-canonical";
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
@@ -31,6 +32,7 @@ export function Layout({ children }: { children: ReactNode }) {
           crossOrigin="anonymous"
         />
         <Meta />
+        <PublicCanonical />
         <Links />
       </head>
       <body>

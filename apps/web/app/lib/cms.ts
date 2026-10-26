@@ -1,3 +1,7 @@
+export type ContentKind = "pages" | "services" | "publications";
+export type PageLinkSection =
+  "home" | "ai-analysis" | "technical" | "about" | "publications" | "contacts";
+export type PageLink = { to: string; title: string };
 export type Media = {
   url: string;
   alternativeText: string;
@@ -22,8 +26,10 @@ export type Content = {
   title: string;
   summary?: string;
   publishedAt?: string;
+  linkSection?: PageLinkSection | null;
+  linkOrder?: number | null;
   sections: ContentSection[];
-  seo?: { title?: string; description?: string };
+  seo?: { title?: string; description?: string; noindex?: boolean };
   image?: Media | null;
   imageLayout?: ImageLayout | null;
   video?: Media | null;

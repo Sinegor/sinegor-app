@@ -5,10 +5,16 @@ import {
   type RouteConfig,
 } from "@react-router/dev/routes";
 export default [
+  route("sitemap.xml", "routes/resources/sitemap.ts", { caseSensitive: true }),
+  route("robots.txt", "routes/resources/robots.ts", { caseSensitive: true }),
   layout("layouts/public.tsx", [
     index("routes/public/home.tsx"),
-    route("services/ai-analysis", "routes/public/analysis.tsx"),
-    route("services/technical", "routes/public/technical.tsx"),
+    route("services/ai-analysis", "routes/public/analysis.tsx", {
+      caseSensitive: true,
+    }),
+    route("services/technical", "routes/public/technical.tsx", {
+      caseSensitive: true,
+    }),
     route("pages/:slug", "routes/public/page.tsx"),
     route("services/:slug", "routes/public/service.tsx"),
     route("about", "routes/public/about.tsx"),

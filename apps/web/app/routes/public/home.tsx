@@ -1,6 +1,7 @@
 import type { Route } from "./+types/home";
 import type { Content } from "../../lib/cms";
-import { loadPage, readContent } from "../../lib/cms.server";
+import { loadPage, readContent, readAllContent } from "../../lib/cms.server";
+import { contentPath } from "../../lib/public-url";
 import {
   ContentSections,
   ArticleCards,
@@ -11,7 +12,7 @@ export async function loader() {
   if (!content)
     return { content: null, services: [], articles: [], about: null };
   const [services, articles, about] = await Promise.all([
-    readContent("services"),
+    readAllContent("services"),
     readContent("publications"),
     readContent("pages", "about"),
   ]);
@@ -64,15 +65,17 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <section>
           <h2>Услуги</h2>
           <div className="public-grid">
-            {services.map((service) => (
-              <section className="card" key={service.slug}>
-                <h2>{service.title}</h2>
-                <p>{service.summary}</p>
-                <Link to={`/services/${encodeURIComponent(service.slug)}`}>
-                  Подробнее об услуге
-                </Link>
-              </section>
-            ))}
+            {services
+              .filter((service) => contentPath("services", service.slug))
+              .map((service) => (
+                <section className="card" key={service.slug}>
+                  <h2>{service.title}</h2>
+                  <p>{service.summary}</p>
+                  <Link to={contentPath("services", service.slug)!}>
+                    Подробнее об услуге
+                  </Link>
+                </section>
+              ))}
           </div>
         </section>
         {about && (

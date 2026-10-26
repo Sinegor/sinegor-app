@@ -40,6 +40,7 @@ export interface SharedSeo extends Struct.ComponentSchema {
   };
   attributes: {
     description: Schema.Attribute.Text;
+    noindex: Schema.Attribute.Boolean & Schema.Attribute.DefaultTo<false>;
     title: Schema.Attribute.String;
   };
 }

@@ -461,6 +461,18 @@ export interface ApiPagePage extends Struct.CollectionTypeSchema {
       Schema.Attribute.Private;
     image: Schema.Attribute.Media<'images'>;
     imageLayout: Schema.Attribute.Component<'shared.image-layout', false>;
+    linkOrder: Schema.Attribute.Integer &
+      Schema.Attribute.SetMinMax<
+        {
+          min: 0;
+        },
+        number
+      > &
+      Schema.Attribute.DefaultTo<0>;
+    linkSection: Schema.Attribute.Enumeration<
+      ['home', 'ai-analysis', 'technical', 'about', 'publications', 'contacts']
+    > &
+      Schema.Attribute.DefaultTo<'publications'>;
     locale: Schema.Attribute.String & Schema.Attribute.Private;
     localizations: Schema.Attribute.Relation<'oneToMany', 'api::page.page'> &
       Schema.Attribute.Private;

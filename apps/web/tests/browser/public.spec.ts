@@ -1,5 +1,63 @@
 import { test, expect } from "@playwright/test";
 
+test("nonexistent publication pages return 404 without a canonical", async ({
+  request,
+}) => {
+  for (const offset of ["25", "999999", "1000000"]) {
+    const response = await request.get(`/publications?offset=${offset}`, {
+      maxRedirects: 0,
+    });
+    expect(response.status(), offset).toBe(404);
+    expect((await response.text()).split("</head>")[0]).not.toContain(
+      'rel="canonical"',
+    );
+  }
+});
+
+test("discovery files serve canonical standalone URLs and a public sitemap reference", async ({
+  request,
+}) => {
+  const response = await request.get("/sitemap.xml");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("application/xml");
+  const xml = await response.text();
+  expect(xml).toContain('xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"');
+  for (const path of [
+    "/",
+    "/about",
+    "/contacts",
+    "/publications",
+    "/services/ai-analysis",
+    "/services/technical",
+  ])
+    expect(xml).toContain(`<loc>http://localhost:3102${path}</loc>`);
+  expect(xml.match(/<loc>/g)).toHaveLength(6);
+  const robots = await request.get("/robots.txt");
+  expect(robots.status()).toBe(200);
+  expect(robots.headers()["content-type"]).toContain("text/plain");
+  expect(await robots.text()).toContain(
+    "Sitemap: http://localhost:3102/sitemap.xml",
+  );
+});
+
+test("public duplicates redirect permanently and canonical is present once in SSR HTML", async ({
+  request,
+}) => {
+  for (const path of ["/about/", "/ABOUT", "/pages/about"]) {
+    const response = await request.get(path, { maxRedirects: 0 });
+    expect(response.status()).toBe(308);
+    expect(new URL(response.headers().location, response.url()).pathname).toBe(
+      "/about",
+    );
+  }
+  const response = await request.get("/about");
+  expect(response.status()).toBe(200);
+  const head = (await response.text()).split("</head>")[0];
+  const links = head.match(/<link\b[^>]*rel="canonical"[^>]*>/g) || [];
+  expect(links).toHaveLength(1);
+  expect(links[0]).toContain('href="http://localhost:3102/about"');
+});
+
 test("public pages render server-side and unknown publications return 404", async ({
   request,
 }) => {

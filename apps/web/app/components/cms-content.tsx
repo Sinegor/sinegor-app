@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import type { Content } from "../lib/cms";
 import { Notice } from "./ui";
 import { ContentMedia } from "./content-media";
+import { contentPath } from "../lib/public-url";
 export function ContentSections({ content }: { content: Content }) {
   return (
     <>
@@ -35,17 +36,19 @@ export function ContentPage({ content }: { content: Content }) {
 export function ArticleCards({ articles }: { articles: Content[] }) {
   return articles.length ? (
     <div className="public-grid">
-      {articles.map((article) => (
-        <section className="card" key={article.slug}>
-          <h2>{article.title}</h2>
-          <ContentMedia image={article.image} layout={article.imageLayout}>
-            <p>{article.summary}</p>
-          </ContentMedia>
-          <Link to={`/publications/${encodeURIComponent(article.slug)}`}>
-            Читать статью
-          </Link>
-        </section>
-      ))}
+      {articles
+        .filter((article) => contentPath("publications", article.slug))
+        .map((article) => (
+          <section className="card" key={article.slug}>
+            <h2>{article.title}</h2>
+            <ContentMedia image={article.image} layout={article.imageLayout}>
+              <p>{article.summary}</p>
+            </ContentMedia>
+            <Link to={contentPath("publications", article.slug)!}>
+              Читать статью
+            </Link>
+          </section>
+        ))}
     </div>
   ) : (
     <Notice>Опубликованных материалов пока нет.</Notice>
@@ -58,5 +61,8 @@ export function contentMeta(content: Content) {
       name: "description",
       content: content.seo?.description || content.summary || content.title,
     },
+    ...(content.seo?.noindex
+      ? [{ name: "robots", content: "noindex, follow" }]
+      : []),
   ];
 }

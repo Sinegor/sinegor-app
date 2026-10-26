@@ -121,3 +121,22 @@ test("legacy text and images survive without new settings or nested media", asyn
     { text: "Второй", heading: undefined, image: null, imageLayout: null },
   ]);
 });
+
+test("public SEO exposes noindex and keeps legacy content indexable", async () => {
+  const hidden = await read({ slug: "hidden", seo: { noindex: true } });
+  assert.equal(hidden.data.seo.noindex, true);
+  const legacy = await read({ slug: "legacy", seo: { title: "Existing SEO" } });
+  assert.equal(legacy.data.seo.noindex, false);
+});
+
+test("public pages expose managed link placement and order", async () => {
+  const { data, query } = await read({
+    slug: "guide",
+    linkSection: "technical",
+    linkOrder: 2,
+  });
+  assert.equal(data.linkSection, "technical");
+  assert.equal(data.linkOrder, 2);
+  assert.ok(query.fields.includes("linkSection"));
+  assert.ok(query.fields.includes("linkOrder"));
+});

@@ -33,6 +33,8 @@ const clean = (item) => ({
   title: item.title,
   summary: item.summary,
   publishedAt: item.publishedAt,
+  linkSection: item.linkSection,
+  linkOrder: item.linkOrder,
   sections: (item.sections || []).map((s) => ({
     heading: s.heading,
     text: s.text,
@@ -40,7 +42,11 @@ const clean = (item) => ({
     imageLayout: imageLayout(s.imageLayout),
   })),
   seo: item.seo
-    ? { title: item.seo.title, description: item.seo.description }
+    ? {
+        title: item.seo.title,
+        description: item.seo.description,
+        noindex: item.seo.noindex === true,
+      }
     : null,
   image: media(item.image),
   imageLayout: imageLayout(item.imageLayout),
@@ -63,7 +69,13 @@ async function get(ctx, single) {
   };
   if (ctx.params.kind === "pages") {
     Object.assign(populate, { video: true });
-    fields.push("videoCaption", "contactEmail", "contactPhone");
+    fields.push(
+      "videoCaption",
+      "contactEmail",
+      "contactPhone",
+      "linkSection",
+      "linkOrder",
+    );
   }
   const offset = Math.max(0, Number.parseInt(ctx.query.offset, 10) || 0);
   const data = await strapi.documents(uid).findMany({

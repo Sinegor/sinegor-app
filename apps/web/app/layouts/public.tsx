@@ -1,8 +1,49 @@
-import { Link, NavLink, Outlet, useLocation } from "react-router";
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  type ShouldRevalidateFunction,
+} from "react-router";
 import { Brand } from "../components/brand";
 import { LabArt } from "../components/lab-art";
 import { MobileNavigation } from "../components/mobile-navigation";
-export default function PublicLayout() {
+import type { Route } from "./+types/public";
+import {
+  publicOrigin,
+  publicRedirect,
+  documentUrl,
+} from "../lib/public-url.server";
+import { linkSectionForPath } from "../lib/public-url";
+import { loadPageLinks } from "../lib/page-links.server";
+import { PageLinks } from "../components/page-links";
+
+export const middleware: Route.MiddlewareFunction[] = [
+  async ({ request }, next) => {
+    const response = publicRedirect(request);
+    if (response) throw response;
+    return next();
+  },
+];
+
+export async function loader({ request }: Route.LoaderArgs) {
+  const section = linkSectionForPath(documentUrl(request).pathname);
+  return {
+    publicOrigin: publicOrigin(request),
+    pageLinks: section ? await loadPageLinks(section) : [],
+  };
+}
+
+export const shouldRevalidate: ShouldRevalidateFunction = ({
+  currentUrl,
+  nextUrl,
+  defaultShouldRevalidate,
+}) =>
+  defaultShouldRevalidate ||
+  linkSectionForPath(currentUrl.pathname) !==
+    linkSectionForPath(nextUrl.pathname);
+
+export default function PublicLayout({ loaderData }: Route.ComponentProps) {
   const auth = useLocation().pathname.startsWith("/auth/");
   const links = (
     <>
@@ -43,6 +84,7 @@ export default function PublicLayout() {
           </div>
         )}
         <Outlet />
+        <PageLinks links={loaderData.pageLinks} />
       </main>
       <footer>Анализ и техническая подготовка документов</footer>
     </>

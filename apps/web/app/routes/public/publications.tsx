@@ -9,6 +9,7 @@ import {
 } from "../../components/cms-content";
 import { publicMeta } from "../../components/public-content";
 import { ContentMedia } from "../../components/content-media";
+import { publicationOffset, PUBLICATION_PAGE_SIZE } from "../../lib/public-url";
 const fallbackMeta = () =>
   publicMeta(
     "Публикации",
@@ -17,8 +18,7 @@ const fallbackMeta = () =>
 export const meta = ({ data }: Route.MetaArgs) =>
   data?.content ? contentMeta(data.content) : fallbackMeta();
 export async function loader({ request }: Route.LoaderArgs) {
-  const raw = Number(new URL(request.url).searchParams.get("offset"));
-  const offset = Number.isSafeInteger(raw) && raw >= 0 ? raw : 0;
+  const offset = publicationOffset(new URL(request.url).search);
   const [list, content] = await Promise.all([
     loadPublications(offset),
     readContent("pages", "publications"),
@@ -26,7 +26,7 @@ export async function loader({ request }: Route.LoaderArgs) {
   return { ...list, content: (content || null) as Content | null };
 }
 export default function Publications({ loaderData }: Route.ComponentProps) {
-  const { articles, offset, content } = loaderData;
+  const { articles, offset, content, hasNext } = loaderData;
   return (
     <section className="public-page">
       <h1>{content?.title || "Публикации"}</h1>
@@ -39,10 +39,18 @@ export default function Publications({ loaderData }: Route.ComponentProps) {
       <ArticleCards articles={articles} />
       <nav aria-label="Страницы публикаций">
         {offset > 0 && (
-          <Link to={`?offset=${Math.max(0, offset - 25)}`}>Назад</Link>
+          <Link
+            to={
+              offset <= PUBLICATION_PAGE_SIZE
+                ? "/publications"
+                : `?offset=${offset - PUBLICATION_PAGE_SIZE}`
+            }
+          >
+            Назад
+          </Link>
         )}
-        {articles.length === 25 && (
-          <Link to={`?offset=${offset + 25}`}>Далее</Link>
+        {hasNext && (
+          <Link to={`?offset=${offset + PUBLICATION_PAGE_SIZE}`}>Далее</Link>
         )}
       </nav>
     </section>

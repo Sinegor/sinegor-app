@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { Card, Notice } from "./ui";
+import { contentPath } from "../lib/public-url";
 export function Services() {
   return (
     <section aria-labelledby="services-title">
@@ -27,14 +28,16 @@ export function Services() {
 export function PublicationsPreview() {
   return publications.length ? (
     <div className="public-grid">
-      {publications.map((article) => (
-        <Card key={article.slug} title={article.title}>
-          <p>{article.summary}</p>
-          <Link to={`/publications/${encodeURIComponent(article.slug)}`}>
-            Читать статью
-          </Link>
-        </Card>
-      ))}
+      {publications
+        .filter((article) => contentPath("publications", article.slug))
+        .map((article) => (
+          <Card key={article.slug} title={article.title}>
+            <p>{article.summary}</p>
+            <Link to={contentPath("publications", article.slug)!}>
+              Читать статью
+            </Link>
+          </Card>
+        ))}
     </div>
   ) : (
     <Notice>Опубликованных материалов пока нет.</Notice>

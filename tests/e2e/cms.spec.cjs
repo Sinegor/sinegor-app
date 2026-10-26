@@ -15,8 +15,20 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
     },
   });
   const route = "/publications/e2e-dynamic-article";
+  const sitemap = async () => {
+    const response = await request.get("/sitemap.xml");
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("application/xml");
+    return response.text();
+  };
   await test.step("draft is hidden even with a public draft query", async () => {
     expect((await request.get(route)).status()).toBe(404);
+    expect(await sitemap()).not.toContain(`${config.origin}${route}`);
+    const robots = await request.get("/robots.txt");
+    expect(robots.status()).toBe(200);
+    expect(await robots.text()).toContain(
+      `Sitemap: ${config.origin}/sitemap.xml`,
+    );
     expect(
       (
         await request.get(
@@ -34,14 +46,22 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
     expect(html).toContain(
       "Полный текст &lt;script&gt;unsafe()&lt;/script&gt;",
     );
+    expect(await sitemap()).toContain(`<loc>${config.origin}${route}</loc>`);
+    expect(await (await request.get("/publications")).text()).toContain(
+      `href="${route}"`,
+    );
     await cms({
       action: "update",
       id: draft.documentId,
-      data: { title: "E2E обновлено без пересборки" },
+      data: {
+        title: "E2E обновлено без пересборки",
+        seo: { title: "E2E SEO title", noindex: true },
+      },
     });
     expect(await (await request.get(route)).text()).not.toContain(
       "E2E обновлено без пересборки",
     );
+    expect(await sitemap()).toContain(`<loc>${config.origin}${route}</loc>`);
     await cms({ action: "publish", id: draft.documentId });
     const context = await browser.newContext({
       javaScriptEnabled: false,
@@ -61,8 +81,20 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
     expect(await (await request.get("/publications")).text()).toContain(
       "e2e-dynamic-article",
     );
+    expect(await sitemap()).not.toContain(`${config.origin}${route}`);
+    expect(
+      (await (await request.get(route)).text()).split("</head>")[0],
+    ).toContain('name="robots" content="noindex, follow"');
+    await cms({
+      action: "update",
+      id: draft.documentId,
+      data: { seo: { noindex: false } },
+    });
+    await cms({ action: "publish", id: draft.documentId });
+    expect(await sitemap()).toContain(`<loc>${config.origin}${route}</loc>`);
     await cms({ action: "unpublish", id: draft.documentId });
     expect((await request.get(route)).status()).toBe(404);
+    expect(await sitemap()).not.toContain(`${config.origin}${route}`);
   });
   await test.step("real upload is served and public API stays read-only", async () => {
     const media = await cms({ action: "media" });
@@ -73,6 +105,9 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
     ).toBe(200);
     const page = await request.get("/pages/e2e-media");
     expect(page.status()).toBe(200);
+    expect(await sitemap()).toContain(
+      `<loc>${config.origin}/pages/e2e-media</loc>`,
+    );
     expect(await page.text()).toContain(media.url);
     const cmsOrigin = `http://127.0.0.1:${config.ports.cms}`;
     await cms({
@@ -164,6 +199,13 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
       expect(html).toContain("content-media--left");
       expect(html).toContain("content-media--right");
       expect(html).toContain("Текст раздела");
+      expect(await sitemap()).toContain(
+        `<loc>${config.origin}/${kind}/e2e-image-layout</loc>`,
+      );
+      await cms({ action: "unpublish", kind, id: doc.documentId });
+      expect(await sitemap()).not.toContain(
+        `${config.origin}/${kind}/e2e-image-layout`,
+      );
     }
     expect([403, 404, 405]).toContain(
       (
@@ -173,6 +215,166 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
         )
       ).status(),
     );
+  });
+  await test.step("published SEO pages appear in managed SSR links without entering the main menu", async () => {
+    const guide = await cms({
+      action: "create",
+      kind: "pages",
+      data: {
+        slug: "e2e-context-guide",
+        title: "Практическое руководство",
+        sections: [],
+        linkSection: "technical",
+        linkOrder: 2,
+      },
+    });
+    const link = 'href="/pages/e2e-context-guide"';
+    expect(
+      await (await request.get("/services/technical")).text(),
+    ).not.toContain(link);
+    await cms({ action: "publish", kind: "pages", id: guide.documentId });
+    const html = await (await request.get("/services/technical")).text();
+    expect(html).toContain(link);
+    expect(html.split("</header>")[0]).not.toContain(link);
+    expect(await (await request.get("/publications")).text()).not.toContain(
+      link,
+    );
+    await cms({
+      action: "update",
+      kind: "pages",
+      id: guide.documentId,
+      data: { linkSection: "about", linkOrder: 1 },
+    });
+    expect(await (await request.get("/services/technical")).text()).toContain(
+      link,
+    );
+    expect(await (await request.get("/about")).text()).not.toContain(link);
+    await cms({ action: "publish", kind: "pages", id: guide.documentId });
+    expect(
+      await (await request.get("/services/technical")).text(),
+    ).not.toContain(link);
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      baseURL: config.origin,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto("/about");
+      await page
+        .getByRole("navigation", { name: "Материалы по теме" })
+        .getByRole("link", { name: "Практическое руководство" })
+        .click();
+      await expect(page).toHaveURL(`${config.origin}/pages/e2e-context-guide`);
+      await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
+        "href",
+        `${config.origin}/pages/e2e-context-guide`,
+      );
+    } finally {
+      await context.close();
+    }
+    await cms({
+      action: "update",
+      kind: "pages",
+      id: guide.documentId,
+      data: { seo: { noindex: true } },
+    });
+    await cms({ action: "publish", kind: "pages", id: guide.documentId });
+    expect(await (await request.get("/about")).text()).not.toContain(link);
+    await cms({ action: "unpublish", kind: "pages", id: guide.documentId });
+    expect(await (await request.get("/about")).text()).not.toContain(link);
+    const underscore = await cms({
+      action: "create",
+      kind: "pages",
+      data: {
+        slug: "_",
+        title: "Материал с допустимым slug",
+        sections: [],
+      },
+    });
+    await cms({ action: "publish", kind: "pages", id: underscore.documentId });
+    const jsContext = await browser.newContext({ baseURL: config.origin });
+    try {
+      const page = await jsContext.newPage();
+      await page.goto("/publications");
+      await page
+        .getByRole("navigation", { name: "Материалы по теме" })
+        .getByRole("link", { name: "Материал с допустимым slug" })
+        .click();
+      await expect(page).toHaveURL(`${config.origin}/pages/%5F`);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+        "Материал с допустимым slug",
+      );
+      await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
+        "href",
+        `${config.origin}/pages/%5F`,
+      );
+    } finally {
+      await jsContext.close();
+    }
+  });
+  await test.step("real catalogue pagination preserves distinct canonical pages and rejects missing ones", async () => {
+    // One stable published article was seeded by the isolated CMS fixture.
+    const articles = [];
+    for (let i = 0; i < 25; i++) {
+      const article = await cms({
+        action: "create",
+        data: {
+          slug: `e2e-pagination-${i}`,
+          title: `Pagination ${i}`,
+          sections: [],
+        },
+      });
+      await cms({ action: "publish", id: article.documentId });
+      articles.push(article);
+    }
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      baseURL: config.origin,
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto("/publications");
+      await expect(page.locator(".public-grid > .card")).toHaveCount(25);
+      await page.getByRole("link", { name: "Далее", exact: true }).click();
+      await expect(page).toHaveURL(`${config.origin}/publications?offset=25`);
+      await expect(page.locator(".public-grid > .card")).toHaveCount(1);
+      await expect(page.locator('head link[rel="canonical"]')).toHaveAttribute(
+        "href",
+        `${config.origin}/publications?offset=25`,
+      );
+      await expect(
+        page.getByRole("link", { name: "Далее", exact: true }),
+      ).toHaveCount(0);
+      await page.getByRole("link", { name: "Назад", exact: true }).click();
+      await expect(page).toHaveURL(`${config.origin}/publications`);
+      await cms({ action: "unpublish", id: articles[0].documentId });
+      const missing = await request.get("/publications?offset=25");
+      expect(missing.status()).toBe(404);
+      expect((await missing.text()).split("</head>")[0]).not.toContain(
+        'rel="canonical"',
+      );
+      await page.reload();
+      await expect(
+        page.getByRole("link", { name: "Далее", exact: true }),
+      ).toHaveCount(0);
+      expect(await sitemap()).not.toContain(
+        `${config.origin}/publications?offset=25`,
+      );
+    } finally {
+      await context.close();
+    }
+    for (const offset of ["1", "999999", "1000000"]) {
+      expect(
+        (await request.get(`/publications?offset=${offset}`)).status(),
+      ).toBe(404);
+    }
+    for (const query of ["offset=-25", "offset=bad", "offset=0&unused=1"]) {
+      const response = await request.get(`/publications?${query}`, {
+        maxRedirects: 0,
+      });
+      expect(response.status()).toBe(308);
+      expect(response.headers().location).toBe(`${config.origin}/publications`);
+    }
   });
 });
 
