@@ -38,7 +38,13 @@ const { createStrapi } = require(
         let raw = "";
         for await (const part of request) raw += part;
         const payload = JSON.parse(raw),
-          docs = app.documents("api::publication.publication");
+          docs = app.documents(
+            {
+              pages: "api::page.page",
+              services: "api::service.service",
+              publications: "api::publication.publication",
+            }[payload.kind || "publications"],
+          );
         let result;
         if (payload.action === "create")
           result = await docs.create({ status: "draft", data: payload.data });
@@ -69,13 +75,17 @@ const { createStrapi } = require(
           const page = await app.documents("api::page.page").create({
             status: "published",
             data: {
-              slug: "e2e-media",
+              slug: payload.slug || "e2e-media",
               title: "E2E медиа",
               image: uploaded.id,
               sections: [{ text: "Публичное медиа" }],
             },
           });
-          result = { url: uploaded.url, id: page.documentId };
+          result = {
+            url: uploaded.url,
+            id: page.documentId,
+            mediaId: uploaded.id,
+          };
         } else {
           response.writeHead(400);
           response.end();

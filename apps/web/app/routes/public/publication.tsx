@@ -4,6 +4,7 @@ import { ContentSections, contentMeta } from "../../components/cms-content";
 import { Link } from "react-router";
 import type { Route } from "./+types/publication";
 import { publications, publicMeta } from "../../components/public-content";
+import { ContentMedia } from "../../components/content-media";
 export async function loader({ params }: Route.LoaderArgs) {
   const content = await readContent("publications", params.slug);
   if (content === null) throw new Response("Not Found", { status: 404 });
@@ -34,14 +35,9 @@ export default function Publication({ loaderData }: Route.ComponentProps) {
             {content.publishedAt.slice(0, 10)}
           </time>
         )}
-        {content.image?.url && (
-          <img
-            className="cms-image"
-            src={content.image.url}
-            alt={content.image.alternativeText || ""}
-          />
-        )}
-        <ContentSections content={content} />
+        <ContentMedia image={content.image} layout={content.imageLayout}>
+          <ContentSections content={content} />
+        </ContentMedia>
       </article>
     );
   if (!article) return null;

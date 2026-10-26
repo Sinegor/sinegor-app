@@ -166,7 +166,11 @@ def _deliver(
         issue_and_send_link(db, settings, auth_mailer, customer, purpose)
         return True
     if item.kind == "consultation":
-        telegram.send("SINEGOR — заявка на консультацию\nEmail: " + item.recipient)
+        text = "SINEGOR — заявка на консультацию\nEmail: " + item.recipient
+        # Older pending jobs contain only email and must still be deliverable.
+        if phone := item.payload.get("phone"):
+            text += "\nТелефон: " + phone
+        telegram.send(text)
         return True
     order = locked_order(db, item.order_id)
     if item.kind == "deletion_due":

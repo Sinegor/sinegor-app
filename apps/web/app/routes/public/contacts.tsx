@@ -7,6 +7,7 @@ import {
 } from "../../components/cms-content";
 export const loader = () => loadPage("pages", "contacts");
 import { Consultation } from "../../components/consultation";
+import { ContentMedia } from "../../components/content-media";
 import { publicMeta } from "../../components/public-content";
 const fallbackMeta = () =>
   publicMeta("Контакты", "Запрос предварительной консультации в SINEGOR LAB.");
@@ -18,8 +19,10 @@ export default function Contacts({ loaderData }: Route.ComponentProps) {
     return (
       <div className="public-page public-prose">
         <h1>{content.title}</h1>
-        <p>{content.summary}</p>
-        <ContentSections content={content} />
+        <ContentMedia image={content.image} layout={content.imageLayout}>
+          <p>{content.summary}</p>
+          <ContentSections content={content} />
+        </ContentMedia>
         {content.contactEmail && <p>Email: {content.contactEmail}</p>}
         {content.contactPhone && <p>Телефон: {content.contactPhone}</p>}
         <Consultation />

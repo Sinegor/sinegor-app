@@ -74,10 +74,14 @@ def process(auth, **kwargs):
 
 def test_consultation_no_crm_and_contact_data_cleared(channels, actors):
     count = channels.db.scalar(select(func.count()).select_from(Customer))
-    response = post(channels, "/api/consultations", {"email": " Person@Example.ru "})
+    response = post(
+        channels,
+        "/api/consultations",
+        {"email": " Person@Example.ru ", "phone": "+7 (999) 123-45-67"},
+    )
     assert response.status_code == 202
     assert channels.app.state.telegram_notifier.messages == [
-        "SINEGOR — заявка на консультацию\nEmail: person@example.ru",
+        "SINEGOR — заявка на консультацию\nEmail: person@example.ru\nТелефон: +79991234567",
     ]
     job = channels.db.scalar(select(Notification))
     assert job.kind == "consultation" and job.status == "sent" and job.attempts == 1
@@ -87,40 +91,114 @@ def test_consultation_no_crm_and_contact_data_cleared(channels, actors):
 
 
 def test_consultation_validation_csrf_and_limits(channels):
+    payload = {"email": "a@example.ru", "phone": "+79991234567"}
+    assert channels.client.post("/api/consultations", json=payload).status_code == 403
+    csrf = channels.client.get("/api/auth/csrf").json()["csrf_token"]
     assert (
-        channels.client.post("/api/consultations", json={"email": "a@example.ru"}).status_code
+        channels.client.post(
+            "/api/consultations",
+            json=payload,
+            headers={"Origin": "https://untrusted.example", "X-CSRF-Token": csrf},
+        ).status_code
         == 403
     )
-    assert post(channels, "/api/consultations", {"email": "bad"}).status_code == 422
+    for invalid in (
+        {"email": "a@example.ru"},
+        {"phone": "+79991234567"},
+        payload | {"email": "bad"},
+        payload | {"phone": "not a phone"},
+        payload | {"phone": "+1234567" + " " * 43},
+        payload | {"files": []},
+    ):
+        assert post(channels, "/api/consultations", invalid).status_code == 422
+    assert channels.db.scalar(select(func.count()).select_from(Notification)) == 0
+    for index in range(channels.settings.auth_account_limit):
+        # Changing the phone must not bypass the existing email identity limit.
+        assert (
+            post(
+                channels, "/api/consultations", payload | {"phone": f"+7999123456{index}"}
+            ).status_code
+            == 202
+        )
+    assert post(channels, "/api/consultations", payload).status_code == 429
+
+
+def test_consultation_ip_limit_is_preserved(channels):
+    channels.settings.auth_ip_limit = 2
+    for index in range(2):
+        assert (
+            post(
+                channels,
+                "/api/consultations",
+                {"email": f"person{index}@example.ru", "phone": "+79991234567"},
+            ).status_code
+            == 202
+        )
     assert (
-        post(channels, "/api/consultations", {"email": "a@example.ru", "files": []}).status_code
-        == 422
+        post(
+            channels,
+            "/api/consultations",
+            {"email": "another@example.ru", "phone": "+442079460958"},
+        ).status_code
+        == 429
     )
-    for _ in range(channels.settings.auth_account_limit):
-        assert post(channels, "/api/consultations", {"email": "a@example.ru"}).status_code == 202
-    assert post(channels, "/api/consultations", {"email": "a@example.ru"}).status_code == 429
+
+
+def test_consultation_errors_and_delivery_logs_do_not_expose_contacts(channels, caplog):
+    payload = {"email": "private@example.ru", "phone": "+79991234567\nInjected: private"}
+    response = post(channels, "/api/consultations", payload)
+    assert response.status_code == 422
+    assert "private" not in response.text
+    channels.app.state.telegram_notifier.fail = True
+    assert (
+        post(channels, "/api/consultations", payload | {"phone": "+79991234567"}).status_code == 202
+    )
+    assert "notification_delivery_failed" in caplog.text
+    assert "private@example.ru" not in caplog.text
+    assert "+79991234567" not in caplog.text
 
 
 def test_telegram_failure_retains_job_and_obeys_retry_after(channels):
     channels.app.state.telegram_notifier.fail = True
-    assert post(channels, "/api/consultations", {"email": "a@example.ru"}).status_code == 202
+    assert (
+        post(
+            channels,
+            "/api/consultations",
+            {"email": "a@example.ru", "phone": "+7 (999) 123-45-67"},
+        ).status_code
+        == 202
+    )
     job = channels.db.scalar(select(Notification))
     assert job.status == "pending" and job.last_error_code == "telegram_failed"
     assert job.recipient == "a@example.ru" and job.attempts == 1
+    assert job.payload == {"phone": "+79991234567"}
     assert process(channels, now=job.available_at - timedelta(microseconds=1)) == 0
     channels.app.state.telegram_notifier.fail = False
     assert process(channels, now=job.available_at) == 1
     assert job.status == "sent" and job.recipient is None and job.attempts == 2
+    assert job.payload == {}
+    assert channels.app.state.telegram_notifier.messages == [
+        "SINEGOR — заявка на консультацию\nEmail: a@example.ru\nТелефон: +79991234567"
+    ]
+    assert process(channels, now=job.available_at) == 0
 
 
 def test_committed_request_survives_missing_background_task(channels, monkeypatch):
     from sinegor.modules.notifications import router
 
     monkeypatch.setattr(router, "deliver_from_app", lambda *args: None)
-    assert post(channels, "/api/consultations", {"email": "a@example.ru"}).status_code == 202
+    assert (
+        post(
+            channels,
+            "/api/consultations",
+            {"email": "a@example.ru", "phone": "+79991234567"},
+        ).status_code
+        == 202
+    )
     assert not channels.app.state.telegram_notifier.messages
     assert channels.db.scalar(select(Notification)).status == "pending"
     assert process(channels) == 1
+    assert "Телефон: +79991234567" in channels.app.state.telegram_notifier.messages[0]
 
 
 def test_magic_link_survives_process_stop_and_never_stores_raw_token(channels, actors, monkeypatch):
@@ -377,6 +455,7 @@ def test_deletion_deferral_cancels_stale_reminder(channels, actors):
 
 
 def test_expired_worker_lease_can_be_recovered(channels):
+    # Jobs queued before phone became required must remain deliverable.
     identifier = service.enqueue(channels.db, "consultation", recipient="a@example.ru")
     channels.db.commit()
     job = channels.db.get(Notification, identifier)
@@ -385,6 +464,9 @@ def test_expired_worker_lease_can_be_recovered(channels):
     channels.db.commit()
     assert process(channels) == 1
     assert job.status == "sent" and job.lease_id is None and job.lease_until is None
+    assert channels.app.state.telegram_notifier.messages == [
+        "SINEGOR — заявка на консультацию\nEmail: a@example.ru"
+    ]
 
 
 def test_result_notification_can_be_reissued_after_customer_email_changes(channels, actors):

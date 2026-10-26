@@ -1,4 +1,4 @@
-import type { Content } from "./cms";
+import type { Content, Media } from "./cms";
 export async function readContent(
   kind: "pages" | "services" | "publications",
   slug?: string,
@@ -46,13 +46,15 @@ export function mediaUrl(path: string | undefined) {
   return ["http:", "https:"].includes(url.protocol) ? url.href : undefined;
 }
 export function withMedia(content: Content): Content {
+  const resolveMedia = (media: Media | null | undefined) =>
+    media ? { ...media, url: mediaUrl(media.url) || "" } : null;
   return {
     ...content,
-    image: content.image
-      ? { ...content.image, url: mediaUrl(content.image.url) || "" }
-      : null,
-    video: content.video
-      ? { ...content.video, url: mediaUrl(content.video.url) || "" }
-      : null,
+    image: resolveMedia(content.image),
+    video: resolveMedia(content.video),
+    sections: (content.sections || []).map((section) => ({
+      ...section,
+      image: resolveMedia(section.image),
+    })),
   };
 }

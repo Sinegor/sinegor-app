@@ -1,15 +1,18 @@
 import { Link } from "react-router";
 import type { Content } from "../lib/cms";
 import { Notice } from "./ui";
+import { ContentMedia } from "./content-media";
 export function ContentSections({ content }: { content: Content }) {
   return (
     <>
       {content.sections?.map((section, index) => (
         <section key={index}>
-          {section.heading && <h2>{section.heading}</h2>}
-          {section.text.split(/\n\s*\n/).map((paragraph, i) => (
-            <p key={i}>{paragraph}</p>
-          ))}
+          <ContentMedia image={section.image} layout={section.imageLayout}>
+            {section.heading && <h2>{section.heading}</h2>}
+            {section.text.split(/\n\s*\n/).map((paragraph, i) => (
+              <p key={i}>{paragraph}</p>
+            ))}
+          </ContentMedia>
         </section>
       ))}
     </>
@@ -19,15 +22,10 @@ export function ContentPage({ content }: { content: Content }) {
   return (
     <article className="public-page public-prose">
       <h1>{content.title}</h1>
-      {content.summary && <p className="lead">{content.summary}</p>}
-      {content.image?.url && (
-        <img
-          className="cms-image"
-          src={content.image.url}
-          alt={content.image.alternativeText || ""}
-        />
-      )}
-      <ContentSections content={content} />
+      <ContentMedia image={content.image} layout={content.imageLayout}>
+        {content.summary && <p className="lead">{content.summary}</p>}
+        <ContentSections content={content} />
+      </ContentMedia>
       <Link className="button-link" to="/contacts#consultation">
         Запросить консультацию
       </Link>
@@ -40,14 +38,9 @@ export function ArticleCards({ articles }: { articles: Content[] }) {
       {articles.map((article) => (
         <section className="card" key={article.slug}>
           <h2>{article.title}</h2>
-          {article.image?.url && (
-            <img
-              className="cms-image"
-              src={article.image.url}
-              alt={article.image.alternativeText || ""}
-            />
-          )}
-          <p>{article.summary}</p>
+          <ContentMedia image={article.image} layout={article.imageLayout}>
+            <p>{article.summary}</p>
+          </ContentMedia>
           <Link to={`/publications/${encodeURIComponent(article.slug)}`}>
             Читать статью
           </Link>

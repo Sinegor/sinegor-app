@@ -800,6 +800,16 @@ export interface components {
       /** Confirm */
       confirm: boolean;
     };
+    /** ConsultationInput */
+    ConsultationInput: {
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Phone */
+      phone: string;
+    };
     /** CustomerCreate */
     CustomerCreate: {
       /**
@@ -2493,7 +2503,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["EmailInput"];
+        "application/json": components["schemas"]["ConsultationInput"];
       };
     };
     responses: {

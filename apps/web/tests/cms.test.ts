@@ -1,5 +1,6 @@
 import { it, expect, vi, afterEach } from "vitest";
-import { readContent } from "../app/lib/cms.server";
+import { readContent, withMedia } from "../app/lib/cms.server";
+import type { Content } from "../app/lib/cms";
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
@@ -40,4 +41,32 @@ it("does not permit active script URLs in CMS media", async () => {
   expect(mediaUrl("/uploads/poster.jpg")).toBe(
     "http://localhost:1337/uploads/poster.jpg",
   );
+});
+
+it("normalizes nested image URLs and preserves section text and settings", () => {
+  vi.stubEnv("CMS_ORIGIN", "http://internal:1337");
+  vi.stubEnv("CMS_MEDIA_ORIGIN", "https://media.example.com");
+  const content = {
+    slug: "test",
+    title: "Test",
+    sections: [
+      {
+        text: "Первый",
+        image: { url: "/uploads/a.png" },
+        imageLayout: { position: "left" },
+      },
+      { text: "Второй", image: { url: "javascript:alert(1)" } },
+      { text: "Без изображения" },
+    ],
+  } as Content;
+  const result = withMedia(content);
+  expect(result.sections[0].image?.url).toBe(
+    "https://media.example.com/uploads/a.png",
+  );
+  expect(result.sections[0].imageLayout?.position).toBe("left");
+  expect(result.sections[1].image?.url).toBe("");
+  expect(result.sections[2].text).toBe("Без изображения");
+  expect(
+    withMedia({ slug: "old", title: "Legacy" } as Content).sections,
+  ).toEqual([]);
 });

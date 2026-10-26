@@ -103,7 +103,9 @@ def main():
                     result = {
                         "status": item.status,
                         "attempts": item.attempts,
-                        "contact_cleared": item.recipient is None,
+                        "contacts_retained": item.recipient is not None
+                        and bool(item.payload.get("phone")),
+                        "contact_cleared": item.recipient is None and item.payload == {},
                     }
                 else:
                     if item.status != "pending":

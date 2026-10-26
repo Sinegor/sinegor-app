@@ -35,6 +35,10 @@
       "type": "media",
       "multiple": false,
       "allowedTypes": ["images"]
+    },
+    "imageLayout": {
+      "type": "component",
+      "component": "shared.image-layout"
     }
   }
 }

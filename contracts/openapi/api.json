@@ -1969,7 +1969,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/EmailInput"
+                "$ref": "#/components/schemas/ConsultationInput"
               }
             }
           },
@@ -2520,6 +2520,29 @@
           "confirm"
         ],
         "title": "Confirmation"
+      },
+      "ConsultationInput": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "format": "email",
+            "title": "Email"
+          },
+          "phone": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Phone"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "email",
+          "phone"
+        ],
+        "title": "ConsultationInput"
       },
       "CustomerCreate": {
         "properties": {

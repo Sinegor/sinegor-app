@@ -8,6 +8,7 @@ import {
   ContentSections,
 } from "../../components/cms-content";
 import { publicMeta } from "../../components/public-content";
+import { ContentMedia } from "../../components/content-media";
 const fallbackMeta = () =>
   publicMeta(
     "Публикации",
@@ -30,10 +31,10 @@ export default function Publications({ loaderData }: Route.ComponentProps) {
     <section className="public-page">
       <h1>{content?.title || "Публикации"}</h1>
       {content && (
-        <>
+        <ContentMedia image={content.image} layout={content.imageLayout}>
           <p>{content.summary}</p>
           <ContentSections content={content} />
-        </>
+        </ContentMedia>
       )}
       <ArticleCards articles={articles} />
       <nav aria-label="Страницы публикаций">

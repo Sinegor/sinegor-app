@@ -1094,11 +1094,100 @@ dialog h2 {
   }
 }
 
-.cms-image {
-  display: block;
+.content-media {
+  container-type: inline-size;
+  min-width: 0;
   width: 100%;
+}
+.content-media__layout {
+  --content-image-width: 400px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-6);
+}
+.content-media--small {
+  --content-image-width: 240px;
+}
+.content-media--large {
+  --content-image-width: 640px;
+}
+.content-media--full {
+  --content-image-width: 100%;
+}
+.content-media__figure {
+  width: fit-content;
+  max-width: min(100%, var(--content-image-width));
+  min-width: 0;
+  margin: 0;
+  justify-self: center;
+}
+.content-media--align-left > .content-media__figure {
+  --content-image-margin: 0 auto;
+  justify-self: start;
+}
+.content-media--align-right > .content-media__figure {
+  --content-image-margin: auto 0;
+  justify-self: end;
+}
+.content-media__image {
+  display: block;
+  width: auto;
+  max-width: 100%;
   height: auto;
+  max-height: var(--content-image-max-height, 480px);
+  margin-inline: var(--content-image-margin, auto);
+  object-fit: contain;
   border-radius: var(--radius-card);
+}
+.content-media__figure figcaption {
+  margin-top: var(--space-3);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+.content-media__body {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+.content-media__body > * {
+  margin-block: 0;
+}
+.public-grid > .card .content-media {
+  --content-image-max-height: 240px;
+}
+@container (min-width: 600px) {
+  .content-media--left {
+    grid-template-columns:
+      minmax(0, min(45%, var(--content-image-width)))
+      minmax(0, 1fr);
+  }
+  .content-media--right {
+    grid-template-columns: minmax(0, 1fr) minmax(
+        0,
+        min(45%, var(--content-image-width))
+      );
+  }
+  .content-media--left > .content-media__figure,
+  .content-media--right > .content-media__figure {
+    --content-image-margin: auto;
+    justify-self: center;
+    grid-row: 1;
+  }
+  .content-media--left > .content-media__figure {
+    grid-column: 1;
+  }
+  .content-media--right > .content-media__figure {
+    grid-column: 2;
+  }
+  .content-media--left > .content-media__body {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .content-media--right > .content-media__body {
+    grid-column: 1;
+    grid-row: 1;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {

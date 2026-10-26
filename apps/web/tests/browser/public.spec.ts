@@ -18,7 +18,7 @@ test("public pages render server-side and unknown publications return 404", asyn
   expect((await request.get("/publications/missing")).status()).toBe(404);
 });
 
-test("consultation sends email, shows success and handles throttling", async ({
+test("consultation sends both contacts, shows success and handles throttling", async ({
   page,
 }) => {
   await page.route("**/api/auth/csrf", (r) =>
@@ -26,13 +26,17 @@ test("consultation sends email, shows success and handles throttling", async ({
   );
   let attempts = 0;
   await page.route("**/api/consultations", async (r) => {
-    expect(r.request().postDataJSON()).toEqual({ email: "reader@example.com" });
+    expect(r.request().postDataJSON()).toEqual({
+      email: "reader@example.com",
+      phone: "+79991234567",
+    });
     expect(r.request().headers()["x-csrf-token"]).toBe("test");
     attempts++;
     await r.fulfill({ status: attempts === 1 ? 429 : 202, json: {} });
   });
   await page.goto("/contacts");
   await page.getByLabel("Ваш email").fill("reader@example.com");
+  await page.getByLabel("Ваш телефон").fill("+7 (999) 123-45-67");
   await page.getByRole("button", { name: "Запросить консультацию" }).click();
   await expect(page.getByRole("alert")).toContainText("Слишком много запросов");
   await page.getByRole("button", { name: "Запросить консультацию" }).click();

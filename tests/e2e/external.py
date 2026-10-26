@@ -24,6 +24,7 @@ async def main():
         "disk_error": False,
         "telegram_error": False,
         "mail": [],
+        "telegram": [],
         "folders": {"disk:/E2E": "e2e-root"},
         "operations": {},
     }
@@ -86,6 +87,8 @@ async def main():
                             "subjects": [m["subject"] for m in messages],
                         },
                     )
+                if url.path == "/telegram" and self.command == "GET":
+                    return self.reply(200, {"messages": state["telegram"]})
                 return self.reply(404, {})
             host = self.headers.get("Host", "")
             if host == "api.telegram.org":
@@ -95,6 +98,8 @@ async def main():
                     or data.get("chat_id") != "synthetic-e2e"
                 ):
                     return self.reply(401, {"ok": False})
+                if not state["telegram_error"]:
+                    state["telegram"].append(data.get("text"))
                 return self.reply(
                     503 if state["telegram_error"] else 200,
                     {"ok": not state["telegram_error"]},
