@@ -21,7 +21,37 @@ const initial = (): Content => ({
   sections: [
     {
       heading: "Раздел материала",
-      text: "Первый абзац.\n\nВторой абзац сохраняется.",
+      general: [
+        {
+          type: "paragraph",
+          children: [{ type: "text", text: "Первый абзац.", bold: true }],
+        },
+        {
+          type: "paragraph",
+          children: [{ type: "text", text: "Второй абзац сохраняется." }],
+        },
+        {
+          type: "paragraph",
+          children: [
+            { type: "text", text: "Курсив", italic: true },
+            {
+              type: "link",
+              url: "/about",
+              children: [{ type: "text", text: "Связанный материал" }],
+            },
+          ],
+        },
+        {
+          type: "list",
+          format: "unordered",
+          children: [
+            {
+              type: "list-item",
+              children: [{ type: "text", text: "Элемент списка" }],
+            },
+          ],
+        },
+      ],
       image: { ...image(), alternativeText: "Иллюстрация раздела" },
       imageLayout: {
         position: "left",
@@ -256,6 +286,13 @@ test("all public routes render CMS section images and retain page actions and vi
     ]) {
       const response = await page.goto(`${site.origin}${path}`);
       expect(response?.status()).toBe(200);
+      const html = await response!.text();
+      expect(html).toContain("<strong>Первый абзац.</strong>");
+      expect(html).toContain("<em>Курсив</em>");
+      expect(html).toContain("<ul><li>Элемент списка</li></ul>");
+      await expect(page.locator(".cms-blocks strong")).toHaveText(
+        "Первый абзац.",
+      );
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
       await expect(page.getByAltText("Иллюстрация раздела")).toBeVisible();
       await expect(

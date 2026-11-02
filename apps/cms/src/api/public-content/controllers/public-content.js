@@ -37,7 +37,7 @@ const clean = (item) => ({
   linkOrder: item.linkOrder,
   sections: (item.sections || []).map((s) => ({
     heading: s.heading,
-    text: s.text,
+    general: Array.isArray(s.general) ? s.general : [],
     image: media(s.image),
     imageLayout: imageLayout(s.imageLayout),
   })),

@@ -8,6 +8,97 @@ import {
   ArticleCards,
 } from "../app/components/cms-content";
 import type { Content } from "../app/lib/cms";
+import { CmsBlocks } from "../app/components/cms-blocks";
+
+it("preserves soft breaks, marks, nested lists and safe links without executing CMS markup", () => {
+  const html = render(
+    createElement(CmsBlocks, {
+      nodes: [
+        {
+          type: "paragraph",
+          children: [
+            {
+              type: "text",
+              text: "Строка\nВторая",
+              underline: true,
+              strikethrough: true,
+              code: true,
+            },
+          ],
+        },
+        {
+          type: "link",
+          url: "javascript:alert(1)",
+          children: [{ type: "text", text: "Опасная ссылка" }],
+        },
+        {
+          type: "link",
+          url: "mailto:info@example.com",
+          children: [{ type: "text", text: "Почта" }],
+        },
+        {
+          type: "list",
+          format: "unordered",
+          children: [
+            {
+              type: "list-item",
+              children: [
+                { type: "text", text: "Внешний" },
+                {
+                  type: "list",
+                  format: "ordered",
+                  children: [
+                    {
+                      type: "list-item",
+                      children: [{ type: "text", text: "Вложенный" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  expect(html).toContain("<s><u><code>Строка<br/>Вторая</code></u></s>");
+  expect(html).toContain("Опасная ссылка");
+  expect(html).not.toContain("javascript:");
+  expect(html).toContain('href="mailto:info@example.com"');
+  expect(html).toContain(
+    "<ul><li>Внешний<ol><li>Вложенный</li></ol></li></ul>",
+  );
+});
+
+it("renders the nested-list structure produced by Strapi indentation as valid lists", () => {
+  const html = render(
+    createElement(CmsBlocks, {
+      nodes: [
+        {
+          type: "list",
+          format: "unordered",
+          children: [
+            {
+              type: "list-item",
+              children: [{ type: "text", text: "Родитель" }],
+            },
+            {
+              type: "list",
+              format: "ordered",
+              children: [
+                {
+                  type: "list-item",
+                  children: [{ type: "text", text: "Потомок" }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }),
+  );
+  expect(html).toBe("<ul><li>Родитель<ol><li>Потомок</li></ol></li></ul>");
+});
 
 const content = {
   slug: "test",
@@ -43,6 +134,62 @@ const content = {
 function render(element: ReturnType<typeof createElement>) {
   return renderToStaticMarkup(createElement(MemoryRouter, null, element));
 }
+
+it("renders current Blocks and absent optional content in server HTML", () => {
+  const current = {
+    ...content,
+    sections: [
+      {
+        general: [
+          {
+            type: "heading",
+            level: 3,
+            children: [{ type: "text", text: "Заголовок" }],
+          },
+          {
+            type: "paragraph",
+            children: [
+              { type: "text", text: "Жирный", bold: true },
+              { type: "text", text: "Курсив", italic: true },
+              {
+                type: "link",
+                url: "/about",
+                children: [{ type: "text", text: "Ссылка" }],
+              },
+            ],
+          },
+          {
+            type: "list",
+            format: "ordered",
+            children: [
+              {
+                type: "list-item",
+                children: [{ type: "text", text: "Пункт" }],
+              },
+            ],
+          },
+          { type: "quote", children: [{ type: "text", text: "Цитата" }] },
+          {
+            type: "code",
+            children: [{ type: "text", text: "<script>test</script>" }],
+          },
+        ],
+      },
+      { general: null },
+      {},
+    ],
+  } as unknown as Content;
+  const html = render(createElement(ContentSections, { content: current }));
+  expect(html).toContain("<h3>Заголовок</h3>");
+  expect(html).toContain("<strong>Жирный</strong>");
+  expect(html).toContain("<em>Курсив</em>");
+  expect(html).toContain('<a href="/about">Ссылка</a>');
+  expect(html).toContain("<ol><li>Пункт</li></ol>");
+  expect(html).toContain("<blockquote>Цитата</blockquote>");
+  expect(html).toContain(
+    "<pre><code>&lt;script&gt;test&lt;/script&gt;</code></pre>",
+  );
+});
 
 it("renders root and section illustrations with their own layouts and safe captions", () => {
   const html = render(createElement(ContentPage, { content }));

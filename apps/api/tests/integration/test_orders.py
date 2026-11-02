@@ -396,3 +396,22 @@ def test_customer_reads_only_own_handover_without_creating_or_changing_it(auth, 
         == 404
     )
     assert auth.client.get(f"/api/customer/orders/{uuid4()}/materials").status_code == 404
+
+
+def test_customer_list_returns_latest_hundred_with_stable_pagination(admin, actors):
+    start = datetime(2030, 1, 1, tzinfo=UTC)
+    rows = [
+        Customer(
+            email=f"recent-{i}@example.ru",
+            created_at=start + timedelta(seconds=i // 2),
+        )
+        for i in range(102)
+    ]
+    admin.db.add_all(rows)
+    admin.db.commit()
+    expected = sorted(rows, key=lambda row: (row.created_at, row.id), reverse=True)
+    response = admin.client.get("/api/admin/customers", params={"limit": 100})
+    assert response.status_code == 200
+    assert [row["id"] for row in response.json()] == [str(row.id) for row in expected[:100]]
+    following = admin.client.get("/api/admin/customers", params={"limit": 2, "offset": 100})
+    assert [row["id"] for row in following.json()] == [str(row.id) for row in expected[100:]]

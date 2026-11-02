@@ -7,14 +7,15 @@
     "heading": {
       "type": "string"
     },
-    "text": {
-      "type": "text",
-      "required": true
+    "general": {
+      "type": "blocks"
     },
     "image": {
       "type": "media",
       "multiple": false,
-      "allowedTypes": ["images"]
+      "allowedTypes": [
+        "images"
+      ]
     },
     "imageLayout": {
       "type": "component",

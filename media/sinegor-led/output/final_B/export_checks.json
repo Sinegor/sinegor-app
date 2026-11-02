@@ -1,0 +1,37 @@
+{
+  "selected_preset": "B",
+  "checked_frames": 800,
+  "intro_frames": 50,
+  "loop_frames": 750,
+  "size": [
+    2048,
+    720
+  ],
+  "fps": 25,
+  "intro_seconds": 2,
+  "loop_seconds": 30,
+  "format": "PNG RGBA 8-bit",
+  "all_frame_perimeters_transparent": true,
+  "first_intro_frame_transparent": true,
+  "intro_alpha_monotonic": true,
+  "all_opaque_loop_faces_constant": true,
+  "opaque_pixels": 142109,
+  "brand_face_colors_present": true,
+  "approved_preview_matches": true,
+  "intro_end_equals_loop_start": true,
+  "virtual_frame_751_equals_start": true,
+  "seam_raw_rgba_max_step_8bit": 1,
+  "seam_on_graphite": {
+    "max_rgb": 1.521575927734375,
+    "mean_rgb": 0.002668294357135892,
+    "max_alpha": 1
+  },
+  "all_adjacent_steps_checked": 750,
+  "all_steps_max_rgb": 1.73333740234375,
+  "all_steps_max_alpha": 1,
+  "neighboring_steps_max_rgb": 1.63922119140625,
+  "neighboring_steps_max_mean_rgb": 0.0027255904860794544,
+  "halo_alpha_sine_correlation": 0.9999977666523444,
+  "loop_amplitude": 0.04,
+  "scope": "All final PNGs checked; simulated graphite comparisons. GUI playback is a separate check."
+}

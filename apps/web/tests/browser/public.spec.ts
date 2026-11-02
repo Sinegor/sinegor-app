@@ -101,12 +101,20 @@ test("consultation sends both contacts, shows success and handles throttling", a
   await expect(page.getByRole("status")).toContainText("Заявка принята");
 });
 
-test("generated video plays and public pages fit wide and mobile screens", async ({
+test("presentation video plays and public pages fit wide and mobile screens", async ({
   page,
 }) => {
   await page.goto("/");
   const video = page.locator("video");
   await expect(video).toHaveAttribute("controls", "");
+  await expect(video).toHaveAttribute(
+    "poster",
+    new RegExp(`${encodeURI("заставка")}.*\\.jpg$`),
+  );
+  await expect(video.locator("source")).toHaveAttribute(
+    "src",
+    new RegExp(`${encodeURI("Презентация_1")}\\.1.*\\.mp4$`),
+  );
   await video.evaluate(async (element: HTMLVideoElement) => {
     await element.play();
   });

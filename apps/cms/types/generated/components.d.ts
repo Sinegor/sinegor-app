@@ -26,10 +26,10 @@ export interface SharedSection extends Struct.ComponentSchema {
     displayName: '\u0420\u0430\u0437\u0434\u0435\u043B';
   };
   attributes: {
+    general: Schema.Attribute.Blocks;
     heading: Schema.Attribute.String;
     image: Schema.Attribute.Media<'images'>;
     imageLayout: Schema.Attribute.Component<'shared.image-layout', false>;
-    text: Schema.Attribute.Text & Schema.Attribute.Required;
   };
 }
 

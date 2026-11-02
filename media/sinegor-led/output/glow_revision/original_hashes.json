@@ -1,0 +1,23 @@
+{
+  "config.json": "be35e04377b723152b22829815ee7b883f7092d1b29616736a375d670d69b01f",
+  "srgb.ocio": "2e93371afd04b545fb3f2d5a4b11ffb3d0d092090409711203ff8d740fafc072",
+  "fonts/Manrope-SemiBold.ttf": "36afc083b531b3b52242a64e70a40d22bf3dc459ca503b21bf9a2f6622836f00",
+  "output/SINEGOR_LAB.blend": "f827f6916c25cf62ba9d3312f05ba09461ea9a0d0a59a0e5754201a7dedd12c8",
+  "output/preview/intro_0001.png": "6a8ffa63f1a41bf0e1cc184bdf9c7ecc7e1ceea17e75a44caaa09db0f2b7341d",
+  "output/preview/intro_end.png": "4d001869058d5492d5cc9e9211d2c8ba8a6a849d8bde35bc5e471d571c50dff5",
+  "output/preview/intro_mid.png": "afaa1de7064be89391ebff5849a7db56a1ee096a32be68de42be9005a1fef103",
+  "output/preview/intro_mid_on_dark.png": "5a6bc8f5d5fe65d758aa93bee5f5e9030f14ae7a21a0f3a5ffa2ff7f3c44fcff",
+  "output/preview/loop_last.png": "1ff33edcde40e8acb402e9ccef0bbbee77941c8403b9350dc771b37f2323a153",
+  "output/preview/loop_max.png": "b12962a381e8ae7f49def46c48d517f9cee556965c6c6ef3f14e543668500a86",
+  "output/preview/loop_max_on_dark.png": "65c660213eed1ec6693f4c474616888f8f4172b1f4d5fc20eaca77dd8da60aa3",
+  "output/preview/loop_min.png": "09e003f1700da5be2162f4e85c9400f6a15a0d24e9160aebaeb18763916843b4",
+  "output/preview/loop_min_on_dark.png": "9ee73e6c2a7ff3bdb45d3f7359be3a94818f0197f301b65b6b8f94eb9f88af52",
+  "output/preview/loop_virtual_next.png": "2abb0c31443c7fb7d4bb9d424c38e8bbb1108ed40a8574ea7e8e18482b4aeca0",
+  "output/preview/review_sheet.png": "c0967d9da87007186fda505869fca0338d1a8011a3ca794679dd6e51da628e58",
+  "output/preview/small_checker.png": "2a4772e9556922ef70fcab228e10b4cc06500c2def915059841602b9a6822d4b",
+  "output/preview/small_dark.png": "7aa03a248374e93482cbc3179cd7cbabd6e3b74f2fc2104ba80e41be5a5ab04d",
+  "output/preview/small_light.png": "3dd80f2ae0bfa823c0f21bfbbb5cf0b04af4dfed15445359d1339325b7dcb56b",
+  "output/preview/small_rgba_683x239.png": "9a5945e2be9abd6920e0d31060ae255a9545763af65ff27e7c3ac75e392bf1ee",
+  "output/preview/steady.png": "b2807748718a1051128f5279678d4b7f31a9e8e23e2660bfc3ea894d5a35b5ec",
+  "output/preview/steady_on_dark.png": "7b150b11e3ac572869b097dfaf553fffbdbffccfe4464655c88178eb099a2071"
+}

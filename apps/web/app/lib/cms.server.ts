@@ -1,4 +1,4 @@
-import type { Content, ContentKind, Media } from "./cms";
+import type { Content, ContentKind, Media, RichTextNode } from "./cms";
 import { PUBLICATION_PAGE_SIZE } from "./public-url";
 export async function readContent(
   kind: ContentKind,
@@ -82,12 +82,27 @@ export function mediaUrl(path: string | undefined) {
 export function withMedia(content: Content): Content {
   const resolveMedia = (media: Media | null | undefined) =>
     media ? { ...media, url: mediaUrl(media.url) || "" } : null;
+  const resolveBlocks = (
+    nodes: RichTextNode[] | null | undefined,
+  ): RichTextNode[] | undefined =>
+    Array.isArray(nodes)
+      ? nodes
+          .filter((node) => node && typeof node === "object")
+          .map((node) => {
+            if (node.type === "image")
+              return { ...node, image: resolveMedia(node.image)! };
+            if ("children" in node)
+              return { ...node, children: resolveBlocks(node.children) || [] };
+            return node;
+          })
+      : undefined;
   return {
     ...content,
     image: resolveMedia(content.image),
     video: resolveMedia(content.video),
     sections: (content.sections || []).map((section) => ({
       ...section,
+      general: resolveBlocks(section.general),
       image: resolveMedia(section.image),
     })),
   };

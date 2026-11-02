@@ -1,0 +1,26 @@
+{
+  "png_size": [
+    2048,
+    720
+  ],
+  "mode": "RGBA",
+  "small_size": [
+    683,
+    239
+  ],
+  "transparent_pixels": 878244,
+  "partial_alpha_pixels": 454207,
+  "opaque_pixels": 142109,
+  "border_alpha_max": 0,
+  "intro_first_invisible": true,
+  "intro_end_equals_loop_start": true,
+  "virtual_frame_equals_start": true,
+  "last_to_first_max_8bit_step": 1,
+  "last_to_first_changed_pixels": 5093,
+  "opaque_letters_constant": true,
+  "exact_face_colors_present": true,
+  "checked_preview_frames": 8,
+  "comparison_depth": 8,
+  "configuration_source": "/home/sinegor/documents/IT/Pet_project/sinegor-app/media/sinegor-led/output/glow_revision/B/render_config.json",
+  "scope": "Only the selected preview images were inspected; final export history and Shotcut playback are not checked."
+}

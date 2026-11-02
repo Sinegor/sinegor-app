@@ -106,3 +106,59 @@ describe("API security", () => {
     expect(replaceState).toHaveBeenCalledOnce();
   });
 });
+
+describe("safe Russian API errors", () => {
+  it.each([
+    [
+      403,
+      "csrf_failed",
+      "Защита формы истекла. Обновите страницу и повторите действие.",
+    ],
+    [
+      422,
+      "validation_error",
+      "Проверьте заполненные поля и допустимость операции.",
+    ],
+    [404, "http_404", "Запись не найдена или больше недоступна."],
+    [
+      409,
+      "http_409",
+      "Данные или условия операции изменились. Обновите карточку и проверьте их перед повтором.",
+    ],
+    [500, "internal_error", "Не удалось выполнить запрос. Попробуйте ещё раз."],
+  ])(
+    "maps status %s and code %s without exposing backend text",
+    async (status, code, expected) => {
+      const client = createApiClient("https://sinegor.test", async () =>
+        Response.json(
+          {
+            error: { code, message: "private-data: Request validation failed" },
+          },
+          { status },
+        ),
+      );
+      await expect(client.GET("/api/auth/session")).rejects.toThrow(expected);
+    },
+  );
+  it("uses a safe failure for unknown codes and malformed responses", async () => {
+    for (const body of [
+      { error: { code: "unknown_private_code", message: "private-data" } },
+      "private-data",
+    ]) {
+      const client = createApiClient("https://sinegor.test", async () =>
+        Response.json(body, { status: 502 }),
+      );
+      await expect(client.GET("/api/auth/session")).rejects.toThrow(
+        "Не удалось выполнить запрос",
+      );
+    }
+  });
+  it("reports a network failure in Russian", async () => {
+    const client = createApiClient("https://sinegor.test", async () => {
+      throw new TypeError("Failed to fetch private-data");
+    });
+    await expect(client.GET("/api/auth/session")).rejects.toThrow(
+      "Нет соединения с сервером",
+    );
+  });
+});

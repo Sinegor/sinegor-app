@@ -35,19 +35,10 @@ export function offset(url: URL, name = "offset") {
 }
 export function message(error: unknown) {
   if (error instanceof ApiError) {
-    const text =
-      error.status === 409
-        ? "Данные или условия операции изменились. Обновите карточку и проверьте их перед повтором."
-        : error.status === 422
-          ? "Проверьте заполненные поля и допустимость операции."
-          : error.status === 413
-            ? "PDF превышает допустимый размер на сервере."
-            : error.status === 415
-              ? "Нужен файл PDF."
-              : error.status === 404
-                ? "Запись не найдена или больше недоступна."
-                : error.message;
-    return text + (error.requestId ? ` Код обращения: ${error.requestId}` : "");
+    return (
+      error.message +
+      (error.requestId ? ` Код обращения: ${error.requestId}` : "")
+    );
   }
   return "Не удалось выполнить действие. Проверьте соединение и повторите попытку.";
 }

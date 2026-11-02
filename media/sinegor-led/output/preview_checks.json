@@ -1,0 +1,24 @@
+{
+  "png_size": [
+    2048,
+    720
+  ],
+  "mode": "RGBA",
+  "small_size": [
+    683,
+    239
+  ],
+  "transparent_pixels": 1098248,
+  "partial_alpha_pixels": 234203,
+  "opaque_pixels": 142109,
+  "border_alpha_max": 0,
+  "intro_first_invisible": true,
+  "intro_end_equals_loop_start": true,
+  "virtual_frame_equals_start": true,
+  "last_to_first_max_8bit_step": 1,
+  "last_to_first_changed_pixels": 1192,
+  "opaque_letters_constant": true,
+  "exact_face_colors_present": true,
+  "full_800_frame_export_performed": false,
+  "scope": "Eight preview renders only. Final sequence and Shotcut playback still require validation."
+}

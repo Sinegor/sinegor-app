@@ -3,6 +3,7 @@ import type { Content } from "../lib/cms";
 import { Notice } from "./ui";
 import { ContentMedia } from "./content-media";
 import { contentPath } from "../lib/public-url";
+import { CmsBlocks } from "./cms-blocks";
 export function ContentSections({ content }: { content: Content }) {
   return (
     <>
@@ -10,9 +11,16 @@ export function ContentSections({ content }: { content: Content }) {
         <section key={index}>
           <ContentMedia image={section.image} layout={section.imageLayout}>
             {section.heading && <h2>{section.heading}</h2>}
-            {section.text.split(/\n\s*\n/).map((paragraph, i) => (
-              <p key={i}>{paragraph}</p>
-            ))}
+            {Array.isArray(section.general) ? (
+              <div className="cms-blocks">
+                <CmsBlocks nodes={section.general} />
+              </div>
+            ) : (
+              typeof section.text === "string" &&
+              section.text
+                .split(/\n\s*\n/)
+                .map((paragraph, i) => <p key={i}>{paragraph}</p>)
+            )}
           </ContentMedia>
         </section>
       ))}

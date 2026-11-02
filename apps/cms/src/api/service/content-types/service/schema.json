@@ -9,6 +9,7 @@
   "options": {
     "draftAndPublish": true
   },
+  "pluginOptions": {},
   "attributes": {
     "slug": {
       "type": "uid",
@@ -34,7 +35,9 @@
     "image": {
       "type": "media",
       "multiple": false,
-      "allowedTypes": ["images"]
+      "allowedTypes": [
+        "images"
+      ]
     },
     "imageLayout": {
       "type": "component",

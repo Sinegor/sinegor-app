@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mlt producer="tractor0" LC_NUMERIC="C">
+  <profile description="SINEGOR test 683x239 25fps" width="683" height="239" frame_rate_num="25" frame_rate_den="1" progressive="1" sample_aspect_num="1" sample_aspect_den="1" display_aspect_num="683" display_aspect_den="239" colorspace="709" />
+  <producer id="background" in="0" out="19">
+    <property name="mlt_service">color</property>
+    <property name="resource">#171c20</property>
+    <property name="mlt_image_format">rgba</property>
+  </producer>
+  <producer id="sequence" in="0" out="9">
+    <property name="mlt_service">qimage</property>
+    <property name="resource">/home/sinegor/documents/IT/Pet_project/sinegor-app/media/sinegor-led/output/final_B/loop/loop_%04d.png</property>
+    <property name="begin">1</property>
+    <property name="ttl">1</property>
+    <property name="length">10</property>
+    <property name="shotcut_sequence">1</property>
+  </producer>
+  <playlist id="graphite">
+    <entry producer="background" in="0" out="19" />
+  </playlist>
+  <playlist id="two_cycles">
+    <entry producer="sequence" in="0" out="9" />
+    <entry producer="sequence" in="0" out="9" />
+  </playlist>
+  <tractor id="tractor0" in="0" out="19">
+    <track producer="graphite" />
+    <track producer="two_cycles" />
+    <transition in="0" out="19">
+      <property name="mlt_service">qtblend</property>
+      <property name="a_track">0</property>
+      <property name="b_track">1</property>
+      <property name="compositing">0</property>
+    </transition>
+  </tractor>
+</mlt>

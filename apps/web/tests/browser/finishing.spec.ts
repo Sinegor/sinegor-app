@@ -5,15 +5,16 @@ import { customerApi, customerOrderId } from "./customer-api";
 test("an unavailable presentation explains the failure and offers its direct URL", async ({
   page,
 }) => {
-  await page.route("**/media/sinegor-lab-preview.mp4", (route) =>
-    route.abort(),
-  );
+  await page.route("**/assets/*.mp4", (route) => route.abort());
   await page.goto("/");
   const error = page.getByRole("alert");
   await expect(error).toContainText("Не удалось загрузить видео");
   await expect(
     error.getByRole("link", { name: "Открыть видео отдельно" }),
-  ).toHaveAttribute("href", "/media/sinegor-lab-preview.mp4");
+  ).toHaveAttribute(
+    "href",
+    new RegExp(`${encodeURI("Презентация_1")}\\.1.*\\.mp4$`),
+  );
   await expect(page.locator("video")).toHaveAttribute("controls", "");
   await expect(
     page.getByRole("link", { name: "Запросить консультацию", exact: true }),

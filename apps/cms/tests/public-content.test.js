@@ -2,6 +2,24 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const controller = require("../src/api/public-content/controllers/public-content");
 
+test("preserves current Blocks for every public collection and handles empty sections", async () => {
+  const general = [
+    {
+      type: "paragraph",
+      children: [{ type: "text", text: "Current content", bold: true }],
+    },
+  ];
+  for (const kind of ["pages", "services", "publications"]) {
+    const { data } = await read(
+      { slug: "blocks", sections: [{ general }, { general: null }, {}] },
+      kind,
+    );
+    assert.deepEqual(data.sections[0].general, general);
+    assert.deepEqual(data.sections[1].general, []);
+    assert.deepEqual(data.sections[2].general, []);
+  }
+});
+
 // The document service is the DB boundary; exercise the real public serializer.
 async function read(item, kind = "pages") {
   let query;
@@ -58,7 +76,12 @@ test("exposes root and section image presentation without internal media fields"
         sections: [
           {
             heading: "Раздел",
-            text: "Исходный текст",
+            general: [
+              {
+                type: "paragraph",
+                children: [{ type: "text", text: "Исходный текст" }],
+              },
+            ],
             image,
             imageLayout: layout,
           },
@@ -81,7 +104,10 @@ test("exposes root and section image presentation without internal media fields"
       caption: layout.caption,
     });
     assert.deepEqual(data.sections[0].imageLayout, data.imageLayout);
-    assert.equal(data.sections[0].text, "Исходный текст");
+    assert.equal(
+      data.sections[0].general[0].children[0].text,
+      "Исходный текст",
+    );
     assert.equal(query.status, "published");
     assert.deepEqual(query.populate.sections, {
       populate: { image: true, imageLayout: true },
@@ -108,17 +134,17 @@ test("invalid layout values use safe defaults and unknown fields are omitted", a
   });
 });
 
-test("legacy text and images survive without new settings or nested media", async () => {
+test("optional Blocks and images survive without settings or nested media", async () => {
   const { data } = await read({
     slug: "legacy",
     image,
-    sections: [{ text: "Первый" }, { text: "Второй" }],
+    sections: [{ general: null }, {}],
   });
   assert.equal(data.image.url, image.url);
   assert.equal(data.imageLayout, null);
   assert.deepEqual(data.sections, [
-    { text: "Первый", heading: undefined, image: null, imageLayout: null },
-    { text: "Второй", heading: undefined, image: null, imageLayout: null },
+    { general: [], heading: undefined, image: null, imageLayout: null },
+    { general: [], heading: undefined, image: null, imageLayout: null },
   ]);
 });
 

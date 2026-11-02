@@ -1,0 +1,17 @@
+{
+  "engine": "MLT qimage + qtblend from installed Shotcut",
+  "frames": 20,
+  "size": [
+    683,
+    239
+  ],
+  "fps": "25/1",
+  "repeated_ten_frames_identical": true,
+  "graphite_background_rgb": [
+    23,
+    28,
+    32
+  ],
+  "opaque_composited_output": true,
+  "scope": "Smoke test only, not the full 750-frame loop."
+}

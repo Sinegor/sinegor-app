@@ -1,0 +1,22 @@
+{
+  "engine": "MLT qimage + qtblend from installed Shotcut",
+  "decoded_frames": 1500,
+  "size": [
+    683,
+    239
+  ],
+  "fps": "25/1",
+  "duration_seconds": 60.0,
+  "second_cycle_identical_to_first": true,
+  "background": "#171C20 uniform simulation",
+  "seam_between_cycles": {
+    "max_rgb": 2,
+    "mean_rgb": 0.0032141405849572505
+  },
+  "all_adjacent_rgb_max": 2,
+  "transparent_png_compositing_preserved": true,
+  "gui_playback_checked": false,
+  "original_shotcut_project_modified": false,
+  "codec": "ffv1",
+  "scope": "Offscreen test through installed Shotcut engine; diagnostic video is opaque and is not the alpha delivery."
+}

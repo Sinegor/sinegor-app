@@ -1,0 +1,24 @@
+{
+  "original": {},
+  "A": {
+    "glow_near_px": 18.0,
+    "glow_far_px": 60.0,
+    "glow_near_opacity": 0.68,
+    "glow_far_opacity": 0.32,
+    "glow_intensity": 1.0
+  },
+  "B": {
+    "glow_near_px": 26.0,
+    "glow_far_px": 90.0,
+    "glow_near_opacity": 0.90,
+    "glow_far_opacity": 0.50,
+    "glow_intensity": 1.0
+  },
+  "C": {
+    "glow_near_px": 32.0,
+    "glow_far_px": 108.0,
+    "glow_near_opacity": 0.96,
+    "glow_far_opacity": 0.75,
+    "glow_intensity": 1.0
+  }
+}

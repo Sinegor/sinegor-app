@@ -1,3 +1,6 @@
+const paragraph = (text) => [
+  { type: "paragraph", children: [{ type: "text", text }] },
+];
 // Test-data management through real Strapi document/upload services, never public API stubs.
 const fs = require("node:fs");
 const path = require("node:path");
@@ -13,14 +16,23 @@ const { createStrapi } = require(
   )) {
     await app
       .documents(kind === "pages" ? "api::page.page" : "api::service.service")
-      .create({ data, status: "published" });
+      .create({
+        data: {
+          ...data,
+          sections: (data.sections || []).map(({ text, ...section }) => ({
+            ...section,
+            general: paragraph(text || ""),
+          })),
+        },
+        status: "published",
+      });
   }
   await app.documents("api::publication.publication").create({
     status: "published",
     data: {
       slug: "e2e-stable-article",
       title: "E2E опубликованный материал",
-      sections: [{ text: "Публичный материал из Strapi" }],
+      sections: [{ general: paragraph("Публичный материал из Strapi") }],
     },
   });
   await app.start();
@@ -78,7 +90,7 @@ const { createStrapi } = require(
               slug: payload.slug || "e2e-media",
               title: "E2E медиа",
               image: uploaded.id,
-              sections: [{ text: "Публичное медиа" }],
+              sections: [{ general: paragraph("Публичное медиа") }],
             },
           });
           result = {

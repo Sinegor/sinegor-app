@@ -7,21 +7,34 @@
   "attributes": {
     "position": {
       "type": "enumeration",
-      "enum": ["top", "left", "right"],
       "required": true,
-      "default": "top"
+      "default": "top",
+      "enum": [
+        "top",
+        "left",
+        "right"
+      ]
     },
     "size": {
       "type": "enumeration",
-      "enum": ["small", "medium", "large", "full"],
       "required": true,
-      "default": "medium"
+      "default": "medium",
+      "enum": [
+        "small",
+        "medium",
+        "large",
+        "full"
+      ]
     },
     "alignment": {
       "type": "enumeration",
-      "enum": ["left", "center", "right"],
       "required": true,
-      "default": "center"
+      "default": "center",
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ]
     },
     "caption": {
       "type": "text"

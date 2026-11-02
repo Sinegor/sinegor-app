@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import wideArt from "../../assets/AI Core and Holographic Justice.png";
+import presentation from "../../assets/Презентация_1.1.mp4";
+import presentationPoster from "../../assets/заставка.jpg";
 import { Notice } from "./ui";
 
 // Remount the media state when an editor replaces the CMS video.
 export function VideoPresentation({
-  src = "/media/sinegor-lab-preview.mp4",
+  src = presentation,
   type = "video/mp4",
-  poster = wideArt,
-  caption = "Временный анимационный ролик без звука. Полная видеопрезентация готовится.",
+  poster = presentationPoster,
+  caption = "Видеопрезентация SINEGOR LAB.",
 }: {
   src?: string;
   type?: string;

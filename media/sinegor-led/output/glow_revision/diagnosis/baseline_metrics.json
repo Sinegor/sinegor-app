@@ -1,0 +1,56 @@
+{
+  "(2048, 720)": {
+    "outside_letter_pixels_with_visible_alpha": 216668,
+    "max_outside_alpha": 115,
+    "background": "#171C20 simulation"
+  },
+  "(683, 239)": {
+    "outside_letter_pixels_with_visible_alpha": 19829,
+    "max_outside_alpha": 74,
+    "background": "#171C20 simulation",
+    "distance_bands": [
+      {
+        "to_px_chebyshev": 2,
+        "alpha_mean": 16.515211771724,
+        "alpha_max": 74,
+        "max_rgb_lift_mean": 13.618612050109366,
+        "max_rgb_lift_peak": 63
+      },
+      {
+        "to_px_chebyshev": 4,
+        "alpha_mean": 3.76301645952301,
+        "alpha_max": 15,
+        "max_rgb_lift_mean": 3.4076251259657373,
+        "max_rgb_lift_peak": 11
+      },
+      {
+        "to_px_chebyshev": 8,
+        "alpha_mean": 0.535906150641377,
+        "alpha_max": 5,
+        "max_rgb_lift_mean": 0.5342615941234514,
+        "max_rgb_lift_peak": 5
+      },
+      {
+        "to_px_chebyshev": 12,
+        "alpha_mean": 0.0,
+        "alpha_max": 0,
+        "max_rgb_lift_mean": 0.0,
+        "max_rgb_lift_peak": 0
+      },
+      {
+        "to_px_chebyshev": 18,
+        "alpha_mean": 0.0,
+        "alpha_max": 0,
+        "max_rgb_lift_mean": 0.0,
+        "max_rgb_lift_peak": 0
+      },
+      {
+        "to_px_chebyshev": 24,
+        "alpha_mean": 0.0,
+        "alpha_max": 0,
+        "max_rgb_lift_mean": 0.0,
+        "max_rgb_lift_peak": 0
+      }
+    ]
+  }
+}

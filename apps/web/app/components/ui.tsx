@@ -206,12 +206,71 @@ export function Form({
   busy = false,
   error,
   children,
+  onInvalidCapture,
+  onInputCapture,
   ...props
 }: FormHTMLAttributes<HTMLFormElement> & { busy?: boolean; error?: string }) {
   return (
-    <form {...props} aria-busy={busy}>
+    <form
+      {...props}
+      aria-busy={busy}
+      onInvalidCapture={(event) => {
+        const field = event.target;
+        if (
+          field instanceof HTMLInputElement ||
+          field instanceof HTMLTextAreaElement ||
+          field instanceof HTMLSelectElement
+        ) {
+          if (!field.validity.customError)
+            field.setCustomValidity(validationMessage(field));
+        }
+        onInvalidCapture?.(event);
+      }}
+      onInputCapture={(event) => {
+        const field = event.target;
+        if (
+          field instanceof HTMLInputElement ||
+          field instanceof HTMLTextAreaElement ||
+          field instanceof HTMLSelectElement
+        )
+          field.setCustomValidity("");
+        onInputCapture?.(event);
+      }}
+    >
       {error && <Notice error>{error}</Notice>}
       <fieldset disabled={busy}>{children}</fieldset>
     </form>
   );
+}
+
+function validationMessage(
+  field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement,
+) {
+  const validity = field.validity;
+  if (validity.valueMissing) {
+    if (field instanceof HTMLInputElement && field.type === "checkbox")
+      return "Подтвердите это действие.";
+    if (field instanceof HTMLSelectElement)
+      return "Выберите значение из списка.";
+    return "Заполните это поле.";
+  }
+  if (
+    validity.typeMismatch &&
+    field instanceof HTMLInputElement &&
+    field.type === "email"
+  )
+    return "Укажите корректный email.";
+  if (
+    validity.typeMismatch &&
+    field instanceof HTMLInputElement &&
+    field.type === "url"
+  )
+    return "Укажите корректную ссылку.";
+  if (validity.tooLong) return "Сократите текст до допустимой длины.";
+  if (validity.tooShort) return "Введите текст необходимой длины.";
+  if (validity.rangeUnderflow || validity.rangeOverflow)
+    return "Укажите значение в допустимом диапазоне.";
+  if (validity.stepMismatch || validity.badInput)
+    return "Укажите корректное числовое значение.";
+  return "Проверьте формат значения.";
 }

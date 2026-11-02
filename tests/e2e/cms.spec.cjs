@@ -1,3 +1,6 @@
+const paragraph = (text) => [
+  { type: "paragraph", children: [{ type: "text", text }] },
+];
 const { test, expect, config, cms, runtimeErrors } = require("./helpers.cjs");
 
 test("Strapi publication and media reach SSR without a frontend rebuild", async ({
@@ -10,7 +13,9 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
       slug: "e2e-dynamic-article",
       title: "E2E новая публикация",
       summary: "Публичный анонс",
-      sections: [{ text: "Полный текст <script>unsafe()</script>" }],
+      sections: [
+        { general: paragraph("Полный текст <script>unsafe()</script>") },
+      ],
       seo: { title: "E2E SEO title", description: "E2E public description" },
     },
   });
@@ -122,9 +127,9 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
           caption: "Подпись обложки",
         },
         sections: [
-          { text: "Публичное медиа" },
+          { general: paragraph("Публичное медиа") },
           {
-            text: "Раздел с иллюстрацией",
+            general: paragraph("Раздел с иллюстрацией"),
             image: media.mediaId,
             imageLayout: {
               position: "left",
@@ -152,7 +157,9 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
       size: "small",
       caption: "Подпись обложки",
     });
-    expect(published.data.sections[0].text).toBe("Публичное медиа");
+    expect(published.data.sections[0].general[0].children[0].text).toBe(
+      "Публичное медиа",
+    );
     expect(published.data.sections[1].image.url).toBe(media.url);
     expect(published.data.sections[1].imageLayout).toMatchObject({
       position: "left",
@@ -175,7 +182,7 @@ test("Strapi publication and media reach SSR without a frontend rebuild", async 
           imageLayout: { position: "left", size: "large" },
           sections: [
             {
-              text: "Текст раздела",
+              general: paragraph("Текст раздела"),
               image: media.mediaId,
               imageLayout: { position: "right", size: "small" },
             },
@@ -496,7 +503,9 @@ test("Content Manager enforces required image choices and saves root and section
     expect(data.title).toBe("E2E прежний материал после редактирования");
     expect(data.imageLayout).toBeNull();
     expect(data.image.url).toBe(legacy.url);
-    expect(data.sections[0].text).toBe("Публичное медиа");
+    expect(data.sections[0].general[0].children[0].text).toBe(
+      "Публичное медиа",
+    );
     expect(data.sections[0].imageLayout).toBeNull();
   });
 
@@ -519,7 +528,9 @@ test("Content Manager enforces required image choices and saves root and section
       alignment: "left",
     });
     expect(data.image.url).toBe(legacy.url);
-    expect(data.sections[0].text).toBe("Публичное медиа");
+    expect(data.sections[0].general[0].children[0].text).toBe(
+      "Публичное медиа",
+    );
   });
 
   await test.step("the reused section component has the same menus and saves independently", async () => {
@@ -530,7 +541,7 @@ test("Content Manager enforces required image choices and saves root and section
       data: {
         sections: [
           {
-            text: "Публичное медиа",
+            general: paragraph("Публичное медиа"),
             image: legacy.mediaId,
             imageLayout: {
               position: "top",
@@ -541,7 +552,7 @@ test("Content Manager enforces required image choices and saves root and section
         ],
       },
     });
-    await page.goto(`${origin}${documentPath}?field=sections.0.text`);
+    await page.goto(`${origin}${documentPath}?field=sections.0.general`);
     await expect(
       page.getByRole("combobox", { name: /^position\b/ }),
     ).toHaveCount(2);
@@ -557,7 +568,9 @@ test("Content Manager enforces required image choices and saves root and section
       alignment: "left",
     });
     expect(data.sections[0].image.url).toBe(legacy.url);
-    expect(data.sections[0].text).toBe("Публичное медиа");
+    expect(data.sections[0].general[0].children[0].text).toBe(
+      "Публичное медиа",
+    );
     expect(data.imageLayout).toMatchObject({
       position: "right",
       size: "large",

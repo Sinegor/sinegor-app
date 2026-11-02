@@ -1,6 +1,62 @@
 import { it, expect, vi, afterEach } from "vitest";
 import { readContent, withMedia } from "../app/lib/cms.server";
 import type { Content } from "../app/lib/cms";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { CmsBlocks } from "../app/components/cms-blocks";
+
+it("resolves and renders Blocks images while preserving external media and rejecting active URLs", () => {
+  vi.stubEnv("CMS_ORIGIN", "http://internal:1337");
+  vi.stubEnv("CMS_MEDIA_ORIGIN", "https://media.example.com");
+  const content: Content = {
+    slug: "blocks",
+    title: "Blocks",
+    sections: [
+      {
+        general: [
+          {
+            type: "image",
+            image: {
+              url: "/uploads/block.png",
+              alternativeText: "Схема",
+              mime: "image/png",
+              width: 640,
+              height: 480,
+            },
+          },
+          {
+            type: "image",
+            image: {
+              url: "https://cdn.example.com/block.png",
+              alternativeText: "CDN",
+              mime: "image/png",
+            },
+          },
+          {
+            type: "image",
+            image: {
+              url: "javascript:alert(1)",
+              alternativeText: "Unsafe",
+              mime: "image/png",
+            },
+          },
+        ],
+      },
+    ],
+  };
+  const result = withMedia(content);
+  const html = renderToStaticMarkup(
+    createElement(CmsBlocks, { nodes: result.sections[0].general }),
+  );
+  expect(html).toContain('src="https://media.example.com/uploads/block.png"');
+  expect(html).toContain('alt="Схема" width="640" height="480"');
+  expect(html).toContain('src="https://cdn.example.com/block.png"');
+  expect(html).not.toContain("javascript:");
+  expect(html).not.toContain('alt="Unsafe"');
+  expect(content.sections[0].general?.[0]).toMatchObject({
+    image: { url: "/uploads/block.png" },
+  });
+});
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();

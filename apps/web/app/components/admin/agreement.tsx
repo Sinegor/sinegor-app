@@ -133,9 +133,17 @@ export function AgreementPanel({
             onSubmit={(event) => {
               const data = formData(event);
               if (reviewed !== agreement.revision) return;
+              const reason = decision === "reject" ? text(data, "reason") : "";
+              if (decision === "reject" && !reason) {
+                op.setNotice({
+                  text: "Укажите причину отклонения.",
+                  error: true,
+                });
+                return;
+              }
               setPending({
                 revision: reviewed,
-                reason: text(data, "reason"),
+                reason,
                 approve: decision === "approve",
               });
             }}
@@ -162,6 +170,14 @@ export function AgreementPanel({
                 rows={3}
                 maxLength={2000}
                 required={decision === "reject"}
+                disabled={decision !== "reject"}
+                onChange={(event) =>
+                  event.currentTarget.setCustomValidity(
+                    event.currentTarget.value.trim()
+                      ? ""
+                      : "Укажите причину отклонения.",
+                  )
+                }
               />
             </label>
             <Button type="submit">Продолжить</Button>

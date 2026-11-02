@@ -1,0 +1,11 @@
+{
+  "blender": "5.1.1",
+  "scene_count": 2,
+  "font_packed": true,
+  "intro_monotonic": true,
+  "loop_parameter_frames_checked": 751,
+  "halo_min": 0.9600003361701965,
+  "halo_max": 1.0399996042251587,
+  "parameter_periodic": true,
+  "renders_in_this_check": 0
+}

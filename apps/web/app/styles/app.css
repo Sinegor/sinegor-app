@@ -1071,6 +1071,19 @@ dialog h2 {
 .public-prose li {
   margin-block: 12px;
 }
+.cms-blocks a {
+  display: inline;
+  min-height: auto;
+}
+.cms-blocks pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.cms-blocks img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
 .consultation {
   scroll-margin-top: 24px;
   max-width: 760px;
@@ -1236,4 +1249,54 @@ dialog h2 {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.customer-combobox {
+  position: relative;
+}
+.customer-combobox__status {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.customer-combobox__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline: 0;
+  z-index: 10;
+  max-height: min(22rem, 45dvh);
+  overflow-y: auto;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 12px 28px #0006;
+}
+.customer-combobox__dropdown p {
+  padding: 12px;
+  margin: 0;
+}
+.customer-combobox__dropdown ul {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+}
+.customer-combobox__dropdown [role="option"] {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-align: start;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.customer-combobox__dropdown [role="option"]:hover,
+.customer-combobox__dropdown .is-active,
+.customer-combobox__dropdown [aria-selected="true"] {
+  background: var(--surface);
+  border-color: var(--accent);
 }

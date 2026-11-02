@@ -112,7 +112,9 @@ test("home reloads its video after CMS replacement and removal", async ({
       .poll(() =>
         video.evaluate((element: HTMLVideoElement) => element.currentSrc),
       )
-      .toBe(`${origin}/media/sinegor-lab-preview.mp4`);
+      .toMatch(
+        new RegExp(`/assets/${encodeURI("Презентация_1")}\\.1.*\\.mp4$`),
+      );
   } finally {
     const exited = once(server, "exit");
     server.kill("SIGTERM");

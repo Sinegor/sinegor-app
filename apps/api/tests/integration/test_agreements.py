@@ -364,3 +364,13 @@ def test_orphan_cleanup_preserves_references_and_recent_uploads(api):
     assert not (api.storage.root / old_key).exists()
     assert (api.storage.root / recent_key).exists()
     assert api.get("customer", "initial").content == pdf("active")
+
+
+@pytest.mark.parametrize("reason", ["", " ", "\t\n"])
+def test_review_validates_rejection_reason_and_approval_payload(api, reason):
+    assert api.upload("admin", pdf(), 0).status_code == 200
+    assert api.upload("customer", pdf("signed"), 1).status_code == 200
+    assert api.review("reject", 2, reason=reason).status_code == 422
+    assert api.get("admin").json()["status"] == "under_review"
+    assert api.review("approve", 2, reason="must not be supplied").status_code == 422
+    assert api.review("approve", 2).status_code == 200
