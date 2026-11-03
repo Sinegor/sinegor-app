@@ -3,6 +3,112 @@ const paragraph = (text) => [
 ];
 const { test, expect, config, cms, runtimeErrors } = require("./helpers.cjs");
 
+test("public documents follow Strapi draft, publication, revision and withdrawal", async ({
+  request,
+  browser,
+}) => {
+  const route = "/documents/privacy-policy";
+  const pdf = await cms({ action: "pdf", kind: "documents" });
+  const draft = await cms({
+    action: "create",
+    kind: "documents",
+    data: {
+      slug: "privacy-policy",
+      title: "E2E тестовый документ",
+      body: paragraph("E2E синтетический текст <script>unsafe()</script>"),
+      revisedOn: "2026-11-02",
+      pdf: pdf.mediaId,
+      seo: { title: "E2E document SEO", description: "E2E description" },
+    },
+  });
+  const html = async () => (await request.get(route)).text();
+  const sitemap = async () => (await request.get("/sitemap.xml")).text();
+  expect((await request.get(route)).status()).toBe(200);
+  expect((await html()).split("</head>")[0]).toContain(
+    'name="robots" content="noindex, follow"',
+  );
+  expect(await html()).toContain("Документ готовится к публикации");
+  expect(await sitemap()).not.toContain(`${config.origin}${route}`);
+  expect(
+    (
+      await request.get(
+        `http://127.0.0.1:${config.ports.cms}/api/public-content/documents/privacy-policy?status=draft`,
+      )
+    ).status(),
+  ).toBe(404);
+  await cms({ action: "publish", kind: "documents", id: draft.documentId });
+  expect(await html()).toContain("E2E document SEO");
+  expect(await html()).toContain(pdf.url);
+  const attachment = await request.get(
+    `http://127.0.0.1:${config.ports.cms}${pdf.url}`,
+  );
+  expect(attachment.status()).toBe(200);
+  expect(attachment.headers()["content-type"]).toContain("application/pdf");
+  expect(await html()).toContain(
+    "E2E синтетический текст &lt;script&gt;unsafe()&lt;/script&gt;",
+  );
+  expect((await html()).split("</head>")[0]).not.toContain('name="robots"');
+  expect(await sitemap()).toContain(`${config.origin}${route}`);
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    baseURL: config.origin,
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(route);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "E2E тестовый документ",
+    );
+    await expect(page.locator("time")).toHaveAttribute(
+      "datetime",
+      "2026-11-02",
+    );
+    await expect(page.locator("main")).toContainText("E2E синтетический текст");
+  } finally {
+    await context.close();
+  }
+  await cms({
+    action: "update",
+    kind: "documents",
+    id: draft.documentId,
+    data: { title: "E2E новая редакция" },
+  });
+  expect(await html()).not.toContain("E2E новая редакция");
+  await cms({ action: "publish", kind: "documents", id: draft.documentId });
+  expect(await html()).toContain("E2E новая редакция");
+  await cms({ action: "unpublish", kind: "documents", id: draft.documentId });
+  expect(await html()).toContain("Документ готовится к публикации");
+  expect(await sitemap()).not.toContain(`${config.origin}${route}`);
+});
+
+test("document CMS outages return 503 with noindex and preserve public navigation", async ({
+  request,
+  page,
+}) => {
+  process.kill(config.service_pids.cms, "SIGSTOP");
+  try {
+    for (const path of ["/documents", "/documents/service-rules"]) {
+      const response = await request.get(path, { timeout: 12000 });
+      expect(response.status()).toBe(503);
+      expect(response.headers()["cache-control"]).toBe("no-store");
+      const html = await response.text();
+      expect(html).toContain("Документы временно недоступны");
+      expect(html.split("</head>")[0]).toContain(
+        'name="robots" content="noindex, follow"',
+      );
+      expect(html).not.toContain("Документ готовится к публикации");
+    }
+    await page.goto("/documents/service-rules");
+    await expect(page.getByRole("contentinfo")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Документы временно недоступны",
+    );
+  } finally {
+    process.kill(config.service_pids.cms, "SIGCONT");
+  }
+  expect((await request.get("/documents/service-rules")).status()).toBe(200);
+});
+
 test("Strapi publication and media reach SSR without a frontend rebuild", async ({
   request,
   browser,

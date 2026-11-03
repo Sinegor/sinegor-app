@@ -1,0 +1,18 @@
+{
+  "kind": "collectionType",
+  "collectionName": "public_documents",
+  "info": {
+    "singularName": "public-document",
+    "pluralName": "public-documents",
+    "displayName": "Публичный документ"
+  },
+  "options": { "draftAndPublish": true },
+  "attributes": {
+    "title": { "type": "string", "required": true },
+    "slug": { "type": "uid", "targetField": "title", "required": true },
+    "body": { "type": "blocks", "required": true },
+    "revisedOn": { "type": "date", "required": true },
+    "pdf": { "type": "media", "multiple": false, "allowedTypes": ["files"] },
+    "seo": { "type": "component", "component": "shared.seo" }
+  }
+}

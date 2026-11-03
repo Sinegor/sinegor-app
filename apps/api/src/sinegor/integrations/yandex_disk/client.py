@@ -18,9 +18,31 @@ OPERATION = re.compile(r"^[A-Za-z0-9_-]{1,256}$")
 class DiskError(Exception):
     """Safe service message; never includes the upstream response or credentials."""
 
+    status_code = 503
+    code = "disk_unavailable"
+
 
 class DiskConflict(DiskError):
-    pass
+    status_code = 409
+    code = "disk_409"
+
+
+class DiskInvalidPath(DiskConflict):
+    status_code = 422
+    code = "disk_invalid_path"
+
+
+class DiskAccessDenied(DiskError):
+    code = "disk_access_denied"
+
+
+class DiskFolderNotFound(DiskError):
+    status_code = 404
+    code = "disk_folder_not_found"
+
+
+class DiskNameConflict(DiskConflict):
+    code = "disk_name_conflict"
 
 
 @dataclass(frozen=True)
@@ -67,7 +89,7 @@ class YandexDisk:
         try:
             return child_path(path, self.root)
         except ValueError:
-            raise DiskConflict("Invalid order folder path") from None
+            raise DiskInvalidPath("Invalid order folder path") from None
 
     def _request(self, method: str, endpoint: str, **params) -> Reply:
         if not self.root or not self._token:
@@ -81,6 +103,8 @@ class YandexDisk:
             raise
         except Exception:
             raise DiskError("Disk service unavailable") from None
+        if result.status in {401, 403}:
+            raise DiskAccessDenied("Disk credentials lack access; check integration permissions")
         if result.status not in {200, 201, 202, 204, 404, 409}:
             raise DiskError("Disk request failed")
         return result
@@ -95,7 +119,9 @@ class YandexDisk:
         except (ValueError, UnicodeError):
             raise DiskError("Invalid Disk response") from None
 
-    def metadata(self, path: str, *, root: bool = False) -> Resource | None:
+    def metadata(
+        self, path: str, *, root: bool = False, folder_only: bool = True
+    ) -> Resource | None:
         if root:
             if path != self.root:
                 raise DiskConflict("Invalid orders root")
@@ -109,9 +135,11 @@ class YandexDisk:
             raise DiskError("Cannot verify Disk folder")
         data = self._json(reply)
         resource_id = data.get("resource_id")
+        if folder_only and data.get("path") == path and data.get("type") == "file":
+            raise DiskInvalidPath("Disk path points to a file, not a folder")
         if (
             data.get("path") != path
-            or data.get("type") != "dir"
+            or data.get("type") not in ({"dir"} if folder_only else {"dir", "file"})
             or not isinstance(resource_id, str)
             or not resource_id
             or len(resource_id) > 512
@@ -123,10 +151,12 @@ class YandexDisk:
         self.path(path)
         if self.metadata(self.root, root=True) is None:
             raise DiskConflict("Create the configured orders root in Disk first")
+        if self.metadata(path, folder_only=False) is not None:
+            raise DiskNameConflict("Folder already exists; verify and attach it explicitly")
         reply = self._request("PUT", "/resources", path=path)
         if reply.status == 409:
             # Never silently adopt an unrelated folder after a failed/uncertain create.
-            raise DiskConflict("Folder already exists; verify and attach it explicitly")
+            raise DiskNameConflict("Folder already exists; verify and attach it explicitly")
         if reply.status != 201:
             raise DiskError("Cannot create Disk folder")
         resource = self.metadata(path)

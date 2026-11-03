@@ -24,7 +24,7 @@ for (const role of ["admin", "customer"] as const) {
       page.getByRole("heading", { name: heading, exact: true }),
     ).toBeVisible();
     await page.getByRole("link", { name: /SINEGOR LAB/ }).click();
-    await page.getByRole("link", { name: "Контакты", exact: true }).click();
+    await page.getByRole("link", { name: "Документы", exact: true }).click();
     for (const label of ["Вход заказчика", "Вход администратора"]) {
       await page.getByRole("link", { name: label, exact: true }).click();
       await expect(page).toHaveURL(destination);

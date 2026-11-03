@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import presentation from "../../assets/Презентация_1.1.mp4";
 import presentationPoster from "../../assets/заставка.jpg";
 import { Notice } from "./ui";
+import { useAnalytics } from "./public-analytics";
 
 // Remount the media state when an editor replaces the CMS video.
 export function VideoPresentation({
@@ -38,6 +39,7 @@ function PresentationMedia({
   caption: string;
 }) {
   const [failed, setFailed] = useState(false);
+  const analytics = useAnalytics();
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     // SSR media requests can fail before React attaches the error handlers.
@@ -61,6 +63,7 @@ function PresentationMedia({
         preload="metadata"
         poster={poster}
         aria-label="Видеопрезентация SINEGOR LAB"
+        onPlaying={() => analytics("video_presentation_view")}
         onError={() => setFailed(true)}
       >
         <source src={src} type={type} onError={() => setFailed(true)} />

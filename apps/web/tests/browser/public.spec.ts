@@ -26,12 +26,13 @@ test("discovery files serve canonical standalone URLs and a public sitemap refer
     "/",
     "/about",
     "/contacts",
+    "/documents",
     "/publications",
     "/services/ai-analysis",
     "/services/technical",
   ])
     expect(xml).toContain(`<loc>http://localhost:3102${path}</loc>`);
-  expect(xml.match(/<loc>/g)).toHaveLength(6);
+  expect(xml.match(/<loc>/g)).toHaveLength(7);
   const robots = await request.get("/robots.txt");
   expect(robots.status()).toBe(200);
   expect(robots.headers()["content-type"]).toContain("text/plain");

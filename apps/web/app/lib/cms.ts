@@ -1,4 +1,4 @@
-export type ContentKind = "pages" | "services" | "publications";
+export type ContentKind = "pages" | "services" | "publications" | "documents";
 export type PageLinkSection =
   "home" | "ai-analysis" | "technical" | "about" | "publications" | "contacts";
 export type PageLink = { to: string; title: string };
@@ -49,6 +49,9 @@ export type Content = {
   linkSection?: PageLinkSection | null;
   linkOrder?: number | null;
   sections: ContentSection[];
+  body?: RichTextNode[] | null;
+  revisedOn?: string | null;
+  pdf?: Media | null;
   seo?: {
     title?: string | null;
     description?: string | null;

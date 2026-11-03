@@ -39,6 +39,9 @@ describe("dynamic public sitemap", () => {
     });
     expect(await sitemapUrls("https://public.example")).toEqual([
       "https://public.example/about",
+      "https://public.example/documents",
+      "https://public.example/documents/Case",
+      "https://public.example/documents/case",
       "https://public.example/publications",
       "https://public.example/publications/Case",
       "https://public.example/publications/case",
@@ -73,6 +76,7 @@ describe("dynamic public sitemap", () => {
     expect(await sitemapUrls("https://public.example")).toEqual([
       "https://public.example/",
       "https://public.example/about",
+      "https://public.example/documents",
       "https://public.example/publications",
     ]);
   });
@@ -96,7 +100,9 @@ describe("dynamic public sitemap", () => {
           }),
         ),
     );
-    expect(await sitemapUrls("https://public.example")).toEqual([]);
+    expect(await sitemapUrls("https://public.example")).toEqual([
+      "https://public.example/documents",
+    ]);
   });
 
   it("fails with a non-cacheable 503 instead of serving an incomplete sitemap", async () => {

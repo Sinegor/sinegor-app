@@ -43,7 +43,6 @@ test("customer search is lazy, debounced and requires explicit selection", async
   await expect(page.getByRole("listbox")).not.toBeVisible();
   await picker.fill("Новый запрос");
   await expect(page.locator('input[name="customer_id"]')).toHaveValue("");
-  await page.getByLabel("Согласованные условия").fill("Тестовые условия");
   await page
     .getByRole("button", { name: "Создать заказ", exact: true })
     .click();
@@ -71,7 +70,6 @@ test("chosen customer survives field validation, failed creation and revalidatio
     customerId,
   );
   await page.getByLabel("Согласованная стоимость", { exact: false }).fill("");
-  await page.getByLabel("Согласованные условия").fill("Тестовые условия");
   let attempts = 0;
   await page.route("**/api/admin/orders", async (route) => {
     if (route.request().method() !== "POST") return route.fallback();

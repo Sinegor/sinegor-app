@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { browserApi } from "../lib/api/client";
 import { message } from "../lib/admin/api";
 import { Form, Field, Button, Notice } from "./ui";
+import { useAnalytics } from "./public-analytics";
 
 function emailError(input: HTMLInputElement) {
   if (!input.value.trim()) return "Укажите email.";
@@ -23,6 +24,7 @@ function phoneError(value: string) {
 }
 
 export function Consultation() {
+  const analytics = useAnalytics();
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -79,6 +81,7 @@ export function Consultation() {
                 body: { email, phone },
               });
               setSent(true);
+              analytics("consultation_submit");
             } catch (cause) {
               setError(message(cause));
             } finally {

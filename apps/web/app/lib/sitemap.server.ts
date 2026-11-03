@@ -5,17 +5,19 @@ const standalonePaths = [
   "/",
   "/about",
   "/contacts",
+  "/documents",
   "/publications",
   "/services/ai-analysis",
   "/services/technical",
 ];
 
 export async function sitemapUrls(origin: string): Promise<string[]> {
-  const kinds = ["pages", "services", "publications"] as const;
+  const kinds = ["pages", "services", "publications", "documents"] as const;
   const collections = await Promise.all(kinds.map(readAllContent));
   if (collections.every((items) => items === undefined))
     return standalonePaths.map((path) => canonicalUrl(origin, path)!);
   const urls = new Set<string>();
+  urls.add(canonicalUrl(origin, "/documents")!);
   const add = (path: string, search = "") => {
     const url = canonicalUrl(origin, path, search);
     if (url) urls.add(url);

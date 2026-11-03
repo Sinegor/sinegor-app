@@ -38,12 +38,12 @@ export function normalizePublicPath(pathname: string): string | null {
   const prefix = parts[1]?.toLowerCase();
   if (
     parts.length === 2 &&
-    ["about", "contacts", "publications"].includes(prefix)
+    ["about", "contacts", "publications", "documents"].includes(prefix)
   )
     return `/${prefix}`;
   if (
     parts.length !== 3 ||
-    !["pages", "services", "publications"].includes(prefix) ||
+    !["pages", "services", "publications", "documents"].includes(prefix) ||
     !parts[2]
   )
     return null;

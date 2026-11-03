@@ -55,6 +55,7 @@ const { createStrapi } = require(
               pages: "api::page.page",
               services: "api::service.service",
               publications: "api::publication.publication",
+              documents: "api::public-document.public-document",
             }[payload.kind || "publications"],
           );
         let result;
@@ -67,7 +68,30 @@ const { createStrapi } = require(
           });
         else if (["publish", "unpublish"].includes(payload.action))
           result = await docs[payload.action]({ documentId: payload.id });
-        else if (payload.action === "media") {
+        else if (payload.action === "pdf") {
+          const file = path.join(config.workspace, "e2e-public-document.pdf");
+          fs.writeFileSync(
+            file,
+            "%PDF-1.7\n% E2E synthetic attachment\n%%EOF\n",
+          );
+          try {
+            const [uploaded] = await app
+              .plugin("upload")
+              .service("upload")
+              .upload({
+                data: {},
+                files: {
+                  filepath: file,
+                  originalFilename: "e2e-public-document.pdf",
+                  mimetype: "application/pdf",
+                  size: fs.statSync(file).size,
+                },
+              });
+            result = { mediaId: uploaded.id, url: uploaded.url };
+          } finally {
+            fs.rmSync(file, { force: true });
+          }
+        } else if (payload.action === "media") {
           const file = path.join(
             config.workspace,
             "apps/web/public/media/sinegor-lab-preview.jpg",

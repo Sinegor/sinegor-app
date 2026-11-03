@@ -12,6 +12,43 @@ const statusMessages: Record<number, string> = {
   429: "Слишком много запросов. Повторите позже.",
 };
 
+const codedMessages: Record<string, { status: number; message: string }> = {
+  csrf_failed: {
+    status: 403,
+    message: "Защита формы истекла. Обновите страницу и повторите действие.",
+  },
+  disk_invalid_path: {
+    status: 422,
+    message:
+      "Проверьте путь: укажите папку внутри разрешённого каталога заказов на Яндекс Диске.",
+  },
+  disk_invalid_name: {
+    status: 422,
+    message:
+      "Проверьте основу имени папки: недопустимые символы или слишком длинное имя.",
+  },
+  disk_folder_not_found: {
+    status: 404,
+    message:
+      "Папка не найдена на Яндекс Диске. Проверьте путь и доступность папки.",
+  },
+  disk_access_denied: {
+    status: 503,
+    message:
+      "У интеграции Яндекс Диска недостаточно прав. Проверьте токен и доступ к папке на Диске.",
+  },
+  disk_unavailable: {
+    status: 503,
+    message:
+      "Яндекс Диск временно недоступен или интеграция не настроена. Проверьте настройки и повторите позже.",
+  },
+  disk_name_conflict: {
+    status: 409,
+    message:
+      "Ресурс с таким именем уже существует. Укажите другую основу имени или проверьте папку и привяжите её явно.",
+  },
+};
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -20,8 +57,10 @@ export class ApiError extends Error {
     code?: string,
   ) {
     super(
-      status === 403 && code === "csrf_failed"
-        ? "Защита формы истекла. Обновите страницу и повторите действие."
+      code &&
+        Object.hasOwn(codedMessages, code) &&
+        codedMessages[code].status === status
+        ? codedMessages[code].message
         : (statusMessages[status] ??
             "Не удалось выполнить запрос. Попробуйте ещё раз."),
     );
@@ -41,7 +80,8 @@ async function responseError(response: Response) {
       body.error &&
       typeof body.error === "object" &&
       "code" in body.error &&
-      body.error.code === "csrf_failed"
+      typeof body.error.code === "string" &&
+      Object.hasOwn(codedMessages, body.error.code)
     )
       code = body.error.code;
   } catch {

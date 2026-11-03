@@ -13,13 +13,12 @@ import {
   PAGE_SIZE,
 } from "../../lib/admin/api";
 import { date, money, services, statuses } from "../../lib/admin/labels";
-import { Card, Form, Field, Button, Modal, Notice } from "../../components/ui";
+import { Card, Form, Button, Modal, Notice } from "../../components/ui";
 import {
   Check,
   Feedback,
   useOperation,
   formData,
-  text,
   Events,
 } from "../../components/admin/common";
 import { TermsFields, terms } from "../../components/admin/terms";
@@ -35,7 +34,7 @@ export function clientLoader({ params, request }: ClientLoaderFunctionArgs) {
   const options = { params: { path }, signal: request.signal };
   return adminLoad(async (api) => {
     const order = await value(api.GET("/api/admin/orders/{order_id}", options));
-    const [customer, agreement, payment, materials, folder, deletion, events] =
+    const [customer, agreement, materials, folder, deletion, events] =
       await Promise.all([
         value(
           api.GET("/api/admin/customers/{customer_id}", {
@@ -46,7 +45,6 @@ export function clientLoader({ params, request }: ClientLoaderFunctionArgs) {
         optional(
           value(api.GET("/api/admin/orders/{order_id}/agreement", options)),
         ),
-        value(api.GET("/api/admin/orders/{order_id}/payment", options)),
         value(api.GET("/api/admin/orders/{order_id}/materials", options)),
         optional(
           value(api.GET("/api/admin/orders/{order_id}/folder", options)),
@@ -65,7 +63,6 @@ export function clientLoader({ params, request }: ClientLoaderFunctionArgs) {
       order,
       customer,
       agreement,
-      payment,
       materials,
       folder,
       deletion,
@@ -79,7 +76,6 @@ export default function Order() {
     order,
     customer,
     agreement,
-    payment,
     materials,
     folder,
     deletion,
@@ -125,12 +121,9 @@ export default function Order() {
       <div className="admin-grid">
         <div>
           <Card title="Условия заказа">
-            {order.description && (
-              <p className="pre-wrap">{order.description}</p>
-            )}
             {order.status === "awaiting_agreement" && !agreement ? (
               <Form
-                key={`${order.service_type}:${order.description}:${order.agreed_price}`}
+                key={`${order.service_type}:${order.agreed_price}`}
                 method="post"
                 busy={op.busy}
                 onSubmit={(event) => {
@@ -175,44 +168,6 @@ export default function Order() {
           />
         </div>
         <div>
-          <Card title="Оплата">
-            <p>
-              {payment.status === "paid"
-                ? `Оплата подтверждена ${date(payment.confirmed_at)}`
-                : "Оплата не подтверждена"}
-            </p>
-            {payment.note && <p>{payment.note}</p>}
-            {payment.status !== "paid" && order.status !== "cancelled" && (
-              <Form
-                busy={op.busy}
-                method="post"
-                onSubmit={(event) => {
-                  const data = formData(event);
-                  void op.run(
-                    (api) =>
-                      value(
-                        api.POST("/api/admin/orders/{order_id}/payment", {
-                          params: { path },
-                          body: { note: text(data, "note") || null },
-                        }),
-                      ),
-                    "Оплата зафиксирована.",
-                  );
-                }}
-              >
-                <Field
-                  label="Примечание к оплате"
-                  name="note"
-                  maxLength={2000}
-                />
-                <Check name="payment_received">
-                  Я проверил поступление оплаты вне сайта. Отменить эту отметку
-                  через сайт нельзя.
-                </Check>
-                <Button type="submit">Подтвердить оплату</Button>
-              </Form>
-            )}
-          </Card>
           <Card title="Передача материалов">
             <p>
               {materials

@@ -105,7 +105,7 @@ test("new order sends selected customer and decimal price as a string", async ({
   await page
     .getByRole("combobox", { name: "Услуга", exact: true })
     .selectOption("technical_preparation");
-  await page.getByLabel("Согласованные условия").fill("Подготовка документов");
+  await expect(page.getByLabel("Согласованные условия")).toHaveCount(0);
   await page
     .getByLabel("Согласованная стоимость", { exact: false })
     .fill("1250,50");
@@ -121,7 +121,6 @@ test("new order sends selected customer and decimal price as a string", async ({
   expect(call.body).toEqual({
     customer_id: customerId,
     service_type: "technical_preparation",
-    description: "Подготовка документов",
     agreed_price: "1250.50",
   });
 });
@@ -186,7 +185,7 @@ test("agreement review uses downloaded revision and stale approval is not retrie
   expect(calls[0].body).toEqual({ revision: 2 });
 });
 
-test("payment and result readiness require explicit confirmations", async ({
+test("result readiness requires explicit confirmations without payment", async ({
   page,
 }) => {
   const state = await mockApi(page);
@@ -194,24 +193,20 @@ test("payment and result readiness require explicit confirmations", async ({
   state.agreement = agreement("approved", 3);
   state.folder = folder();
   await page.goto(`/admin/orders/${orderId}`);
-  await page.getByLabel("Примечание к оплате").fill("Перевод получен");
+  await expect(
+    page.getByRole("heading", { name: "Оплата", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Подтвердить оплату" }),
+  ).toHaveCount(0);
   await page
-    .getByRole("button", { name: "Подтвердить оплату", exact: true })
+    .getByRole("button", { name: "Зафиксировать готовность", exact: true })
     .click();
   expect(
     state.calls.filter(
-      (c) => c.method === "POST" && c.path.endsWith("/payment"),
+      (c) => c.method === "POST" && c.path.endsWith("/status"),
     ),
   ).toHaveLength(0);
-  await page
-    .getByLabel("Я проверил поступление оплаты", { exact: false })
-    .check();
-  await page
-    .getByRole("button", { name: "Подтвердить оплату", exact: true })
-    .click();
-  await expect(
-    page.getByText("Оплата зафиксирована.", { exact: true }),
-  ).toBeVisible();
   await page.getByLabel("Результат размещён в папке заказа").check();
   await page
     .getByLabel("Я вручную изменил права заказчика на просмотр")
@@ -232,6 +227,9 @@ test("payment and result readiness require explicit confirmations", async ({
     result_uploaded: true,
     access_read_only: true,
   });
+  expect(state.calls.filter((c) => c.path.endsWith("/payment"))).toHaveLength(
+    0,
+  );
 });
 
 test("SMTP readiness failure remains visible and does not claim result was delivered", async ({
@@ -425,7 +423,16 @@ test("terms can be edited before agreement and status filters apply server-side"
 }) => {
   const state = await mockApi(page);
   await page.goto(`/admin/orders/${orderId}`);
-  await page.getByLabel("Согласованные условия").fill("Изменённые условия");
+  await expect(page.getByLabel("Согласованные условия")).toHaveCount(0);
+  await expect(
+    page.getByText(state.order.description!, { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByRole("combobox", { name: "Услуга", exact: true })
+    .selectOption("technical_preparation");
+  await page
+    .getByLabel("Согласованная стоимость", { exact: false })
+    .fill("2500,75");
   await page
     .getByRole("button", { name: "Сохранить условия", exact: true })
     .click();
@@ -434,8 +441,12 @@ test("terms can be edited before agreement and status filters apply server-side"
   ).toBeVisible();
   expect(
     state.calls.find((c) => c.method === "PUT" && c.path.endsWith("/terms"))!
-      .body?.description,
-  ).toBe("Изменённые условия");
+      .body,
+  ).toEqual({ service_type: "technical_preparation", agreed_price: "2500.75" });
+  expect(state.order.description).toBe("Согласованные условия");
+  expect(state.calls.filter((c) => c.path.endsWith("/payment"))).toHaveLength(
+    0,
+  );
   await page.getByRole("link", { name: "Заказы", exact: true }).click();
   await page
     .getByRole("combobox", { name: "Статус", exact: true })

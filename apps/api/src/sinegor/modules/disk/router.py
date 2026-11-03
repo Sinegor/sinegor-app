@@ -3,11 +3,12 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from sinegor.db.types import AgreementStatus
-from sinegor.integrations.yandex_disk.client import DiskConflict, DiskError
+from sinegor.integrations.yandex_disk.client import DiskError
 from sinegor.modules.auth.dependencies import Admin, Customer, Database, OwnedOrder
 from sinegor.modules.disk import service
 from sinegor.modules.disk.schemas import (
     AttachFolder,
+    CreateFolder,
     CustomerFolderRead,
     DeleteFolder,
     FolderLink,
@@ -20,8 +21,20 @@ router = APIRouter(tags=["disk"])
 
 
 @router.post("/admin/orders/{order_id}/folder", response_model=FolderRead)
-def create_folder(order_id: UUID, request: Request, principal: Admin, db: Database):
-    return service.provision(db, request.app.state.yandex_disk, order_id, principal.id)
+def create_folder(
+    order_id: UUID,
+    request: Request,
+    principal: Admin,
+    db: Database,
+    payload: CreateFolder | None = None,
+):
+    return service.provision(
+        db,
+        request.app.state.yandex_disk,
+        order_id,
+        principal.id,
+        name_base=(payload.name_base if payload else "Заказ"),
+    )
 
 
 @router.put("/admin/orders/{order_id}/folder", response_model=FolderRead)
@@ -98,5 +111,4 @@ def delete_folder(
 async def disk_error(request: Request, exc: DiskError):
     from sinegor.api.errors import error_response
 
-    status = 409 if isinstance(exc, DiskConflict) else 503
-    return error_response(request, status, f"disk_{status}", str(exc))
+    return error_response(request, exc.status_code, exc.code, str(exc))

@@ -1652,6 +1652,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CreateFolder"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2543,6 +2560,19 @@
           "phone"
         ],
         "title": "ConsultationInput"
+      },
+      "CreateFolder": {
+        "properties": {
+          "name_base": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Name Base",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "CreateFolder"
       },
       "CustomerCreate": {
         "properties": {

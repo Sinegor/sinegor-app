@@ -23,6 +23,7 @@ test("sitemap tracks Strapi publication and noindex changes without rebuilding S
     linkOrder?: number;
   };
   const documents: Record<string, Document[]> = {
+    documents: [],
     pages: ["home", "about", "contacts", "publications", "Case", "case"].map(
       (slug) => ({ slug, title: slug, publishedAt: "2026-10-26T00:00:00Z" }),
     ),
@@ -74,6 +75,7 @@ test("sitemap tracks Strapi publication and noindex changes without rebuilding S
           "api::page.page": "pages",
           "api::service.service": "services",
           "api::publication.publication": "publications",
+          "api::public-document.public-document": "documents",
         }[uid]!;
         return documents[kind]
           .filter((item) => options.status !== "published" || item.publishedAt)
@@ -178,6 +180,7 @@ test("sitemap tracks Strapi publication and noindex changes without rebuilding S
       "/",
       "/about",
       "/contacts",
+      "/documents",
       "/services/ai-analysis",
       "/services/technical",
       "/services/TECHNICAL",

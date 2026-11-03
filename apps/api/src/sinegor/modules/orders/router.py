@@ -69,8 +69,12 @@ def update_terms(order_id: UUID, payload: OrderTerms, principal: Admin, db: Data
     order = service.locked_order(db, order_id)
     if order.status != OrderStatus.AWAITING_AGREEMENT or order.agreement is not None:
         raise HTTPException(409, "Terms are frozen once an agreement has been issued")
+    # The admin UI no longer edits description; omission must preserve historical values.
+    excluded = {"description"} if "description" not in payload.model_fields_set else set()
     changes = {
-        key: value for key, value in payload.model_dump().items() if getattr(order, key) != value
+        key: value
+        for key, value in payload.model_dump(exclude=excluded).items()
+        if getattr(order, key) != value
     }
     if changes:
         for key, value in changes.items():

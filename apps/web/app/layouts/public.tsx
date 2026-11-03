@@ -17,6 +17,12 @@ import {
 import { linkSectionForPath } from "../lib/public-url";
 import { loadPageLinks } from "../lib/page-links.server";
 import { PageLinks } from "../components/page-links";
+import { PublicFooter } from "../components/public-footer";
+import {
+  AnalyticsConsent,
+  PublicAnalytics,
+} from "../components/public-analytics";
+import { analyticsConfig } from "../lib/analytics.server";
 
 export const middleware: Route.MiddlewareFunction[] = [
   async ({ request }, next) => {
@@ -29,7 +35,14 @@ export const middleware: Route.MiddlewareFunction[] = [
 export async function loader({ request }: Route.LoaderArgs) {
   const section = linkSectionForPath(documentUrl(request).pathname);
   return {
+    analytics: analyticsConfig(),
     publicOrigin: publicOrigin(request),
+    year: Number(
+      new Intl.DateTimeFormat("en", {
+        year: "numeric",
+        timeZone: "Europe/Moscow",
+      }).format(new Date()),
+    ),
     pageLinks: section ? await loadPageLinks(section) : [],
   };
 }
@@ -53,7 +66,7 @@ export default function PublicLayout({ loaderData }: Route.ComponentProps) {
           <NavLink to="/services/technical">Обработка</NavLink>
           <NavLink to="/about">Обо мне</NavLink>
           <NavLink to="/publications">Публикации</NavLink>
-          <NavLink to="/contacts">Контакты</NavLink>
+          <NavLink to="/documents">Документы</NavLink>
         </>
       )}
       <Link to="/auth/login">Вход заказчика</Link>
@@ -61,32 +74,35 @@ export default function PublicLayout({ loaderData }: Route.ComponentProps) {
     </>
   );
   return (
-    <>
-      <header className="site-header">
-        <Brand />
-        <nav
-          className="desktop-navigation public-navigation"
-          aria-label="Основная навигация"
-        >
-          {links}
-        </nav>
-        <MobileNavigation
-          title={auth ? "Вход в SINEGOR LAB" : "Навигация SINEGOR LAB"}
-          label={auth ? "Открыть входы" : "Открыть меню"}
-        >
-          {links}
-        </MobileNavigation>
-      </header>
-      <main id="main" className={`container${auth ? " auth-main" : ""}`}>
-        {auth && (
-          <div className="auth-art">
-            <LabArt />
-          </div>
-        )}
-        <Outlet />
-        <PageLinks links={loaderData.pageLinks} />
-      </main>
-      <footer>Анализ и техническая подготовка документов</footer>
-    </>
+    <PublicAnalytics counterId={loaderData.analytics?.counterId}>
+      <div className="public-shell">
+        <header className="site-header">
+          <Brand />
+          <nav
+            className="desktop-navigation public-navigation"
+            aria-label="Основная навигация"
+          >
+            {links}
+          </nav>
+          <MobileNavigation
+            title={auth ? "Вход в SINEGOR LAB" : "Навигация SINEGOR LAB"}
+            label={auth ? "Открыть входы" : "Открыть меню"}
+          >
+            {links}
+          </MobileNavigation>
+        </header>
+        <main id="main" className={`container${auth ? " auth-main" : ""}`}>
+          <AnalyticsConsent />
+          {auth && (
+            <div className="auth-art">
+              <LabArt />
+            </div>
+          )}
+          <Outlet />
+          <PageLinks links={loaderData.pageLinks} />
+        </main>
+        <PublicFooter year={loaderData.year} />
+      </div>
+    </PublicAnalytics>
   );
 }

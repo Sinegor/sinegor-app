@@ -2,13 +2,20 @@
 
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from sinegor.db.types import DeletionReason, DeletionStatus, OrderStatus
-from sinegor.integrations.yandex_disk.client import DiskConflict, DiskError, Resource, YandexDisk
+from sinegor.integrations.yandex_disk.client import (
+    DiskConflict,
+    DiskError,
+    DiskFolderNotFound,
+    Resource,
+    YandexDisk,
+)
 from sinegor.integrations.yandex_disk.paths import folder_url, overlaps
 from sinegor.modules.disk.models import DiskFolder
 from sinegor.modules.orders.models import Order
@@ -58,7 +65,13 @@ def bind(db: Session, order: Order, resource: Resource, admin_id: UUID) -> DiskF
 
 
 def provision(
-    db: Session, disk: YandexDisk, order_id: UUID, admin_id: UUID, path: str | None = None
+    db: Session,
+    disk: YandexDisk,
+    order_id: UUID,
+    admin_id: UUID,
+    path: str | None = None,
+    *,
+    name_base: str = "Заказ",
 ) -> DiskFolder:
     order = locked_order(db, order_id)
     binding_lock(db)
@@ -70,7 +83,7 @@ def provision(
             disk.path(path)
             resource = disk.metadata(path)
             if resource is None:
-                raise HTTPException(404, "Disk folder not found")
+                raise DiskFolderNotFound("Disk folder not found")
             if current.resource_id is not None and current.resource_id != resource.resource_id:
                 raise HTTPException(409, "Folder identity has changed")
             available_path(db, path, resource.resource_id, exclude_id=current.id)
@@ -81,11 +94,13 @@ def provision(
         return current
     if order.status in {OrderStatus.COMPLETED, OrderStatus.CANCELLED}:
         raise HTTPException(409, "Closed orders cannot receive a folder")
-    target = disk.path(path if path is not None else f"{disk.root}/order-{order.id}")
+    today = datetime.now(ZoneInfo("Europe/Moscow")).date()
+    name = f"{name_base or 'Заказ'}_{order.number:03d}_{today:%Y-%m-%d}"
+    target = disk.path(path if path is not None else f"{disk.root}/{name}")
     available_path(db, target)
     resource = disk.metadata(target) if path is not None else disk.create(target)
     if resource is None:
-        raise HTTPException(404, "Disk folder not found")
+        raise DiskFolderNotFound("Disk folder not found")
     return bind(db, order, resource, admin_id)
 
 

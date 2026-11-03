@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from datetime import datetime
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -5,6 +7,22 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from sinegor.integrations.yandex_disk.paths import canonical_path
+
+
+class CreateFolder(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name_base: str = Field(default="", max_length=100)
+
+    @field_validator("name_base")
+    @classmethod
+    def valid_name(cls, value: str) -> str:
+        value = unicodedata.normalize("NFC", value)
+        if any(c in '/\\<>:"|?*%#' or unicodedata.category(c).startswith("C") for c in value):
+            raise ValueError("Invalid folder name base")
+        value = re.sub(r"\s+", "_", value.strip()) or "Заказ"
+        if value in {".", ".."} or value.endswith(".") or len(value.encode("utf-8")) > 220:
+            raise ValueError("Invalid folder name base")
+        return value
 
 
 class AttachFolder(BaseModel):

@@ -810,6 +810,14 @@ export interface components {
       /** Phone */
       phone: string;
     };
+    /** CreateFolder */
+    CreateFolder: {
+      /**
+       * Name Base
+       * @default
+       */
+      name_base: string;
+    };
     /** CustomerCreate */
     CustomerCreate: {
       /**
@@ -2340,7 +2348,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["CreateFolder"] | null;
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {

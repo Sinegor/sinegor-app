@@ -119,7 +119,7 @@ async def main():
             if url.path != "/v1/disk/resources":
                 return self.reply(404, {})
             path = query.get("path", [""])[0]
-            if not (path == "disk:/E2E" or path.startswith("disk:/E2E/order-")):
+            if not (path == "disk:/E2E" or path.startswith("disk:/E2E/")):
                 return self.reply(400, {})
             if self.command == "GET":
                 if path not in state["folders"]:

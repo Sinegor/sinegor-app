@@ -151,7 +151,7 @@ def test_attach_verifies_identity_and_prevents_rebind_and_nesting(admin, actors)
         == 409
     )
     other = f"/api/admin/orders/{actors.other_order.id}/folder"
-    for candidate in [path, path + "/child", ROOT]:
+    for candidate in [path, path + "/child"]:
         result = mutate(admin, "PUT", other, {"disk_path": candidate})
         assert result.status_code == 409
     alias = ROOT + "/alias"
@@ -317,7 +317,7 @@ def test_replaced_or_outside_folder_never_deleted(admin, actors):
     folder.disk_path = "disk:/other/secret"
     admin.db.commit()
     calls = len(admin.disk.calls)
-    assert delete(admin, actors, request).status_code == 409
+    assert delete(admin, actors, request).status_code == 422
     assert len(admin.disk.calls) == calls
 
 
@@ -493,3 +493,109 @@ def test_review_customer_cannot_confirm_uncertain_result(admin, actors):
     login_customer(admin)
     assert delete(admin, actors, request, permanent_deletion_verified=True).status_code == 403
     assert request.performed_at is None
+
+
+@pytest.mark.parametrize(
+    "base, expected",
+    [(None, "Заказ"), ("", "Заказ"), ("  Финансовые документы  ", "Финансовые_документы")],
+)
+def test_named_creation_and_repeat_keep_original_binding(
+    admin, actors, monkeypatch, base, expected
+):
+    class FixedDateTime:
+        @classmethod
+        def now(cls, zone):
+            # UTC is still November 1; Moscow is already November 2.
+            return datetime(2026, 11, 1, 22, 30, tzinfo=UTC).astimezone(zone)
+
+    monkeypatch.setattr(disk_service, "datetime", FixedDateTime)
+    body = {} if base is None else {"name_base": base}
+    response = post(admin, folder_path(actors), body)
+    assert response.status_code == 200
+    expected_path = f"{ROOT}/{expected}_{actors.order.number:03d}_2026-11-02"
+    assert response.json()["disk_path"] == expected_path
+    repeated = post(admin, folder_path(actors), {"name_base": "Different"})
+    assert repeated.status_code == 200
+    assert repeated.json()["disk_path"] == expected_path
+    assert len(admin.disk.calls) == 1
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "../secret",
+        "a/b",
+        "a\\b",
+        "a?b",
+        "a%b",
+        "a#b",
+        "a:b",
+        "a*",
+        "a<",
+        "a|",
+        "a\x00",
+        "a\u200fb",
+        "x" * 101,
+    ],
+)
+def test_invalid_folder_name_does_not_contact_disk(admin, actors, base):
+    response = post(admin, folder_path(actors), {"name_base": base})
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "disk_invalid_name"
+    assert not admin.disk.calls
+    assert admin.db.scalar(select(DiskFolder)) is None
+
+
+@pytest.mark.parametrize(
+    "upstream, status, code",
+    [
+        (404, 404, "disk_folder_not_found"),
+        (401, 503, "disk_access_denied"),
+        (403, 503, "disk_access_denied"),
+        (503, 503, "disk_unavailable"),
+    ],
+)
+def test_attach_failure_is_distinct_and_never_binds(admin, actors, upstream, status, code):
+    settings = admin.settings.model_copy(
+        update={"yandex_disk_root": ROOT, "yandex_disk_token": SecretStr("test-only")}
+    )
+    calls = []
+
+    def transport(method, target, token, timeout):
+        calls.append(method)
+        return Reply(upstream, b"private upstream details")
+
+    admin.app.state.yandex_disk = YandexDisk(settings, transport)
+    response = mutate(admin, "PUT", folder_path(actors), {"disk_path": ROOT + "/missing"})
+    assert response.status_code == status
+    assert response.json()["error"]["code"] == code
+    assert "private upstream details" not in response.text
+    assert calls == ["GET"]
+    assert admin.db.scalar(select(DiskFolder)) is None
+
+
+@pytest.mark.parametrize("path", ["disk:/elsewhere/a", ROOT, ROOT + "/../secret"])
+def test_invalid_binding_path_is_reported_without_upstream_request(admin, actors, path):
+    response = mutate(admin, "PUT", folder_path(actors), {"disk_path": path})
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "disk_invalid_path"
+    assert not admin.disk.calls
+    assert admin.db.scalar(select(DiskFolder)) is None
+
+
+def test_file_cannot_be_attached_as_order_folder(admin, actors):
+    path = ROOT + "/not-a-folder"
+    settings = admin.settings.model_copy(
+        update={"yandex_disk_root": ROOT, "yandex_disk_token": SecretStr("test-only")}
+    )
+
+    def transport(method, target, token, timeout):
+        return Reply(
+            200, json.dumps({"path": path, "type": "file", "resource_id": "file-id"}).encode()
+        )
+
+    admin.app.state.yandex_disk = YandexDisk(settings, transport)
+    response = mutate(admin, "PUT", folder_path(actors), {"disk_path": path})
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "disk_invalid_path"
+    assert admin.db.scalar(select(DiskFolder)) is None

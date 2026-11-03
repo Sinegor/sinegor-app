@@ -2,6 +2,7 @@ const types = {
   pages: "api::page.page",
   services: "api::service.service",
   publications: "api::publication.publication",
+  documents: "api::public-document.public-document",
 };
 const media = (file) =>
   file
@@ -60,13 +61,18 @@ async function get(ctx, single) {
     ? types[ctx.params.kind]
     : null;
   if (!uid) return ctx.notFound();
-  const fields = ["slug", "title", "summary", "publishedAt"];
-  const populate = {
-    sections: { populate: { image: true, imageLayout: true } },
-    seo: true,
-    image: true,
-    imageLayout: true,
-  };
+  const isDocument = ctx.params.kind === "documents";
+  const fields = isDocument
+    ? ["slug", "title", "body", "revisedOn", "publishedAt"]
+    : ["slug", "title", "summary", "publishedAt"];
+  const populate = isDocument
+    ? { seo: true, pdf: true }
+    : {
+        sections: { populate: { image: true, imageLayout: true } },
+        seo: true,
+        image: true,
+        imageLayout: true,
+      };
   if (ctx.params.kind === "pages") {
     Object.assign(populate, { video: true });
     fields.push(
@@ -89,8 +95,20 @@ async function get(ctx, single) {
   });
   ctx.set("Cache-Control", "no-store");
   if (single && !data.length) return ctx.notFound();
+  const serialize = (item) =>
+    isDocument
+      ? {
+          slug: item.slug,
+          title: item.title,
+          publishedAt: item.publishedAt,
+          body: Array.isArray(item.body) ? item.body : [],
+          revisedOn: item.revisedOn,
+          pdf: item.pdf?.mime === "application/pdf" ? media(item.pdf) : null,
+          seo: clean(item).seo,
+        }
+      : clean(item);
   ctx.body = {
-    data: single ? clean(data[0]) : data.map(clean),
+    data: single ? serialize(data[0]) : data.map(serialize),
     nextOffset: !single && data.length === 25 ? offset + 25 : null,
   };
 }

@@ -166,3 +166,36 @@ test("public pages expose managed link placement and order", async () => {
   assert.ok(query.fields.includes("linkSection"));
   assert.ok(query.fields.includes("linkOrder"));
 });
+
+test("public documents use published-only queries and expose Blocks, revision and PDF", async () => {
+  const body = [
+    { type: "paragraph", children: [{ type: "text", text: "Test content" }] },
+  ];
+  const { data, query } = await read(
+    {
+      slug: "privacy-policy",
+      title: "Test document",
+      body,
+      revisedOn: "2026-11-02",
+      pdf: { ...image, url: "/uploads/document.pdf", mime: "application/pdf" },
+      privateAgreement: "must not be exposed",
+    },
+    "documents",
+  );
+  assert.equal(query.status, "published");
+  assert.deepEqual(query.populate, { seo: true, pdf: true });
+  assert.ok(query.fields.includes("body"));
+  assert.deepEqual(data.body, body);
+  assert.equal(data.revisedOn, "2026-11-02");
+  assert.equal(data.pdf.url, "/uploads/document.pdf");
+  assert.equal(data.privateAgreement, undefined);
+  assert.equal(data.pdf.provider_metadata, undefined);
+});
+
+test("public documents omit attachments that are not PDFs", async () => {
+  const { data } = await read(
+    { slug: "service-rules", pdf: image },
+    "documents",
+  );
+  assert.equal(data.pdf, null);
+});

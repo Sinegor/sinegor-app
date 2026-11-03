@@ -86,11 +86,11 @@ def test_root_and_siblings_cannot_be_modified(path):
 
 
 def test_create_checks_root_and_identity_and_encodes_path():
-    client, transport = disk(meta(ROOT), reply(201), meta())
+    client, transport = disk(meta(ROOT), reply(404), reply(201), meta())
     resource = client.create(PATH)
     assert resource.path == PATH and resource.resource_id == "id-1"
-    assert [c[0] for c in transport.calls] == ["GET", "PUT", "GET"]
-    assert parse_qs(urlsplit(transport.calls[1][1]).query)["path"] == [PATH]
+    assert [c[0] for c in transport.calls] == ["GET", "GET", "PUT", "GET"]
+    assert parse_qs(urlsplit(transport.calls[2][1]).query)["path"] == [PATH]
     assert all(c[2] == TOKEN and c[3] == 10 for c in transport.calls)
     assert "заказ" not in transport.calls[1][1]
     assert TOKEN not in repr(settings())
@@ -98,10 +98,10 @@ def test_create_checks_root_and_identity_and_encodes_path():
 
 
 def test_existing_folder_is_not_silently_adopted():
-    client, transport = disk(meta(ROOT), reply(409))
+    client, transport = disk(meta(ROOT), reply(404), reply(409))
     with pytest.raises(DiskConflict):
         client.create(PATH)
-    assert len(transport.calls) == 2
+    assert len(transport.calls) == 3
 
 
 @pytest.mark.parametrize("code", [401, 403, 429, 500, 503, 302])
@@ -218,3 +218,22 @@ def test_result_verification_requires_boolean(value):
             confirm=True,
             permanent_deletion_verified=value,
         )
+
+
+@pytest.mark.parametrize("kind", ["dir", "file"])
+def test_creation_preflight_rejects_existing_folder_without_put(kind):
+    client, transport = disk(meta(ROOT), reply(path=PATH, resource_id="id", type=kind))
+    with pytest.raises(DiskConflict) as error:
+        client.create(PATH)
+    assert getattr(error.value, "code", None) == "disk_name_conflict"
+    assert [call[0] for call in transport.calls] == ["GET", "GET"]
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_access_failure_has_distinct_safe_code(status):
+    client, transport = disk(Reply(status, TOKEN.encode()))
+    with pytest.raises(DiskError) as error:
+        client.metadata(PATH)
+    assert getattr(error.value, "code", None) == "disk_access_denied"
+    assert TOKEN not in str(error.value)
+    assert len(transport.calls) == 1

@@ -21,6 +21,8 @@ export default [
     route("publications", "routes/public/publications.tsx"),
     route("publications/:slug", "routes/public/publication.tsx"),
     route("contacts", "routes/public/contacts.tsx"),
+    route("documents", "routes/public/documents.tsx"),
+    route("documents/:slug", "routes/public/document.tsx"),
     route("auth/magic-link", "routes/auth/magic-link.tsx"),
     route("auth/admin", "routes/auth/admin.tsx"),
     route("auth/login", "routes/auth/login.tsx"),

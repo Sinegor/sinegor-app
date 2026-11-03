@@ -32,4 +32,12 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        if request.url.path.startswith("/api/admin/orders/") and request.url.path.endswith(
+            "/folder"
+        ):
+            fields = {tuple(error["loc"]) for error in exc.errors()}
+            if ("body", "disk_path") in fields:
+                return error_response(request, 422, "disk_invalid_path", "Invalid Disk path")
+            if ("body", "name_base") in fields:
+                return error_response(request, 422, "disk_invalid_name", "Invalid folder name base")
         return error_response(request, 422, "validation_error", "Request validation failed")

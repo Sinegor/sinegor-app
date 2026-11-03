@@ -119,23 +119,39 @@ export function FolderPanel({
         </>
       ) : (
         <>
-          <Button
-            disabled={op.busy}
-            onClick={() =>
-              op.run(
+          <Form
+            method="post"
+            busy={op.busy}
+            onSubmit={(event) => {
+              const data = formData(event);
+              void op.run(
                 (api) =>
                   value(
                     api.POST("/api/admin/orders/{order_id}/folder", {
                       params: { path: { order_id: orderId } },
+                      body: { name_base: text(data, "name_base") },
                     }),
                   ),
                 "Папка создана и привязана.",
                 "Если ответ потерян, сначала проверьте папку на Диске и привяжите её явно.",
-              )
-            }
+              );
+            }}
           >
-            Создать папку заказа
-          </Button>
+            <Field
+              label="Основа имени папки (необязательно)"
+              name="name_base"
+              maxLength={100}
+              placeholder="Заказ"
+              aria-describedby={`folder-name-help-${orderId}`}
+            />
+            <p id={`folder-name-help-${orderId}`}>
+              Имя: Основа_НомерЗаказа_Дата. Без основы используется «Заказ».
+              Номер заказа и текущая дата по Москве добавляются автоматически,
+              пробелы заменяются подчёркиваниями. Не используйте символы / \
+              &lt; &gt; : &quot; | ? * % # и служебные символы.
+            </p>
+            <Button type="submit">Создать папку заказа</Button>
+          </Form>
           <Form
             method="post"
             busy={op.busy}

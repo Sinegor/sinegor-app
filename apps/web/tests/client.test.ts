@@ -162,3 +162,27 @@ describe("safe Russian API errors", () => {
     );
   });
 });
+
+it.each([
+  [422, "disk_invalid_path", "Проверьте путь"],
+  [422, "disk_invalid_name", "основу имени"],
+  [404, "disk_folder_not_found", "Папка не найдена"],
+  [503, "disk_access_denied", "Диска недостаточно прав"],
+  [503, "disk_unavailable", "Яндекс Диск временно недоступен"],
+  [409, "disk_name_conflict", "таким именем уже существует"],
+])(
+  "maps safe Disk error %s/%s without exposing upstream text",
+  async (status, code, expected) => {
+    const api = createApiClient("https://sinegor.test", async () =>
+      Response.json(
+        { error: { code, message: "private upstream body" } },
+        { status },
+      ),
+    );
+    await expect(
+      api.GET("/api/admin/orders/{order_id}/folder", {
+        params: { path: { order_id: "order" } },
+      }),
+    ).rejects.toThrow(expected);
+  },
+);

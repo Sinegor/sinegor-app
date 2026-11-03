@@ -100,6 +100,11 @@ export function withMedia(content: Content): Content {
     ...content,
     image: resolveMedia(content.image),
     video: resolveMedia(content.video),
+    pdf:
+      content.pdf?.mime === "application/pdf"
+        ? resolveMedia(content.pdf)
+        : null,
+    body: resolveBlocks(content.body),
     sections: (content.sections || []).map((section) => ({
       ...section,
       general: resolveBlocks(section.general),

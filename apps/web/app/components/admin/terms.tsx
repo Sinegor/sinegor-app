@@ -17,15 +17,6 @@ export function TermsFields({ order }: { order?: Models["OrderRead"] }) {
           </option>
         ))}
       </SelectField>
-      <label className="field">
-        Согласованные условия
-        <textarea
-          name="description"
-          rows={5}
-          maxLength={10000}
-          defaultValue={order?.description ?? ""}
-        />
-      </label>
       <Field
         label="Согласованная стоимость, ₽ (необязательно)"
         name="agreed_price"
@@ -39,7 +30,6 @@ export function TermsFields({ order }: { order?: Models["OrderRead"] }) {
 export function terms(data: FormData): Models["OrderTerms"] {
   return {
     service_type: text(data, "service_type") as Models["ServiceType"],
-    description: text(data, "description") || null,
     agreed_price: text(data, "agreed_price").replace(",", ".") || null,
   };
 }

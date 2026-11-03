@@ -138,9 +138,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         .toBe(true);
       invitation = (await control("/mail?to=customer@example.org")).link;
       await admin.goto("/admin/orders/new?customer_id=" + customerId);
-      await admin
-        .getByLabel("Согласованные условия")
-        .fill("E2E согласованные условия");
+      await expect(admin.getByLabel("Согласованные условия")).toHaveCount(0);
       await admin
         .getByLabel("Согласованная стоимость, ₽ (необязательно)")
         .fill("12345,67");
@@ -149,9 +147,23 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         .click();
       await expect(admin).toHaveURL(/\/admin\/orders\/[a-f0-9-]+$/);
       orderId = new URL(admin.url()).pathname.split("/").pop();
-      expect((await read(admin.request, orderPath())).status).toBe(
-        "awaiting_agreement",
-      );
+      const created = await read(admin.request, orderPath());
+      expect(created.status).toBe("awaiting_agreement");
+      expect(created.description).toBeNull();
+      expect(created.agreed_price).toBe("12345.67");
+      await expect(admin.getByLabel("Согласованные условия")).toHaveCount(0);
+      await admin
+        .getByLabel("Согласованная стоимость, ₽ (необязательно)")
+        .fill("12500,75");
+      await admin
+        .getByRole("button", { name: "Сохранить условия", exact: true })
+        .click();
+      await expect(
+        admin.getByText("Условия сохранены.", { exact: true }),
+      ).toBeVisible();
+      const edited = await read(admin.request, orderPath());
+      expect(edited.agreed_price).toBe("12500.75");
+      expect(edited.description).toBeNull();
     });
     await test.step("private PDF exchange approves the exact downloaded signed revision", async () => {
       await admin
@@ -253,13 +265,39 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
       });
       expect(reused.status()).toBe(401);
     });
-    await test.step("Disk link, payment and material handover cross real UI/API boundaries", async () => {
+    await test.step("Disk link and material handover cross real UI/API boundaries", async () => {
+      await admin
+        .getByLabel("Путь существующей папки")
+        .fill("disk:/E2E/missing");
+      await admin
+        .getByLabel("Я проверил принадлежность папки этому заказу")
+        .check();
+      await admin
+        .getByRole("button", {
+          name: "Привязать существующую папку",
+          exact: true,
+        })
+        .click();
+      await expect(admin.getByRole("alert")).toContainText("Папка не найдена");
+      expect((await admin.request.get(orderPath() + "/folder")).status()).toBe(
+        404,
+      );
+      await admin
+        .getByLabel("Основа имени папки", { exact: false })
+        .fill("Финансовые документы");
       await admin
         .getByRole("button", { name: "Создать папку заказа", exact: true })
         .click();
       await expect(
         admin.getByText("Папка создана и привязана.", { exact: true }),
       ).toBeVisible();
+      const bound = await read(admin.request, orderPath() + "/folder");
+      const orderNumber = (await read(admin.request, orderPath())).number;
+      expect(bound.disk_path).toMatch(
+        new RegExp(
+          `^disk:/E2E/Финансовые_документы_${String(orderNumber).padStart(3, "0")}_[0-9]{4}-[0-9]{2}-[0-9]{2}$`,
+        ),
+      );
       await admin
         .getByLabel("Ссылка для заказчика", { exact: true })
         .fill("https://disk.yandex.ru/client/disk/E2E/order-" + orderId);
@@ -275,17 +313,12 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
       await expect(
         admin.getByText("Клиентская ссылка сохранена.", { exact: true }),
       ).toBeVisible();
-      await admin
-        .getByLabel("Я проверил поступление оплаты вне сайта.", {
-          exact: false,
-        })
-        .check();
-      await admin
-        .getByRole("button", { name: "Подтвердить оплату", exact: true })
-        .click();
       await expect(
-        admin.getByText("Оплата зафиксирована.", { exact: true }),
-      ).toBeVisible();
+        admin.getByRole("heading", { name: "Оплата", exact: true }),
+      ).toHaveCount(0);
+      expect((await read(admin.request, orderPath() + "/payment")).status).toBe(
+        "unpaid",
+      );
       await customer.reload();
       await expect(
         customer.getByRole("link", {
@@ -520,10 +553,11 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         (await customer.request.get(customerPath() + "/folder")).status(),
       ).toBe(404);
       expect(data("inspect", { order_id: orderId }).events).toBeGreaterThan(15);
+      const privateOrderTitle = `Заказ № ${(await read(admin.request, orderPath())).number}`;
       const html = await (
         await request.get("/customer/orders/" + orderId)
       ).text();
-      expect(html.includes("E2E согласованные условия")).toBe(false);
+      expect(html.includes(privateOrderTitle)).toBe(false);
       for (const width of [1440, 390]) {
         await customer.setViewportSize({ width, height: 900 });
         expect(
@@ -538,7 +572,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         "customer",
         "/customer/orders",
         "/customer/orders/" + orderId,
-        "E2E согласованные условия",
+        privateOrderTitle,
       );
       await checkLogoutHistory(
         admin,

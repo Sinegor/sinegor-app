@@ -121,6 +121,43 @@ def test_email_edit_revokes_old_credentials(admin, actors):
     assert post(admin, "/api/auth/magic-link/verify", {"token": raw}).status_code == 401
 
 
+@pytest.mark.parametrize(
+    "description", [None, "Historical scope", "x" * 10001], ids=["empty", "existing", "legacy-long"]
+)
+def test_edit_terms_without_description_preserves_history(admin, actors, description):
+    actors.order.description = description
+    admin.db.commit()
+    path = f"/api/admin/orders/{actors.order.id}"
+    response = mutate(
+        admin,
+        "PUT",
+        path + "/terms",
+        {"service_type": "technical_preparation", "agreed_price": "2500.75"},
+    )
+    assert response.status_code == 200
+    assert response.json()["description"] == description
+    assert response.json()["service_type"] == "technical_preparation"
+    assert response.json()["agreed_price"] == "2500.75"
+    admin.db.expire_all()
+    assert actors.order.description == description
+    assert admin.client.get(path).json()["description"] == description
+
+
+@pytest.mark.parametrize("description", [None, "Updated through legacy API"])
+def test_explicit_description_updates_remain_supported(admin, actors, description):
+    actors.order.description = "Historical scope"
+    admin.db.commit()
+    response = mutate(
+        admin,
+        "PUT",
+        f"/api/admin/orders/{actors.order.id}/terms",
+        {"service_type": "analysis", "description": description},
+    )
+    assert response.status_code == 200
+    admin.db.expire_all()
+    assert actors.order.description == description
+
+
 def test_order_creation_history_terms_and_customer_view(admin, actors):
     payload = {
         "customer_id": str(actors.customer.id),
