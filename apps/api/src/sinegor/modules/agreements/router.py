@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from functools import partial
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -8,7 +9,14 @@ from starlette.concurrency import run_in_threadpool
 from sinegor.modules.agreements import service
 from sinegor.modules.agreements.schemas import AgreementRead, RejectionInput, ReviewInput
 from sinegor.modules.agreements.storage import AgreementStorageError
-from sinegor.modules.auth.dependencies import Admin, Customer, Database, OwnedOrder, Principal
+from sinegor.modules.auth.dependencies import (
+    Admin,
+    Customer,
+    Database,
+    OwnedOrder,
+    Principal,
+    current_principal,
+)
 from sinegor.modules.notifications.service import deliver_order_from_app
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.service import locked_order, record_event
@@ -134,6 +142,9 @@ async def upload_returned(
             revision,
             principal.id,
             initial=False,
+            # Validate PDF without holding a connection, then reacquire authorization
+            # before writing; a block+unblock also leaves the old session revoked.
+            authorize=partial(current_principal, request, db),
         )
     result = AgreementRead.from_agreement(agreement)
     tasks.add_task(deliver_order_from_app, request.app, order_id)

@@ -21,6 +21,9 @@ export default function Documents({ loaderData }: Route.ComponentProps) {
     <section className="public-page">
       <p className="eyebrow">Правовая информация</p>
       <h1>Документы</h1>
+      {loaderData.documents.length === 0 && (
+        <p className="notice">Опубликованных документов пока нет.</p>
+      )}
       <div className="public-grid document-catalog">
         {loaderData.documents.map((document) => (
           <section className="card" key={document.slug}>
@@ -29,9 +32,6 @@ export default function Documents({ loaderData }: Route.ComponentProps) {
                 {document.title}
               </Link>
             </h2>
-            {!document.content && (
-              <p className="muted">Документ готовится к публикации</p>
-            )}
           </section>
         ))}
       </div>

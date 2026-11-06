@@ -25,7 +25,7 @@ const goals = async (page: Page, name: string) =>
   );
 const allowAnalytics = (page: Page) =>
   page
-    .getByRole("region", { name: "Настройки аналитики" })
+    .getByRole("dialog", { name: "Статистика посещений" })
     .getByRole("button", { name: "Разрешить", exact: true })
     .click();
 let origin: string;
@@ -76,6 +76,17 @@ test.beforeEach(async ({ context }) => {
     ["localhost", "127.0.0.1"].includes(new URL(route.request().url()).hostname)
       ? route.continue()
       : route.abort(),
+  );
+  await context.route("**/api/auth/csrf", (route) =>
+    route.fulfill({ json: { csrf_token: "test" } }),
+  );
+  await context.route("**/api/analytics/consent", (route) =>
+    route.fulfill({
+      json: {
+        ...route.request().postDataJSON(),
+        recorded_at: new Date().toISOString(),
+      },
+    }),
   );
   await context.route(scriptUrl, (route) =>
     route.fulfill({ contentType: "application/javascript", body: mockScript }),
@@ -247,7 +258,7 @@ test("the default environment never loads analytics", async ({
 }) => {
   await page.goto(baseURL!);
   await page.getByRole("link", { name: "Документы", exact: true }).click();
-  await expect(page.locator("h1")).toHaveText("Документы");
+  await expect(page.locator("h1")).toHaveText("Документы временно недоступны");
   await expect(page.locator(`script[src="${scriptUrl}"]`)).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0);
 });
@@ -257,22 +268,22 @@ test("a first visit never loads tracking before the visitor chooses", async ({
 }) => {
   await page.goto(origin, { waitUntil: "networkidle" });
   await expect(
-    page.getByRole("region", { name: "Настройки аналитики" }),
+    page.getByRole("dialog", { name: "Статистика посещений" }),
   ).toBeVisible();
   await expect(page.locator(`script[src="${scriptUrl}"]`)).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0);
   await page
-    .getByRole("region", { name: "Настройки аналитики" })
+    .getByRole("dialog", { name: "Статистика посещений" })
     .getByRole("button", { name: "Отклонить", exact: true })
     .click();
   await page
     .getByRole("navigation", { name: "Основная навигация" })
-    .getByRole("link", { name: "Документы", exact: true })
+    .getByRole("link", { name: "Публикации", exact: true })
     .click();
-  await expect(page.locator("h1")).toHaveText("Документы");
+  await expect(page.locator("h1")).toHaveText("Публикации");
   await page.reload({ waitUntil: "networkidle" });
   await expect(
-    page.getByRole("region", { name: "Настройки аналитики" }),
+    page.getByRole("dialog", { name: "Статистика посещений" }),
   ).toHaveCount(0);
   expect(await calls(page)).toHaveLength(0);
   await page
@@ -286,7 +297,7 @@ test("a first visit never loads tracking before the visitor chooses", async ({
   await page.reload({ waitUntil: "networkidle" });
   await expect.poll(() => hits(page)).toHaveLength(1);
   await expect(
-    page.getByRole("region", { name: "Настройки аналитики" }),
+    page.getByRole("dialog", { name: "Статистика посещений" }),
   ).toHaveCount(0);
 });
 
@@ -355,6 +366,7 @@ test("revocation in another tab stops tracking and the expiry prompts for a new 
   page,
   context,
 }) => {
+  await page.clock.install();
   await page.goto(origin);
   await allowAnalytics(page);
   await expect.poll(() => hits(page)).toHaveLength(1);
@@ -372,21 +384,17 @@ test("revocation in another tab stops tracking and the expiry prompts for a new 
       (await calls(page)).filter((call) => call[1] === "destruct"),
     )
     .toHaveLength(1);
-  await page.evaluate(() =>
-    localStorage.setItem(
-      "sinegor.analytics-consent.v1",
-      JSON.stringify({ decision: "accepted", expiresAt: 1 }),
-    ),
-  );
+  const afterExpiry = await page.evaluate(() => Date.now() + 181 * 86400000);
+  await page.clock.setSystemTime(afterExpiry);
   await page.reload({ waitUntil: "networkidle" });
   await expect(
-    page.getByRole("region", { name: "Настройки аналитики" }),
+    page.getByRole("dialog", { name: "Статистика посещений" }),
   ).toBeVisible();
   expect(await calls(page)).toHaveLength(0);
   await other.close();
 });
 
-test("unavailable storage does not start tracking or prevent an explicit decision", async ({
+test("unavailable storage fails closed even after an explicit permission", async ({
   page,
 }) => {
   await page.addInitScript(() =>
@@ -399,11 +407,12 @@ test("unavailable storage does not start tracking or prevent an explicit decisio
   await page.goto(origin, { waitUntil: "networkidle" });
   expect(await calls(page)).toHaveLength(0);
   await allowAnalytics(page);
-  await expect.poll(() => hits(page)).toHaveLength(1);
+  await expect(page.getByRole("alert")).toContainText("Аналитика отключена");
+  expect(await calls(page)).toHaveLength(0);
   await page.reload({ waitUntil: "networkidle" });
   expect(await calls(page)).toHaveLength(0);
   await expect(
-    page.getByRole("region", { name: "Настройки аналитики" }),
+    page.getByRole("dialog", { name: "Статистика посещений" }),
   ).toBeVisible();
 });
 
@@ -411,17 +420,24 @@ test("expiry stops an active counter without waiting for a reload", async ({
   page,
 }) => {
   await page.clock.install();
-  await page.addInitScript(() =>
+  await page.addInitScript(() => {
+    const now = Date.now();
     localStorage.setItem(
       "sinegor.analytics-consent.v1",
-      JSON.stringify({ decision: "accepted", expiresAt: Date.now() + 60_000 }),
-    ),
-  );
+      JSON.stringify({
+        decision: "accepted",
+        savedAt: now - 180 * 86400000 + 60_000,
+        expiresAt: now + 60_000,
+        textVersion: "1",
+        browserId: "2db9f30b-b3a6-4f46-9cb3-212ceea88e05",
+      }),
+    );
+  });
   await page.goto(origin);
   await expect.poll(() => hits(page)).toHaveLength(1);
   await page.clock.fastForward(61_000);
   await expect(
-    page.getByRole("region", { name: "Настройки аналитики" }),
+    page.getByRole("dialog", { name: "Статистика посещений" }),
   ).toBeVisible();
   await expect
     .poll(async () =>
@@ -434,15 +450,19 @@ test("expiry stops an active counter without waiting for a reload", async ({
 test("stored permission never activates analytics on a private route", async ({
   page,
 }) => {
-  await page.addInitScript(() =>
+  await page.addInitScript(() => {
+    const now = Date.now();
     localStorage.setItem(
       "sinegor.analytics-consent.v1",
       JSON.stringify({
         decision: "accepted",
-        expiresAt: Date.now() + 86400000,
+        savedAt: now,
+        expiresAt: now + 180 * 86400000,
+        textVersion: "1",
+        browserId: "2db9f30b-b3a6-4f46-9cb3-212ceea88e05",
       }),
-    ),
-  );
+    );
+  });
   for (const path of [
     "/auth/login",
     "/auth/admin",
@@ -453,7 +473,7 @@ test("stored permission never activates analytics on a private route", async ({
     await page.goto(origin + path, { waitUntil: "networkidle" });
     await expect(page.locator(`script[src="${scriptUrl}"]`)).toHaveCount(0);
     await expect(
-      page.getByRole("region", { name: "Настройки аналитики" }),
+      page.getByRole("dialog", { name: "Статистика посещений" }),
     ).toHaveCount(0);
     expect(await calls(page)).toHaveLength(0);
   }
@@ -529,7 +549,12 @@ test("a new home visit counts playback even when navigation retains the real pla
   await expect
     .poll(() => goals(page, "video_presentation_view"))
     .toHaveLength(1);
+  const previousKey = await page.evaluate(() => window.history.state?.key);
   await page.locator("header .brand").click();
+  await expect
+    .poll(() => page.evaluate(() => window.history.state?.key))
+    .not.toBe(previousKey);
+  await page.waitForLoadState("networkidle");
   expect(await video!.evaluate((element) => element.isConnected)).toBe(true);
   await video!.evaluate(async (element: HTMLVideoElement) => {
     await element.play();
@@ -546,7 +571,7 @@ test("consent controls fit desktop and mobile and settings restore keyboard focu
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(origin);
-    const prompt = page.getByRole("region", { name: "Настройки аналитики" });
+    const prompt = page.getByRole("dialog", { name: "Статистика посещений" });
     await expect(prompt).toBeVisible();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
@@ -554,6 +579,8 @@ test("consent controls fit desktop and mobile and settings restore keyboard focu
     await prompt.screenshot({
       path: testInfo.outputPath(`consent-${width}.png`),
     });
+    await page.keyboard.press("Escape");
+    await expect(prompt).not.toBeVisible();
     const settings = page.getByRole("button", {
       name: "Настройки аналитики",
       exact: true,
@@ -571,4 +598,369 @@ test("consent controls fit desktop and mobile and settings restore keyboard focu
     await expect(dialog).not.toBeVisible();
     await expect(settings).toBeFocused();
   }
+});
+
+for (const width of [1440, 390]) {
+  test(`initial statistics modal has approved copy, safe focus and no requests at ${width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    const requests: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).hostname.startsWith("mc.yandex."))
+        requests.push(request.url());
+    });
+    await page.goto(origin, { waitUntil: "networkidle" });
+    const dialog = page.getByRole("dialog", { name: "Статистика посещений" });
+    await expect(dialog).toBeVisible();
+    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(
+      true,
+    );
+    await expect(dialog.getByRole("heading")).toBeFocused();
+    await expect(dialog.locator("p").nth(0)).toHaveText(
+      "Мы используем Яндекс Метрику, чтобы понимать, как посетители пользуются сайтом, и улучшать его работу.",
+    );
+    await expect(dialog.locator("p").nth(1)).toHaveText(
+      "Сервис собирает технические данные и сведения о действиях на сайте.",
+    );
+    await expect(dialog.locator("p").nth(2)).toHaveText(
+      "Подробнее — Политика обработки персональных данных.",
+    );
+    const policy = dialog.getByRole("link", {
+      name: "Политика обработки персональных данных",
+    });
+    await expect(policy).toHaveAttribute("href", "/documents/privacy-policy");
+    for (const name of ["Отклонить", "Разрешить"]) {
+      const box = await dialog
+        .getByRole("button", { name, exact: true })
+        .boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    const box = await dialog.boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    await page.screenshot({
+      path: info.outputPath(`statistics-${width}.png`),
+      animations: "disabled",
+    });
+    await page.keyboard.press("Tab");
+    await expect(policy).toBeFocused();
+    // Native dialog traversal keeps page controls inert; browser chrome remains reachable.
+    for (const name of ["Отклонить", "Разрешить", "Закрыть"]) {
+      await page.keyboard.press("Tab");
+      await expect(
+        dialog.getByRole("button", { name, exact: true }),
+      ).toBeFocused();
+    }
+    await page.keyboard.press("Shift+Tab");
+    await expect(
+      dialog.getByRole("button", { name: "Разрешить", exact: true }),
+    ).toBeFocused();
+    await page
+      .locator("header .brand")
+      .evaluate((element: HTMLElement) => element.focus());
+    await expect(
+      dialog.getByRole("button", { name: "Разрешить", exact: true }),
+    ).toBeFocused();
+    expect(requests).toEqual([]);
+    expect(await calls(page)).toEqual([]);
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("sinegor.analytics-consent.v1"),
+      ),
+    ).toBeNull();
+  });
+}
+
+for (const close of ["Escape", "Закрыть"]) {
+  test(`closing the initial modal with ${close} never grants consent, including navigation and reload`, async ({
+    page,
+  }) => {
+    const requests: string[] = [];
+    page.on("request", (request) => {
+      if (new URL(request.url()).hostname.startsWith("mc.yandex."))
+        requests.push(request.url());
+    });
+    await page.goto(origin);
+    const prompt = page.getByRole("dialog", { name: "Статистика посещений" });
+    await expect(prompt).toBeVisible();
+    if (close === "Escape") await page.keyboard.press("Escape");
+    else await prompt.getByRole("button", { name: close, exact: true }).click();
+    await expect(prompt).not.toBeVisible();
+    await page
+      .getByRole("navigation", { name: "Основная навигация" })
+      .getByRole("link", { name: "Публикации", exact: true })
+      .click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Публикации",
+    );
+    await expect(prompt).not.toBeVisible();
+    expect(
+      await page.evaluate(() =>
+        localStorage.getItem("sinegor.analytics-consent.v1"),
+      ),
+    ).toBeNull();
+    expect(requests).toEqual([]);
+    await page.reload({ waitUntil: "networkidle" });
+    await expect(prompt).toBeVisible();
+    expect(requests).toEqual([]);
+  });
+}
+
+test("the policy link closes the initial modal without accepting or obstructing the destination", async ({
+  page,
+}) => {
+  await page.goto(origin);
+  const prompt = page.getByRole("dialog", { name: "Статистика посещений" });
+  await prompt
+    .getByRole("link", { name: "Политика обработки персональных данных" })
+    .click();
+  await expect(page).toHaveURL(origin + "/documents/privacy-policy");
+  await expect(page.locator("h1")).toBeVisible();
+  await expect(prompt).not.toBeVisible();
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("sinegor.analytics-consent.v1"),
+    ),
+  ).toBeNull();
+  expect(await calls(page)).toEqual([]);
+  await page.locator("header .brand").click();
+  await expect(prompt).not.toBeVisible();
+  await page
+    .getByRole("button", { name: "Настройки аналитики", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Настройки аналитики" }),
+  ).toBeVisible();
+});
+
+test("a decision in another tab closes an already open initial modal and synchronizes tracking", async ({
+  page,
+  context,
+}) => {
+  await page.goto(origin);
+  const other = await context.newPage();
+  await other.goto(origin);
+  const otherPrompt = other.getByRole("dialog", {
+    name: "Статистика посещений",
+  });
+  await expect(otherPrompt).toBeVisible();
+  expect(await calls(other)).toEqual([]);
+  await page
+    .getByRole("dialog", { name: "Статистика посещений" })
+    .getByRole("button", { name: "Отклонить", exact: true })
+    .click();
+  await expect(otherPrompt).not.toBeVisible();
+  expect(await calls(other)).toEqual([]);
+  await page
+    .getByRole("button", { name: "Настройки аналитики", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Настройки аналитики" })
+    .getByRole("button", { name: "Разрешить", exact: true })
+    .click();
+  await expect.poll(() => hits(page)).toHaveLength(1);
+  await expect.poll(() => hits(other)).toHaveLength(1);
+  await other
+    .getByRole("button", { name: "Настройки аналитики", exact: true })
+    .click();
+  await other
+    .getByRole("dialog", { name: "Настройки аналитики" })
+    .getByRole("button", { name: "Отклонить", exact: true })
+    .click();
+  await expect
+    .poll(async () =>
+      (await calls(page)).filter((call) => call[1] === "destruct"),
+    )
+    .toHaveLength(1);
+  await other.close();
+});
+
+test("statistics choices remain reachable on a short mobile screen", async ({
+  page,
+}, info) => {
+  await page.setViewportSize({ width: 390, height: 360 });
+  await page.goto(origin);
+  const dialog = page.getByRole("dialog", { name: "Статистика посещений" });
+  await expect(dialog).toBeVisible();
+  const box = await dialog.boundingBox();
+  expect(Math.round(box!.height)).toBeLessThanOrEqual(360 - 32);
+  await dialog.getByRole("button", { name: "Отклонить", exact: true }).focus();
+  await expect(
+    dialog.getByRole("button", { name: "Отклонить", exact: true }),
+  ).toBeInViewport();
+  await page.screenshot({
+    path: info.outputPath("statistics-short-mobile.png"),
+    animations: "disabled",
+  });
+  await page.keyboard.press("Enter");
+  await expect(dialog).not.toBeVisible();
+  expect(await calls(page)).toEqual([]);
+});
+
+test("a dismissed prompt returns on expiry after a later explicit permission", async ({
+  page,
+}) => {
+  await page.clock.install();
+  await page.goto(origin);
+  const prompt = page.getByRole("dialog", { name: "Статистика посещений" });
+  await expect(prompt).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page
+    .getByRole("button", { name: "Настройки аналитики", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Настройки аналитики" })
+    .getByRole("button", { name: "Разрешить", exact: true })
+    .click();
+  await expect.poll(() => hits(page)).toHaveLength(1);
+  let remaining = await page.evaluate(() => {
+    const saved = JSON.parse(
+      localStorage.getItem("sinegor.analytics-consent.v1")!,
+    );
+    return saved.expiresAt - Date.now();
+  });
+  // Playwright's installed clock coerces each increment to a signed 32-bit integer.
+  remaining += 1;
+  while (remaining > 0) {
+    const step = Math.min(remaining, 2_000_000_000);
+    await page.clock.fastForward(step);
+    remaining -= step;
+  }
+  await expect(prompt).toBeVisible();
+  await expect
+    .poll(async () =>
+      (await calls(page)).filter((call) => call[1] === "destruct"),
+    )
+    .toHaveLength(1);
+  await expect(page.locator(`script[src="${scriptUrl}"]`)).toHaveCount(0);
+});
+
+test("journal: grant waits for server receipt and failure leaves analytics disabled", async ({
+  page,
+}, info) => {
+  let release!: () => void;
+  const gate = new Promise<void>((done) => {
+    release = done;
+  });
+  await page.route("**/api/analytics/consent", async (route) => {
+    await gate;
+    await route.fulfill({ status: 503, json: {} });
+  });
+  await page.goto(origin);
+  await allowAnalytics(page);
+  const dialog = page.getByRole("dialog", { name: "Статистика посещений" });
+  await expect(dialog.getByRole("status")).toContainText("Сохраняем");
+  expect(await calls(page)).toEqual([]);
+  await dialog.screenshot({
+    path: info.outputPath("grant-pending-desktop.png"),
+  });
+  release();
+  await expect(dialog.getByRole("alert")).toContainText("Аналитика отключена");
+  expect(await calls(page)).toEqual([]);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await dialog.screenshot({
+      path: info.outputPath(`grant-error-${width}.png`),
+    });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    await dialog
+      .getByRole("button", { name: "Разрешить", exact: true })
+      .focus();
+    await expect(
+      dialog.getByRole("button", { name: "Разрешить", exact: true }),
+    ).toBeFocused();
+  }
+});
+
+test("journal: withdrawal survives reload and reconnect with the same event identifier", async ({
+  page,
+}) => {
+  const events: { event_id: string; event_type: string }[] = [];
+  let online = true;
+  await page.route("**/api/analytics/consent", (route) => {
+    const event = route.request().postDataJSON();
+    events.push(event);
+    return route.fulfill(
+      online
+        ? { json: { ...event, recorded_at: new Date().toISOString() } }
+        : { status: 503, json: {} },
+    );
+  });
+  await page.goto(origin);
+  await allowAnalytics(page);
+  await expect.poll(() => hits(page)).toHaveLength(1);
+  online = false;
+  await page
+    .getByRole("button", { name: "Настройки аналитики", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Отклонить", exact: true })
+    .click();
+  await expect.poll(() => events.length).toBe(2);
+  const eventId = events[1].event_id;
+  await page.reload({ waitUntil: "networkidle" });
+  await expect.poll(() => events.length).toBeGreaterThan(2);
+  expect(await calls(page)).toEqual([]);
+  online = true;
+  await page.evaluate(() => window.dispatchEvent(new Event("online")));
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("sinegor.analytics-consent.v1")!)
+            .pending,
+      ),
+    )
+    .toBeUndefined();
+  expect(
+    events
+      .filter((event) => event.event_type === "withdraw")
+      .every((event) => event.event_id === eventId),
+  ).toBe(true);
+  expect(await calls(page)).toEqual([]);
+});
+
+test("journal: withdrawal in another tab cancels an in-flight permission", async ({
+  page,
+  context,
+}) => {
+  let release!: () => void;
+  const gate = new Promise<void>((done) => {
+    release = done;
+  });
+  await context.route("**/api/analytics/consent", async (route) => {
+    const event = route.request().postDataJSON();
+    if (event.event_type === "grant") await gate;
+    await route
+      .fulfill({ json: { ...event, recorded_at: new Date().toISOString() } })
+      .catch(() => {});
+  });
+  await page.goto(origin);
+  await allowAnalytics(page);
+  const other = await context.newPage();
+  await other.goto(origin);
+  await other
+    .getByRole("dialog")
+    .getByRole("button", { name: "Отклонить", exact: true })
+    .click();
+  release();
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("sinegor.analytics-consent.v1")!)
+            .decision,
+      ),
+    )
+    .toBe("rejected");
+  await page.waitForLoadState("networkidle");
+  expect(await calls(page)).toEqual([]);
+  expect(await calls(other)).toEqual([]);
 });

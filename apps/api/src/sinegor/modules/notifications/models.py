@@ -14,7 +14,10 @@ from sinegor.db.mixins import Entity
 class Notification(Entity, Base):
     __tablename__ = "notifications"
     __table_args__ = (
-        CheckConstraint("status IN ('pending','processing','sent','cancelled')", name="status"),
+        CheckConstraint(
+            "status IN ('pending','processing','sent','cancelled','failed','expired')",
+            name="status",
+        ),
         CheckConstraint("attempts >= 0", name="attempts"),
         CheckConstraint(
             "(status = 'processing') = (lease_id IS NOT NULL AND lease_until IS NOT NULL)",

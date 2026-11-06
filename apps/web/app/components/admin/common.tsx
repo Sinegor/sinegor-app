@@ -135,12 +135,11 @@ export function OrdersTable({
     <Table
       caption="Заказы"
       emptyMessage={emptyMessage ?? "Заказов пока нет."}
-      columns={["Номер", "Услуга", "Статус", "Стоимость", "Создан"]}
+      columns={["Номер", "Услуга", "Статус", "Создан"]}
       rows={rows.map((row) => [
         <Link to={`/admin/orders/${row.id}`}>№ {row.number}</Link>,
         services[row.service_type],
         <span className={`badge ${row.status}`}>{statuses[row.status]}</span>,
-        row.agreed_price == null ? "—" : `${row.agreed_price} ₽`,
         date(row.created_at),
       ])}
     />

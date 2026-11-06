@@ -6,6 +6,7 @@ from time import perf_counter
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
+from starlette.concurrency import run_in_threadpool
 
 from sinegor.api.errors import error_response, register_error_handlers
 from sinegor.api.health import router as health_router
@@ -18,6 +19,7 @@ from sinegor.integrations.telegram.client import TelegramNotifier
 from sinegor.integrations.yandex_disk.client import DiskError, YandexDisk
 from sinegor.modules.agreements.router import router as agreements_router
 from sinegor.modules.agreements.storage import AgreementStorage
+from sinegor.modules.analytics.router import router as analytics_router
 from sinegor.modules.auth.router import router as auth_router
 from sinegor.modules.auth.security import new_secret, valid_csrf
 from sinegor.modules.customers.router import router as customers_router
@@ -26,6 +28,9 @@ from sinegor.modules.disk.router import router as disk_router
 from sinegor.modules.notifications.router import router as notifications_router
 from sinegor.modules.orders.router import router as orders_router
 from sinegor.modules.retention.router import router as retention_router
+from sinegor.modules.security_events.permissions import verify_runtime_permissions
+from sinegor.modules.security_events.router import router as security_events_router
+from sinegor.modules.security_events.service import record_rejection, request_identifier
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +42,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         engine = create_db_engine(settings)
+        if settings.app_env == "production":
+            try:
+                with engine.connect() as connection:
+                    verify_runtime_permissions(connection)
+            except Exception:
+                engine.dispose()
+                raise
         app.state.engine = engine
         app.state.session_factory = create_session_factory(engine)
         logger.info("application_started")
@@ -70,17 +82,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
+    app.include_router(analytics_router, prefix="/api")
     app.include_router(customers_router, prefix="/api")
     app.include_router(orders_router, prefix="/api")
     app.include_router(agreements_router, prefix="/api")
     app.include_router(disk_router, prefix="/api")
     app.include_router(notifications_router, prefix="/api")
     app.include_router(retention_router, prefix="/api")
+    app.include_router(security_events_router, prefix="/api")
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
         # Generate IDs server-side; never log untrusted IDs, paths, queries or bodies.
         request.state.request_id = uuid4().hex
+        context_token = request_identifier.set(request.state.request_id)
         started = perf_counter()
         try:
             if request.url.path.startswith("/api/") and request.method not in {
@@ -105,6 +120,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     )
                 )
                 if not csrf_ok:
+                    await run_in_threadpool(record_rejection, request, 403)
                     response = error_response(request, 403, "csrf_failed", "CSRF validation failed")
                 else:
                     response = await call_next(request)
@@ -119,6 +135,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                 },
             )
             response = error_response(request, 500, "internal_error", "Internal server error")
+        request_identifier.reset(context_token)
         response.headers["X-Request-ID"] = request.state.request_id
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"

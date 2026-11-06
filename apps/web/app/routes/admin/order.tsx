@@ -12,7 +12,7 @@ import {
   offset,
   PAGE_SIZE,
 } from "../../lib/admin/api";
-import { date, money, services, statuses } from "../../lib/admin/labels";
+import { date, services, statuses } from "../../lib/admin/labels";
 import { Card, Form, Button, Modal, Notice } from "../../components/ui";
 import {
   Check,
@@ -103,7 +103,6 @@ export default function Order() {
         <span className={`badge ${order.status}`}>
           {statuses[order.status]}
         </span>
-        <span>{money(order.agreed_price)}</span>
         <Link to={`/admin/customers/${customer.id}`}>
           {customer.display_name || customer.email}
         </Link>
@@ -123,7 +122,7 @@ export default function Order() {
           <Card title="Условия заказа">
             {order.status === "awaiting_agreement" && !agreement ? (
               <Form
-                key={`${order.service_type}:${order.agreed_price}`}
+                key={order.service_type}
                 method="post"
                 busy={op.busy}
                 onSubmit={(event) => {
@@ -194,7 +193,6 @@ export default function Order() {
                           body: {
                             status: "in_progress",
                             result_uploaded: false,
-                            access_read_only: false,
                           },
                         }),
                       ),
@@ -222,7 +220,6 @@ export default function Order() {
                           body: {
                             status: "result_ready",
                             result_uploaded: true,
-                            access_read_only: true,
                           },
                         }),
                       ),
@@ -233,9 +230,6 @@ export default function Order() {
               >
                 <Check name="result_uploaded">
                   Результат размещён в папке заказа
-                </Check>
-                <Check name="access_read_only">
-                  Я вручную изменил права заказчика на просмотр
                 </Check>
                 <Button type="submit">Зафиксировать готовность</Button>
               </Form>
@@ -296,7 +290,6 @@ export default function Order() {
                 body: {
                   status: "cancelled",
                   result_uploaded: false,
-                  access_read_only: false,
                 },
               });
               setCancel(false);

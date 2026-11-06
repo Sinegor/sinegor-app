@@ -1,0 +1,4 @@
+# Run daily as the application user after applying migrations.
+# Configure SINEGOR_ENV_FILE for the intended backend database.
+# Deletes only analytics consent events older than 180 days; install during deployment.
+15 3 * * * cd /absolute/path/sinegor-app/apps/api && .venv/bin/python -m sinegor.jobs.purge_analytics

@@ -15,6 +15,7 @@ export default function AdminLogin() {
   const navigate = useNavigate();
   const locked = useRef(false);
   const [busy, setBusy] = useState(false);
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [error, setError] = useState("");
   return (
     <div className="login">
@@ -60,14 +61,27 @@ export default function AdminLogin() {
           required
           maxLength={320}
         />
-        <Field
-          label="Пароль"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          maxLength={128}
-        />
+        <div className="password-control">
+          <Field
+            id="admin-password"
+            label="Пароль"
+            name="password"
+            type={passwordVisible ? "text" : "password"}
+            autoComplete="current-password"
+            required
+            maxLength={128}
+          />
+          <Button
+            type="button"
+            variant="text"
+            aria-label={passwordVisible ? "Скрыть пароль" : "Показать пароль"}
+            aria-pressed={passwordVisible}
+            aria-controls="admin-password"
+            onClick={() => setPasswordVisible((visible) => !visible)}
+          >
+            {passwordVisible ? "Скрыть" : "Показать"}
+          </Button>
+        </div>
         <Field
           label="Одноразовый код"
           name="code"

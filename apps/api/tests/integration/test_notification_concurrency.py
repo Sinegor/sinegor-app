@@ -13,11 +13,18 @@ from sinegor.modules.notifications.service import deliver_one, enqueue
 pytestmark = pytest.mark.integration
 
 
-def test_two_workers_do_not_send_the_same_claimed_notification(database_settings, alembic_config):
+@pytest.mark.parametrize("kind", ["consultation", "consultation_telegram"])
+def test_two_workers_do_not_send_the_same_claimed_notification(
+    database_settings, alembic_config, kind
+):
     command.upgrade(alembic_config, "head")
     engine = create_db_engine(database_settings)
     sending, release = Event(), Event()
     messages = []
+
+    class Mailer:
+        def send_consultation_notice(self, recipient, email, phone=None):
+            Telegram().send("synthetic SMTP notice")
 
     class Telegram:
         def send(self, text):
@@ -26,7 +33,10 @@ def test_two_workers_do_not_send_the_same_claimed_notification(database_settings
             assert release.wait(timeout=10)
 
     with Session(engine) as db:
-        identifier = enqueue(db, "consultation", recipient="concurrency@example.ru")
+        database_settings.notification_admin_email = "executor@example.ru"
+        identifier = enqueue(
+            db, kind, recipient="concurrency@example.ru" if kind == "consultation" else None
+        )
         db.commit()
 
     def attempt():
@@ -37,7 +47,7 @@ def test_two_workers_do_not_send_the_same_claimed_notification(database_settings
                 identifier,
                 auth_mailer=None,
                 order_mailer=None,
-                mailer=None,
+                mailer=Mailer(),
                 telegram=Telegram(),
             )
 

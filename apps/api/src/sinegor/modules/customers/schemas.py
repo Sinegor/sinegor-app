@@ -1,4 +1,4 @@
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 from sinegor.modules.auth.schemas import EmailInput
 
@@ -15,3 +15,9 @@ class CustomerUpdate(EmailInput):
                 raise ValueError("Email cannot be null")
             self.email = str(EmailInput(email=self.email).email)
         return self
+
+
+class CustomerBlock(BaseModel):
+    model_config = {"extra": "forbid", "str_strip_whitespace": True}
+    reason: str = Field(min_length=1, max_length=2000)
+    internal_comment: str | None = Field(default=None, max_length=2000)

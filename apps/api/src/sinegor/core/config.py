@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     smtp_use_ssl: bool = True
     smtp_timeout: int = Field(default=10, ge=1, le=30)
     notification_admin_email: EmailStr | None = None
+    notification_retry_base_seconds: int = Field(default=1800, ge=1, le=86400)
+    notification_retry_max_seconds: int = Field(default=86400, ge=1, le=86400)
+    notification_retry_jitter: float = Field(default=0.2, ge=0, le=0.2)
     telegram_bot_token: SecretStr | None = None
     telegram_admin_chat_id: SecretStr | None = None
     telegram_timeout: int = Field(default=10, ge=1, le=30)

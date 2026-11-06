@@ -85,6 +85,9 @@ async def main():
                                 None,
                             ),
                             "subjects": [m["subject"] for m in messages],
+                            "consultations": [
+                                m["consultation"] for m in messages if m.get("consultation")
+                            ],
                         },
                     )
                 if url.path == "/telegram" and self.command == "GET":
@@ -200,6 +203,10 @@ async def main():
                             {
                                 "to": recipient,
                                 "subject": str(message["Subject"]),
+                                # Only synthetic consultation bodies; never expose auth/PDF content.
+                                "consultation": message.get_content()
+                                if str(message["Subject"]) == "SINEGOR — заявка на консультацию"
+                                else None,
                                 "link": match[0] if match else None,
                             }
                         )

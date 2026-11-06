@@ -10,7 +10,7 @@ import {
   optional,
   customerDiskUrl,
 } from "../../lib/customer/api";
-import { date, money, services, statuses } from "../../lib/admin/labels";
+import { date, services, statuses } from "../../lib/admin/labels";
 import { useOperation } from "../../components/admin/common";
 import {
   Feedback,
@@ -80,7 +80,6 @@ export default function CustomerOrder() {
         <span className={`badge ${order.status}`}>
           {statuses[order.status]}
         </span>
-        <span>{money(order.agreed_price)}</span>
       </div>
       {ready && (
         <Notice>
@@ -103,8 +102,6 @@ export default function CustomerOrder() {
             <dl className="facts">
               <dt>Услуга</dt>
               <dd>{services[order.service_type]}</dd>
-              <dt>Стоимость</dt>
-              <dd>{money(order.agreed_price)}</dd>
               <dt>Заказ создан</dt>
               <dd>{date(order.created_at)}</dd>
               {order.closed_at && (
@@ -179,6 +176,13 @@ export default function CustomerOrder() {
                   name="note"
                   maxLength={2000}
                 />
+                <Notice tone="warning">
+                  <strong>Важно:</strong> подтверждайте передачу материалов
+                  только после того, как все документы будут полностью загружены
+                  на Яндекс Диск. До завершения загрузки не устанавливайте
+                  соответствующую отметку и не отправляйте уведомление
+                  исполнителю.
+                </Notice>
                 <Check name="materials_uploaded">
                   Я завершил передачу материалов в папку заказа на Яндекс Диске
                 </Check>

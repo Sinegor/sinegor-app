@@ -16,10 +16,7 @@ export function meta({ data }: Route.MetaArgs) {
   return data?.content
     ? contentMeta(data.content)
     : [
-        ...publicMeta(
-          data?.title || "Документы",
-          "Правовая информация SINEGOR LAB",
-        ),
+        ...publicMeta("Документы", "Правовая информация SINEGOR LAB"),
         { name: "robots", content: "noindex, follow" },
       ];
 }
@@ -29,32 +26,26 @@ export default function Document({ loaderData }: Route.ComponentProps) {
     <article className="public-page public-prose">
       <Link to="/documents">Все документы</Link>
       <h1>{title}</h1>
-      {content ? (
-        <>
-          {content.revisedOn && (
-            <p className="muted">
-              Редакция от{" "}
-              <time dateTime={content.revisedOn}>
-                {new Intl.DateTimeFormat("ru-RU", {
-                  dateStyle: "long",
-                  timeZone: "UTC",
-                }).format(new Date(content.revisedOn))}
-              </time>
-            </p>
-          )}
-          <div className="cms-blocks">
-            <CmsBlocks nodes={content.body} />
-          </div>
-          {content.pdf?.url && (
-            <p>
-              <a className="button-link" href={content.pdf.url}>
-                Открыть PDF
-              </a>
-            </p>
-          )}
-        </>
-      ) : (
-        <p className="notice">Документ готовится к публикации</p>
+      {content.revisedOn && (
+        <p className="muted">
+          Редакция от{" "}
+          <time dateTime={content.revisedOn}>
+            {new Intl.DateTimeFormat("ru-RU", {
+              dateStyle: "long",
+              timeZone: "UTC",
+            }).format(new Date(content.revisedOn))}
+          </time>
+        </p>
+      )}
+      <div className="cms-blocks">
+        <CmsBlocks nodes={content.body} />
+      </div>
+      {content.pdf?.url && (
+        <p>
+          <a className="button-link" href={content.pdf.url}>
+            Открыть PDF
+          </a>
+        </p>
       )}
     </article>
   );

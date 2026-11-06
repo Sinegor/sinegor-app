@@ -61,6 +61,21 @@ def main():
                     writer.add_metadata({"/Title": name})
                     with (Path(config["private"]) / f"{name}.pdf").open("wb") as output:
                         writer.write(output)
+            elif action == "panel_admin":
+                original = db.scalar(
+                    select(AdminUser).where(AdminUser.email == config["admin"]["email"])
+                )
+                email = "delivery-" + config["admin"]["email"]
+                if db.scalar(select(AdminUser.id).where(AdminUser.email == email)) is None:
+                    db.add(
+                        AdminUser(
+                            email=email,
+                            password_hash=HASHER.hash(config["admin"]["password"]),
+                            totp_secret_encrypted=original.totp_secret_encrypted,
+                        )
+                    )
+                    db.commit()
+                result = {"email": email}
             elif action == "totp":
                 result = {"code": pyotp.TOTP(config["admin"]["totp"]).now()}
             elif action in {"ready_time", "expire_deferral", "inspect"}:
@@ -97,21 +112,57 @@ def main():
                     .order_by(Notification.created_at.desc())
                     .limit(1)
                 )
-                if item is None:
-                    result = {"status": "absent", "attempts": 0}
-                elif action == "notifications":
+                telegram = (
+                    db.scalar(
+                        select(Notification).where(
+                            Notification.dedup_key == f"consultation_telegram:{item.id}"
+                        )
+                    )
+                    if item is not None
+                    else None
+                )
+
+                def delivery_state(notification):
+                    if notification is None:
+                        return {"status": "absent", "attempts": 0}
+                    return {
+                        "status": notification.status,
+                        "attempts": notification.attempts,
+                        "retry_in_seconds": (
+                            notification.available_at - datetime.now(UTC)
+                        ).total_seconds(),
+                        "contacts_retained": notification.recipient is not None
+                        and bool(notification.payload.get("phone")),
+                        "contact_cleared": notification.recipient is None
+                        and notification.payload == {},
+                    }
+
+                if action == "notifications":
                     result = {
-                        "status": item.status,
-                        "attempts": item.attempts,
-                        "contacts_retained": item.recipient is not None
-                        and bool(item.payload.get("phone")),
-                        "contact_cleared": item.recipient is None and item.payload == {},
+                        "smtp": delivery_state(item),
+                        "telegram": delivery_state(telegram),
                     }
                 else:
-                    if item.status != "pending":
-                        raise RuntimeError("Expected a pending synthetic consultation")
-                    item.available_at = datetime.now(UTC) - timedelta(seconds=1)
+                    channel = payload.get("channel", "smtp")
+                    if channel not in {"smtp", "telegram"}:
+                        raise RuntimeError("Unsupported E2E notification channel")
+                    notification = item if channel == "smtp" else telegram
+                    if notification is None or notification.status != "pending":
+                        raise RuntimeError("Expected a pending synthetic consultation channel")
+                    notification.available_at = datetime.now(UTC) - timedelta(seconds=1)
                     db.commit()
+            elif action == "age_result_notification":
+                item = db.scalar(
+                    select(Notification).where(
+                        Notification.order_id == UUID(payload["order_id"]),
+                        Notification.kind == "result_ready",
+                        Notification.status == "pending",
+                    )
+                )
+                if item is None:
+                    raise RuntimeError("Expected a pending synthetic readiness notification")
+                item.created_at = datetime.now(UTC) - timedelta(hours=24)
+                db.commit()
             elif action == "job":
                 # Use the real CLI, in an independent interpreter with the same isolated settings.
                 import subprocess

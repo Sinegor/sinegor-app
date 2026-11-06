@@ -6,16 +6,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useLocation, useMatches } from "react-router";
+import { Link, useLocation, useMatches } from "react-router";
 import { analyticsPath, type AnalyticsGoal } from "../lib/analytics";
 import { startMetrika } from "../lib/metrika.client";
 import {
   ANALYTICS_CONSENT_KEY,
-  loadAnalyticsConsent,
-  saveAnalyticsConsent,
+  AnalyticsConsentJournal,
   type AnalyticsConsent as Consent,
 } from "../lib/analytics-consent";
 import { Button, Modal } from "./ui";
+import { browserApi } from "../lib/api/client";
 
 const AnalyticsContext = createContext<
   ((goal: AnalyticsGoal, path: string) => void) | null
@@ -27,6 +27,9 @@ const ConsentContext = createContext<{
   open: boolean;
   setOpen: (open: boolean) => void;
   choose: (decision: Consent["decision"]) => void;
+  close: () => void;
+  busy: boolean;
+  error: string | null;
 } | null>(null);
 
 export function useAnalytics() {
@@ -50,6 +53,11 @@ export function PublicAnalytics({
   const [consent, setConsent] = useState<Consent | null>(null);
   const [ready, setReady] = useState(false);
   const [open, setOpen] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const journal = useRef<AnalyticsConsentJournal | null>(null);
+  const channel = useRef<BroadcastChannel | null>(null);
   const publicPage =
     !!leaf?.id.startsWith("routes/public/") && leaf.data !== undefined;
   const allowed =
@@ -67,23 +75,79 @@ export function PublicAnalytics({
     session.current = null;
   }
 
-  function choose(decision: Consent["decision"]) {
-    if (decision === "rejected") stop();
-    setConsent(saveAnalyticsConsent(decision));
+  async function choose(decision: Consent["decision"]) {
+    if (!journal.current) return;
+    if (decision === "rejected") {
+      stop();
+      setOpen(false);
+    }
+    setDismissed(false);
+    const operation = journal.current.choose(decision);
+    channel.current?.postMessage("changed");
+    await operation;
+    channel.current?.postMessage("changed");
+    if (journal.current.error) {
+      if (decision === "rejected") setOpen(true);
+    } else setOpen(false);
+  }
+
+  function close() {
     setOpen(false);
+    setDismissed(true);
   }
 
   useEffect(() => {
-    setConsent(loadAnalyticsConsent());
+    const state = new AnalyticsConsentJournal(
+      async (event) => {
+        const { data } = await browserApi().POST("/api/analytics/consent", {
+          body: event,
+        });
+        return data;
+      },
+      () => {
+        if (state.consent?.decision !== "accepted") stop();
+        setConsent(state.consent);
+        setBusy(state.busy);
+        setError(state.error);
+      },
+    );
+    journal.current = state;
+    setConsent(state.consent);
     setReady(true);
-    function changed(event: StorageEvent) {
-      if (event.key !== null && event.key !== ANALYTICS_CONSENT_KEY) return;
-      const value = loadAnalyticsConsent();
-      if (value?.decision !== "accepted") stop();
-      setConsent(value);
+    function changed(event?: StorageEvent) {
+      if (
+        event &&
+        event.key !== null &&
+        !event.key.startsWith(ANALYTICS_CONSENT_KEY)
+      )
+        return;
+      state.sync();
+      setOpen(false);
+      setDismissed(false);
+      void state.retryWithdrawal();
+    }
+    function retry() {
+      void state.retryWithdrawal();
+    }
+    try {
+      channel.current = new BroadcastChannel(ANALYTICS_CONSENT_KEY);
+      channel.current.onmessage = () => changed();
+    } catch {
+      /* Storage events still synchronize ordinary browser tabs. */
     }
     window.addEventListener("storage", changed);
-    return () => window.removeEventListener("storage", changed);
+    window.addEventListener("online", retry);
+    const timer = window.setInterval(retry, 60_000);
+    retry();
+    return () => {
+      state.sync();
+      journal.current = null;
+      window.removeEventListener("storage", changed);
+      window.removeEventListener("online", retry);
+      window.clearInterval(timer);
+      channel.current?.close();
+      channel.current = null;
+    };
   }, []);
 
   useEffect(() => {
@@ -93,7 +157,8 @@ export function PublicAnalytics({
       const remaining = consent!.expiresAt - Date.now();
       if (remaining <= 0) {
         stop();
-        setConsent(null);
+        journal.current?.sync();
+        setDismissed(false);
       } else
         timer = window.setTimeout(
           checkExpiry,
@@ -146,11 +211,17 @@ export function PublicAnalytics({
     <ConsentContext.Provider
       value={{
         available: ready && publicPage,
-        prompt: !!counterId && consent === null,
+        prompt:
+          !!counterId &&
+          (consent === null || consent.pending?.event_type === "grant") &&
+          !dismissed,
         consent,
         open,
         setOpen,
         choose,
+        close,
+        busy,
+        error,
       }}
     >
       <AnalyticsContext.Provider
@@ -192,15 +263,18 @@ export function AnalyticsConsent() {
   const content = (
     <>
       <p>
-        Разрешить Яндекс Метрике учитывать просмотры публичных страниц и
-        обращения за консультацией? Отказ не влияет на работу сайта.
+        Мы используем Яндекс Метрику, чтобы понимать, как посетители пользуются
+        сайтом, и улучшать его работу.
       </p>
-      <p className="muted">
-        Выбор сохраняется в этом браузере на 180 дней. Его можно изменить в
-        футере. Если браузер не позволяет сохранить выбор, при следующем
-        посещении потребуется выбрать снова.
+      <p>Сервис собирает технические данные и сведения о действиях на сайте.</p>
+      <p>
+        Подробнее —{" "}
+        <Link to="/documents/privacy-policy" onClick={settings.close}>
+          Политика обработки персональных данных
+        </Link>
+        .
       </p>
-      {settings.consent && (
+      {settings.consent && !settings.consent.pending && (
         <p>
           Ваш выбор:{" "}
           {settings.consent.decision === "accepted"
@@ -209,30 +283,32 @@ export function AnalyticsConsent() {
           .
         </p>
       )}
+      {settings.busy && (
+        <p role="status">Сохраняем разрешение… Аналитика пока отключена.</p>
+      )}
+      {settings.error && <p role="alert">{settings.error}</p>}
       <div className="actions">
         <Button onClick={() => settings.choose("rejected")}>Отклонить</Button>
-        <Button onClick={() => settings.choose("accepted")}>Разрешить</Button>
+        <Button
+          disabled={settings.busy}
+          onClick={() => settings.choose("accepted")}
+        >
+          Разрешить
+        </Button>
       </div>
     </>
   );
+  const showing = settings.open || settings.prompt;
   return (
-    <>
-      {settings.prompt && !settings.open && (
-        <section
-          className="card analytics-consent"
-          aria-labelledby="analytics-consent-title"
-        >
-          <h2 id="analytics-consent-title">Настройки аналитики</h2>
-          {content}
-        </section>
-      )}
-      <Modal
-        open={settings.open}
-        title="Настройки аналитики"
-        onClose={() => settings.setOpen(false)}
-      >
-        {content}
-      </Modal>
-    </>
+    <Modal
+      open={showing}
+      title={settings.open ? "Настройки аналитики" : "Статистика посещений"}
+      onClose={() => {
+        // A prop-driven close after a decision must not suppress a future prompt.
+        if (showing) settings.close();
+      }}
+    >
+      {content}
+    </Modal>
   );
 }

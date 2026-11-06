@@ -63,7 +63,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
           />
         </section>
         <section>
-          <h2>Услуги</h2>
+          <h2>Возможности лаборатории:</h2>
           <div className="public-grid">
             {services
               .filter((service) => contentPath("services", service.slug))

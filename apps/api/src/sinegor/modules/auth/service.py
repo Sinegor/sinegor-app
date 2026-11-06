@@ -18,20 +18,29 @@ from sinegor.modules.auth.security import (
     verify_password,
 )
 from sinegor.modules.customers.models import Customer
+from sinegor.modules.security_events.service import Actor, record
 
 logger = logging.getLogger(__name__)
 
 
 def issue_and_send_link(
-    db: DBSession, settings: Settings, mailer: AuthMailer, customer: Customer, purpose: TokenPurpose
+    db: DBSession,
+    settings: Settings,
+    mailer: AuthMailer,
+    customer: Customer,
+    purpose: TokenPurpose,
+    *,
+    actor: Actor | None = None,
 ) -> None:
     # Capture earlier links under the customer lock; preserve them until SMTP succeeds.
     db.scalar(
         select(Customer)
         .where(Customer.id == customer.id)
-        .with_for_update()
+        .with_for_update(key_share=True)
         .execution_options(populate_existing=True)
     )
+    if customer.blocked_at is not None:
+        raise HTTPException(409, "Customer access is blocked")
     previous_ids = list(
         db.scalars(
             select(AuthToken.id).where(
@@ -49,6 +58,14 @@ def issue_and_send_link(
         expires_at=now + timedelta(seconds=settings.magic_link_ttl_seconds),
     )
     db.add(token)
+    record(
+        db,
+        "credential_issued",
+        "invitation_issued" if purpose == TokenPurpose.INVITATION else "magic_link_issued",
+        subject_user_id=customer.id,
+        user_id=actor[0] if actor else None,
+        user_role=actor[1] if actor else None,
+    )
     db.commit()
     try:
         # Fragment is never sent to HTTP servers or proxy logs. Frontend will POST it explicitly.
@@ -56,14 +73,31 @@ def issue_and_send_link(
         mailer.send_login_link(customer.email, link)
     except MailDeliveryError:
         db.execute(delete(AuthToken).where(AuthToken.id == token.id, AuthToken.used_at.is_(None)))
+        record(
+            db,
+            "credential_revoked",
+            "delivery_failed",
+            subject_user_id=customer.id,
+            user_id=actor[0] if actor else None,
+            user_role=actor[1] if actor else None,
+        )
         db.commit()
         logger.error("auth_email_failed")
         raise
     if previous_ids:
         # A concurrent send may have issued a newer link; do not revoke that link.
-        db.execute(
+        revoked = db.execute(
             delete(AuthToken).where(AuthToken.id.in_(previous_ids), AuthToken.used_at.is_(None))
-        )
+        ).rowcount
+        if revoked:
+            record(
+                db,
+                "credential_revoked",
+                "link_replaced",
+                subject_user_id=customer.id,
+                user_id=actor[0] if actor else None,
+                user_role=actor[1] if actor else None,
+            )
         db.commit()
 
 
@@ -86,13 +120,32 @@ def deliver_requested_link(app, email: str) -> None:
 def create_session(
     db: DBSession, settings: Settings, old_cookie: str, *, customer_id=None, admin_id=None
 ) -> str:
+    if customer_id is not None:
+        customer = db.scalar(
+            select(Customer)
+            .where(Customer.id == customer_id)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
+        )
+        if customer is None or customer.blocked_at is not None:
+            raise HTTPException(401, "Invalid or expired credentials")
     now = datetime.now(UTC)
     if old_cookie:
-        db.execute(
+        previous = db.execute(
             update(Session)
             .where(Session.session_hash == secret_hash(old_cookie), Session.revoked_at.is_(None))
             .values(revoked_at=now)
-        )
+            .returning(Session.customer_id, Session.admin_id)
+        ).first()
+        if previous:
+            record(
+                db,
+                "credential_revoked",
+                "session_rotated",
+                user_id=admin_id or customer_id,
+                user_role="admin" if admin_id else "customer",
+                subject_user_id=previous.admin_id or previous.customer_id,
+            )
     raw = new_secret()
     ttl = (
         settings.admin_session_ttl_seconds if admin_id is not None else settings.session_ttl_seconds
@@ -106,6 +159,13 @@ def create_session(
             expires_at=now + timedelta(seconds=ttl),
         )
     )
+    record(
+        db,
+        "credential_issued",
+        "session_created",
+        user_id=admin_id or customer_id,
+        user_role="admin" if admin_id else "customer",
+    )
     db.commit()
     return raw
 
@@ -116,7 +176,14 @@ def consume_link(db: DBSession, settings: Settings, token: str, old_cookie: str)
     )
     if owner_id is not None:
         # Serialize with email edits so an old link cannot create a session after revocation.
-        db.scalar(select(Customer).where(Customer.id == owner_id).with_for_update())
+        customer = db.scalar(
+            select(Customer)
+            .where(Customer.id == owner_id)
+            .with_for_update(key_share=True)
+            .execution_options(populate_existing=True)
+        )
+        if customer is None or customer.blocked_at is not None:
+            raise HTTPException(401, "Invalid or expired credentials")
     now = datetime.now(UTC)
     # UPDATE is atomic: concurrent requests cannot consume the same credential twice.
     customer_id = db.scalar(
@@ -132,6 +199,8 @@ def consume_link(db: DBSession, settings: Settings, token: str, old_cookie: str)
     )
     if customer_id is None:
         raise HTTPException(401, "Invalid or expired credentials")
+    record(db, "credential_revoked", "link_consumed", user_id=customer_id, user_role="customer")
+    record(db, "authentication", "magic_link_login", user_id=customer_id, user_role="customer")
     return create_session(db, settings, old_cookie, customer_id=customer_id)
 
 
@@ -164,6 +233,7 @@ def admin_login(
         raise HTTPException(401, "Invalid or expired credentials")
     if HASHER.check_needs_rehash(admin.password_hash):
         admin.password_hash = HASHER.hash(password)
+    record(db, "authentication", "admin_login", user_id=admin.id, user_role="admin")
     return create_session(db, settings, old_cookie, admin_id=admin.id)
 
 
@@ -190,5 +260,7 @@ def provision_admin(
         last_totp_step=step,
     )
     db.add(admin)
+    db.flush()
+    record(db, "privilege_changed", "admin_created", subject_user_id=admin.id)
     db.commit()
     return admin

@@ -45,6 +45,9 @@ class CustomerRead(BaseModel):
     email: str
     display_name: str | None
     phone: str | None
+    blocked_at: datetime | None
+    block_reason: str | None
+    block_comment: str | None
 
 
 class OrderAccessRead(BaseModel):

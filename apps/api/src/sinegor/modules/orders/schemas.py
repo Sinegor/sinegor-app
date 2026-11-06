@@ -36,14 +36,11 @@ class StatusChange(BaseModel):
     model_config = ConfigDict(extra="forbid")
     status: OrderStatus
     result_uploaded: bool = False
-    access_read_only: bool = False
 
     @model_validator(mode="after")
     def result_evidence(self):
-        if self.status == OrderStatus.RESULT_READY and not (
-            self.result_uploaded and self.access_read_only
-        ):
-            raise ValueError("Confirm result upload and read-only customer access")
+        if self.status == OrderStatus.RESULT_READY and not self.result_uploaded:
+            raise ValueError("Confirm result upload")
         return self
 
 

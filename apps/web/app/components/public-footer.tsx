@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { publicDocuments } from "../lib/documents";
+import { requiredDocumentLinks } from "../lib/documents";
 import { AnalyticsSettings } from "./public-analytics";
 
 export function PublicFooter({ year }: { year: number }) {
@@ -15,11 +15,14 @@ export function PublicFooter({ year }: { year: number }) {
       <nav aria-labelledby="footer-legal-title">
         <h2 id="footer-legal-title">Правовая информация</h2>
         <ul>
-          {publicDocuments.map((document) => (
+          {requiredDocumentLinks.map((document) => (
             <li key={document.slug}>
               <Link to={`/documents/${document.slug}`}>{document.title}</Link>
             </li>
           ))}
+          <li>
+            <Link to="/about">Об исполнителе</Link>
+          </li>
         </ul>
         <AnalyticsSettings />
       </nav>

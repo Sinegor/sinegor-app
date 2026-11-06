@@ -1,6 +1,5 @@
 import { services } from "../../lib/admin/labels";
 import type { Models } from "../../lib/admin/api";
-import { Field } from "../ui";
 import { SelectField, text } from "./common";
 export function TermsFields({ order }: { order?: Models["OrderRead"] }) {
   return (
@@ -17,19 +16,11 @@ export function TermsFields({ order }: { order?: Models["OrderRead"] }) {
           </option>
         ))}
       </SelectField>
-      <Field
-        label="Согласованная стоимость, ₽ (необязательно)"
-        name="agreed_price"
-        inputMode="decimal"
-        pattern="[0-9]{1,10}([.,][0-9]{1,2})?"
-        defaultValue={order?.agreed_price ?? ""}
-      />
     </>
   );
 }
 export function terms(data: FormData): Models["OrderTerms"] {
   return {
     service_type: text(data, "service_type") as Models["ServiceType"],
-    agreed_price: text(data, "agreed_price").replace(",", ".") || null,
   };
 }

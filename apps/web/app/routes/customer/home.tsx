@@ -5,7 +5,7 @@ import {
   type ClientLoaderFunctionArgs,
 } from "react-router";
 import { customerLoad, value } from "../../lib/customer/api";
-import { date, money, services, statuses } from "../../lib/admin/labels";
+import { date, services, statuses } from "../../lib/admin/labels";
 import { Button, Card } from "../../components/ui";
 export { CustomerErrorBoundary as ErrorBoundary } from "../../components/customer/common";
 export const meta = () => [{ title: "Мои заказы — SINEGOR LAB" }];
@@ -43,8 +43,6 @@ export default function CustomerOrders() {
               <dl className="facts">
                 <dt>Создан</dt>
                 <dd>{date(order.created_at)}</dd>
-                <dt>Стоимость</dt>
-                <dd>{money(order.agreed_price)}</dd>
               </dl>
               <Link className="button-link" to={`/customer/orders/${order.id}`}>
                 Открыть заказ № {order.number}

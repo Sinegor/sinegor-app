@@ -209,6 +209,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/analytics/consent": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Write Consent */
+    post: operations["write_consent_api_analytics_consent_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/customers/{customer_id}": {
     parameters: {
       query?: never;
@@ -238,6 +255,40 @@ export interface paths {
     get: operations["customer_events_api_admin_customers__customer_id__events_get"];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/customers/{customer_id}/block": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Block Customer */
+    post: operations["block_customer_api_admin_customers__customer_id__block_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/customers/{customer_id}/unblock": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Unblock Customer */
+    post: operations["unblock_customer_api_admin_customers__customer_id__unblock_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -623,6 +674,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/notifications/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Delivery Summary */
+    get: operations["read_delivery_summary_api_admin_notifications_summary_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/consultations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Consultations */
+    get: operations["read_consultations_api_admin_consultations_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/consultations/{identifier}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retry Consultation Delivery */
+    post: operations["retry_consultation_delivery_api_admin_consultations__identifier__retry_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/consultations/{identifier}/handle": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Mark Consultation Handled */
+    post: operations["mark_consultation_handled_api_admin_consultations__identifier__handle_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/deletion-requests": {
     parameters: {
       query?: never;
@@ -725,6 +844,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/security-events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Events */
+    get: operations["list_events_api_admin_security_events_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -800,6 +936,74 @@ export interface components {
       /** Confirm */
       confirm: boolean;
     };
+    /** ConsentInput */
+    ConsentInput: {
+      /**
+       * Event Id
+       * Format: uuid4
+       */
+      event_id: string;
+      /**
+       * Browser Id
+       * Format: uuid4
+       */
+      browser_id: string;
+      /**
+       * Event Type
+       * @enum {string}
+       */
+      event_type: "grant" | "withdraw";
+      /** Text Version */
+      text_version: string;
+    };
+    /** ConsentReceipt */
+    ConsentReceipt: {
+      /**
+       * Event Id
+       * Format: uuid
+       */
+      event_id: string;
+      /**
+       * Event Type
+       * @enum {string}
+       */
+      event_type: "grant" | "withdraw";
+      /** Text Version */
+      text_version: string;
+      /**
+       * Recorded At
+       * Format: date-time
+       */
+      recorded_at: string;
+    };
+    /** ConsultationChannel */
+    ConsultationChannel: {
+      /**
+       * Channel
+       * @enum {string}
+       */
+      channel: "smtp" | "telegram";
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        "pending" | "processing" | "sent" | "cancelled" | "failed" | "expired";
+      /** Reason */
+      reason: ("permanent" | "expired" | "temporary" | "awaiting") | null;
+      /** Attention */
+      attention: boolean;
+      /** Retry After */
+      retry_after: string | null;
+    };
+    /** ConsultationConfirmation */
+    ConsultationConfirmation: {
+      /**
+       * Confirmed
+       * @constant
+       */
+      confirmed: true;
+    };
     /** ConsultationInput */
     ConsultationInput: {
       /**
@@ -810,6 +1014,59 @@ export interface components {
       /** Phone */
       phone: string;
     };
+    /** ConsultationRead */
+    ConsultationRead: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Contacts Expires At
+       * Format: date-time
+       */
+      contacts_expires_at: string;
+      /**
+       * Observed At
+       * Format: date-time
+       */
+      observed_at: string;
+      /** Email */
+      email: string | null;
+      /** Phone */
+      phone: string | null;
+      /** Contacts Expiring */
+      contacts_expiring: boolean;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "unresolved" | "handled";
+      /** Channels */
+      channels: components["schemas"]["ConsultationChannel"][];
+      /** Can Handle */
+      can_handle: boolean;
+      /** Can Retry */
+      can_retry: boolean;
+    };
+    /** ConsultationRetry */
+    ConsultationRetry: {
+      /**
+       * Confirmed
+       * @constant
+       */
+      confirmed: true;
+      /**
+       * Channel
+       * @enum {string}
+       */
+      channel: "smtp" | "telegram";
+    };
     /** CreateFolder */
     CreateFolder: {
       /**
@@ -817,6 +1074,13 @@ export interface components {
        * @default
        */
       name_base: string;
+    };
+    /** CustomerBlock */
+    CustomerBlock: {
+      /** Reason */
+      reason: string;
+      /** Internal Comment */
+      internal_comment?: string | null;
     };
     /** CustomerCreate */
     CustomerCreate: {
@@ -874,6 +1138,12 @@ export interface components {
       display_name: string | null;
       /** Phone */
       phone: string | null;
+      /** Blocked At */
+      blocked_at: string | null;
+      /** Block Reason */
+      block_reason: string | null;
+      /** Block Comment */
+      block_comment: string | null;
     };
     /** CustomerUpdate */
     CustomerUpdate: {
@@ -963,6 +1233,21 @@ export interface components {
      */
     DeletionStatus:
       "waiting" | "deferred" | "confirmed" | "performed" | "error";
+    /** DeliverySummary */
+    DeliverySummary: {
+      /**
+       * Channel
+       * @enum {string}
+       */
+      channel: "smtp" | "telegram";
+      /**
+       * Reason
+       * @enum {string}
+       */
+      reason: "permanent" | "expired" | "delayed" | "temporary";
+      /** Count */
+      count: number;
+    };
     /** EmailInput */
     EmailInput: {
       /**
@@ -1154,6 +1439,71 @@ export interface components {
       /** Revision */
       revision: number;
     };
+    /** SecurityEventRead */
+    SecurityEventRead: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Recorded At
+       * Format: date-time
+       */
+      recorded_at: string;
+      /**
+       * Event Type
+       * @enum {string}
+       */
+      event_type:
+        | "authentication"
+        | "rate_limit"
+        | "access_denied"
+        | "credential_issued"
+        | "credential_revoked"
+        | "privilege_changed";
+      /**
+       * Result
+       * @enum {string}
+       */
+      result: "success" | "failure";
+      /** User Id */
+      user_id: string | null;
+      /** User Role */
+      user_role: string | null;
+      /** Subject User Id */
+      subject_user_id: string | null;
+      /** Request Id */
+      request_id: string;
+      /**
+       * Reason Code
+       * @enum {string}
+       */
+      reason_code:
+        | "admin_login"
+        | "magic_link_login"
+        | "invalid_credentials"
+        | "invalid_request"
+        | "attempt_limit"
+        | "authentication_required"
+        | "admin_required"
+        | "customer_required"
+        | "order_not_owned"
+        | "csrf_failed"
+        | "session_created"
+        | "session_rotated"
+        | "logout"
+        | "magic_link_issued"
+        | "invitation_issued"
+        | "link_replaced"
+        | "link_consumed"
+        | "delivery_failed"
+        | "email_changed"
+        | "admin_created"
+        | "agreement_required"
+        | "customer_blocked"
+        | "customer_unblocked";
+    };
     /**
      * ServiceType
      * @enum {string}
@@ -1167,11 +1517,6 @@ export interface components {
        * @default false
        */
       result_uploaded: boolean;
-      /**
-       * Access Read Only
-       * @default false
-       */
-      access_read_only: boolean;
     };
     /** ValidationError */
     ValidationError: {
@@ -1538,6 +1883,39 @@ export interface operations {
       };
     };
   };
+  write_consent_api_analytics_consent_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConsentInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConsentReceipt"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   read_customer_api_admin_customers__customer_id__get: {
     parameters: {
       query?: never;
@@ -1625,6 +2003,72 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EventRead"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  block_customer_api_admin_customers__customer_id__block_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        customer_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CustomerBlock"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomerRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  unblock_customer_api_admin_customers__customer_id__unblock_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        customer_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CustomerRead"];
         };
       };
       /** @description Validation Error */
@@ -2539,6 +2983,129 @@ export interface operations {
       };
     };
   };
+  read_delivery_summary_api_admin_notifications_summary_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeliverySummary"][];
+        };
+      };
+    };
+  };
+  read_consultations_api_admin_consultations_get: {
+    parameters: {
+      query?: {
+        view?: "active" | "handled";
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConsultationRead"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  retry_consultation_delivery_api_admin_consultations__identifier__retry_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        identifier: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConsultationRetry"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  mark_consultation_handled_api_admin_consultations__identifier__handle_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        identifier: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConsultationConfirmation"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_requests_api_admin_deletion_requests_get: {
     parameters: {
       query?: {
@@ -2727,6 +3294,50 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DeletionRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_events_api_admin_security_events_get: {
+    parameters: {
+      query?: {
+        date_from?: string | null;
+        date_to?: string | null;
+        event_type?:
+          | (
+              | "authentication"
+              | "rate_limit"
+              | "access_denied"
+              | "credential_issued"
+              | "credential_revoked"
+              | "privilege_changed"
+            )
+          | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SecurityEventRead"][];
         };
       };
       /** @description Validation Error */

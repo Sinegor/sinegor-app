@@ -11,7 +11,7 @@ from cryptography.fernet import Fernet
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from sinegor.db.models import AdminUser
+from sinegor.db.models import AdminUser, SecurityEvent
 from sinegor.db.session import create_db_engine
 from sinegor.modules.auth.security import verify_password
 
@@ -67,5 +67,7 @@ with patch.object(sys, 'argv', ['create_admin', '--email', os.environ['REVIEW_TE
             assert admin.last_totp_step is not None
     finally:
         with engine.begin() as connection:
+            ids = select(AdminUser.id).where(AdminUser.email == email)
+            connection.execute(delete(SecurityEvent).where(SecurityEvent.subject_user_id.in_(ids)))
             connection.execute(delete(AdminUser).where(AdminUser.email == email))
         engine.dispose()

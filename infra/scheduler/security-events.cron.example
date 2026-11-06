@@ -1,0 +1,4 @@
+# Separate service environment: DATABASE_URL belongs to the restricted cleanup role.
+# Runtime DATABASE_URL cannot execute the cleanup function. Install during T2.
+# SECURITY retention is configured by the function OWNER, not by CLI arguments.
+20 3 * * * cd /opt/sinegor/apps/api && SINEGOR_ENV_FILE=/etc/sinegor/security-cleanup.env .venv/bin/python -m sinegor.jobs.purge_security_events

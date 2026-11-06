@@ -7,9 +7,10 @@ from sinegor.core.config import Settings
 
 
 class TelegramDeliveryError(Exception):
-    def __init__(self, retry_after: int | None = None):
+    def __init__(self, retry_after: int | None = None, *, permanent: bool = False):
         super().__init__("Telegram delivery failed")
         self.retry_after = retry_after
+        self.permanent = permanent
 
 
 def https_request(target: str, payload: bytes, timeout: int) -> tuple[int, bytes]:
@@ -36,9 +37,9 @@ class TelegramNotifier:
         token = self.settings.telegram_bot_token
         chat = self.settings.telegram_admin_chat_id
         if token is None or chat is None:
-            raise TelegramDeliveryError()
+            raise TelegramDeliveryError(permanent=True)
         if len(text) > 4096:
-            raise TelegramDeliveryError()
+            raise TelegramDeliveryError(permanent=True)
         try:
             status, body = self._transport(
                 "/bot" + token.get_secret_value() + "/sendMessage",
@@ -51,14 +52,24 @@ class TelegramNotifier:
                 ).encode(),
                 self.settings.telegram_timeout,
             )
-            data = json.loads(body)
+            try:
+                data = json.loads(body)
+            except (ValueError, UnicodeError):
+                raise TelegramDeliveryError(
+                    permanent=400 <= status < 500 and status not in {408, 429}
+                ) from None
             if not isinstance(data, dict):
                 raise ValueError
             if status == 200 and data.get("ok") is True:
                 return
-            delay = data.get("parameters", {}).get("retry_after")
+            parameters = data.get("parameters")
+            delay = parameters.get("retry_after") if isinstance(parameters, dict) else None
+            code = data.get("error_code", status)
+            if type(code) is not int:
+                code = status
             raise TelegramDeliveryError(
-                delay if type(delay) is int and 0 < delay <= 86400 else None
+                delay if type(delay) is int and 0 < delay <= 2147483647 else None,
+                permanent=400 <= code < 500 and code not in {408, 429},
             )
         except TelegramDeliveryError:
             raise

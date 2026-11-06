@@ -139,9 +139,9 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
       invitation = (await control("/mail?to=customer@example.org")).link;
       await admin.goto("/admin/orders/new?customer_id=" + customerId);
       await expect(admin.getByLabel("Согласованные условия")).toHaveCount(0);
-      await admin
-        .getByLabel("Согласованная стоимость, ₽ (необязательно)")
-        .fill("12345,67");
+      await expect(
+        admin.getByLabel("Согласованная стоимость", { exact: false }),
+      ).toHaveCount(0);
       await admin
         .getByRole("button", { name: "Создать заказ", exact: true })
         .click();
@@ -150,11 +150,11 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
       const created = await read(admin.request, orderPath());
       expect(created.status).toBe("awaiting_agreement");
       expect(created.description).toBeNull();
-      expect(created.agreed_price).toBe("12345.67");
+      expect(created.agreed_price).toBeNull();
       await expect(admin.getByLabel("Согласованные условия")).toHaveCount(0);
       await admin
-        .getByLabel("Согласованная стоимость, ₽ (необязательно)")
-        .fill("12500,75");
+        .getByRole("combobox", { name: "Услуга", exact: true })
+        .selectOption("technical_preparation");
       await admin
         .getByRole("button", { name: "Сохранить условия", exact: true })
         .click();
@@ -162,7 +162,8 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         admin.getByText("Условия сохранены.", { exact: true }),
       ).toBeVisible();
       const edited = await read(admin.request, orderPath());
-      expect(edited.agreed_price).toBe("12500.75");
+      expect(edited.agreed_price).toBeNull();
+      expect(edited.service_type).toBe("technical_preparation");
       expect(edited.description).toBeNull();
     });
     await test.step("private PDF exchange approves the exact downloaded signed revision", async () => {
@@ -356,9 +357,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
     await test.step("SMTP failure cannot start retention before successful delivery", async () => {
       await control("/mode", { smtp_error: true });
       await admin.getByLabel("Результат размещён в папке заказа").check();
-      await admin
-        .getByLabel("Я вручную изменил права заказчика на просмотр")
-        .check();
+      await expect(admin.locator('[name="access_read_only"]')).toHaveCount(0);
       await admin
         .getByRole("button", { name: "Зафиксировать готовность", exact: true })
         .click();
@@ -366,17 +365,37 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
       const pending = await read(admin.request, orderPath());
       expect(pending.status).toBe("in_progress");
       expect(pending.result_notified_at).toBe(null);
+      expect(pending.ready_at).toBe(null);
+      data("age_result_notification", { order_id: orderId });
+      await admin.reload();
+      await expect(
+        admin.getByRole("status").filter({ hasText: "Проблемы доставки" }),
+      ).toContainText("Email: не доставлено более 24 часов — 1");
+      const summary = await read(
+        admin.request,
+        "/api/admin/notifications/summary",
+      );
+      expect(summary).toEqual([
+        { channel: "smtp", reason: "delayed", count: 1 },
+      ]);
+      expect(
+        (
+          await customer.request.get("/api/admin/notifications/summary")
+        ).status(),
+      ).toBe(403);
       await control("/mode", { smtp_error: false });
       await admin.getByLabel("Результат размещён в папке заказа").check();
-      await admin
-        .getByLabel("Я вручную изменил права заказчика на просмотр")
-        .check();
+      await expect(admin.locator('[name="access_read_only"]')).toHaveCount(0);
       await admin
         .getByRole("button", { name: "Зафиксировать готовность", exact: true })
         .click();
       await expect
         .poll(async () => (await read(admin.request, orderPath())).status)
         .toBe("result_ready");
+      await admin.reload();
+      await expect(
+        admin.getByText("Проблемы доставки", { exact: true }),
+      ).toHaveCount(0);
       await customer.reload();
       await expect(
         customer.getByText("Результат предоставлен, уведомление отправлено", {

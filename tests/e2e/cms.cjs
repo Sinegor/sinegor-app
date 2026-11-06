@@ -59,7 +59,21 @@ const { createStrapi } = require(
             }[payload.kind || "publications"],
           );
         let result;
-        if (payload.action === "create")
+        if (payload.action === "seed-documents")
+          result = await require(
+            path.join(config.workspace, "apps/cms/scripts/seed-documents"),
+          ).seedPublicDocuments(app, {
+            publishLocal: payload.publishLocal === true,
+            environment: { ...process.env, NODE_ENV: "development" },
+          });
+        else if (payload.action === "find")
+          result = await docs.findMany({
+            filters: { slug: payload.slug },
+            status: "draft",
+          });
+        else if (payload.action === "delete")
+          result = await docs.delete({ documentId: payload.id });
+        else if (payload.action === "create")
           result = await docs.create({ status: "draft", data: payload.data });
         else if (payload.action === "update")
           result = await docs.update({

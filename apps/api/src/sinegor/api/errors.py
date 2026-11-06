@@ -3,7 +3,10 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
+
+from sinegor.modules.security_events.service import record_rejection
 
 
 def error_response(
@@ -22,6 +25,7 @@ def error_response(
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(HTTPException)
     async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
+        await run_in_threadpool(record_rejection, request, exc.status_code)
         return error_response(
             request,
             exc.status_code,
@@ -32,6 +36,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
+        await run_in_threadpool(record_rejection, request, 422, invalid_input=True)
         if request.url.path.startswith("/api/admin/orders/") and request.url.path.endswith(
             "/folder"
         ):

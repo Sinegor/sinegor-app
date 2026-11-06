@@ -1,0 +1,24 @@
+# Copy outside Git; fill in actual host/port/database/user. Passwords belong in pgpass.
+[sinegor_backup_api]
+host=127.0.0.1
+port=55432
+dbname=sinegor
+user=sinegor
+
+[sinegor_backup_cms]
+host=127.0.0.1
+port=55432
+dbname=sinegor_cms
+user=sinegor_cms
+
+[sinegor_restore_api]
+host=127.0.0.1
+port=55432
+dbname=sinegor_api_restore_test
+user=sinegor_restore
+
+[sinegor_restore_cms]
+host=127.0.0.1
+port=55432
+dbname=sinegor_cms_restore_test
+user=sinegor_restore

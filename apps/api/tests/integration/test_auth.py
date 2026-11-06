@@ -40,7 +40,7 @@ class MemoryMailer:
 
 
 @pytest.fixture
-def auth(db_session, database_settings, request):
+def auth(db_session, database_settings, request, monkeypatch):
     production = getattr(request, "param", "test") == "production"
     origin = "https://testserver" if production else "http://testserver"
     settings = Settings(
@@ -52,6 +52,9 @@ def auth(db_session, database_settings, request):
         session_secret="test-session-signing-key-" * 3,
         auth_encryption_key=Fernet.generate_key().decode(),
     )
+    if production:
+        # Cookie fixture owns the disposable schema; runtime SQL roles are tested separately.
+        monkeypatch.setattr("sinegor.main.verify_runtime_permissions", lambda connection: None)
     app = create_app(settings)
 
     def override_db():

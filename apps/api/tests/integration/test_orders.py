@@ -173,7 +173,7 @@ def test_order_creation_history_terms_and_customer_view(admin, actors):
     updated = mutate(
         admin, "PUT", path + "/terms", {"service_type": "analysis", "description": "Revised"}
     )
-    assert updated.status_code == 200 and updated.json()["agreed_price"] is None
+    assert updated.status_code == 200 and updated.json()["agreed_price"] == "1250.50"
     orders = admin.client.get(f"/api/admin/orders?customer_id={actors.customer.id}").json()
     assert len(orders) == 2 and all(row["customer_id"] == str(actors.customer.id) for row in orders)
     assert admin.client.get("/api/admin/orders?status=completed").json() == []
@@ -276,28 +276,19 @@ def test_full_lifecycle_email_failure_and_fourteen_day_boundary(admin, actors):
     assert status(admin, actors.order, "result_ready").status_code == 422
     mailer = admin.app.state.order_mailer
     mailer.fail = True
-    response = status(
-        admin, actors.order, "result_ready", result_uploaded=True, access_read_only=True
-    )
+    response = status(admin, actors.order, "result_ready", result_uploaded=True)
     assert response.status_code == 503
     admin.db.refresh(actors.order)
     assert actors.order.status == OrderStatus.IN_PROGRESS
     assert actors.order.ready_at is None and actors.order.result_notified_at is None
     mailer.fail = False
-    response = status(
-        admin, actors.order, "result_ready", result_uploaded=True, access_read_only=True
-    )
+    response = status(admin, actors.order, "result_ready", result_uploaded=True)
     assert response.status_code == 200, response.text
     assert mailer.messages == [(actors.customer.email, actors.order.number)]
     notification = actors.order.result_notified_at
     assert actors.order.ready_at <= notification
     assert status(admin, actors.order, "completed").status_code == 409
-    assert (
-        status(
-            admin, actors.order, "result_ready", result_uploaded=True, access_read_only=True
-        ).status_code
-        == 409
-    )
+    assert status(admin, actors.order, "result_ready", result_uploaded=True).status_code == 409
     assert len(mailer.messages) == 1
     assert process_lifecycle(admin.db, now=notification + timedelta(days=14, microseconds=-1)) == 0
     assert process_lifecycle(admin.db, now=notification + timedelta(days=14)) == 1
@@ -452,3 +443,101 @@ def test_customer_list_returns_latest_hundred_with_stable_pagination(admin, acto
     assert [row["id"] for row in response.json()] == [str(row.id) for row in expected[:100]]
     following = admin.client.get("/api/admin/customers", params={"limit": 2, "offset": 100})
     assert [row["id"] for row in following.json()] == [str(row.id) for row in expected[100:]]
+
+
+@pytest.mark.parametrize("price", [None, "1250.50"])
+def test_edit_terms_without_price_preserves_history_and_noop(admin, actors, price):
+    from decimal import Decimal
+
+    actors.order.agreed_price = Decimal(price) if price is not None else None
+    actors.order.description = "Historical scope"
+    admin.db.commit()
+    path = f"/api/admin/orders/{actors.order.id}"
+    for service_type in ["analysis", "technical_preparation", "technical_preparation"]:
+        response = mutate(admin, "PUT", path + "/terms", {"service_type": service_type})
+        assert response.status_code == 200
+        assert response.json()["agreed_price"] == price
+        assert response.json()["description"] == "Historical scope"
+        assert response.json()["service_type"] == service_type
+        admin.db.expire_all()
+        assert admin.client.get(path).json()["agreed_price"] == price
+    events = admin.client.get(path + "/events").json()
+    assert [event["event_type"] for event in events] == ["terms_updated"]
+
+
+@pytest.mark.parametrize("price", [None, "2500.75"])
+def test_explicit_legacy_price_remains_supported(admin, actors, price):
+    from decimal import Decimal
+
+    actors.order.agreed_price = Decimal("1250.50")
+    admin.db.commit()
+    path = f"/api/admin/orders/{actors.order.id}"
+    response = mutate(
+        admin, "PUT", path + "/terms", {"service_type": "analysis", "agreed_price": price}
+    )
+    assert response.status_code == 200
+    assert response.json()["agreed_price"] == price
+    admin.db.expire_all()
+    assert admin.client.get(path).json()["agreed_price"] == price
+
+
+def test_readiness_without_access_confirmation_does_not_contact_disk(admin, actors):
+    from pydantic import SecretStr
+
+    from sinegor.integrations.yandex_disk.client import YandexDisk
+
+    disk_calls = []
+
+    def forbid_disk_request(method, target, token, timeout):
+        disk_calls.append((method, target))
+        raise RuntimeError("No Disk request is allowed when marking a result ready")
+
+    settings = admin.settings.model_copy(
+        update={"yandex_disk_token": SecretStr("synthetic"), "yandex_disk_root": "disk:/Synthetic"}
+    )
+    admin.app.state.yandex_disk = YandexDisk(settings, transport=forbid_disk_request)
+    approve(admin, actors)
+    process_lifecycle(admin.db)
+    assert status(admin, actors.order, "in_progress").status_code == 200
+    ready = status(admin, actors.order, "result_ready", result_uploaded=True)
+    assert ready.status_code == 200
+    assert ready.json()["status"] == "result_ready"
+    assert ready.json()["ready_at"] is not None
+    assert ready.json()["result_notified_at"] is not None
+    assert admin.app.state.order_mailer.messages == [(actors.customer.email, actors.order.number)]
+    assert disk_calls == []
+    login_customer(admin)
+    own = admin.client.get(f"/api/customer/orders/{actors.order.id}")
+    assert own.status_code == 200
+    assert own.json()["status"] == "result_ready"
+
+
+@pytest.mark.parametrize("evidence", [{}, {"result_uploaded": False}])
+def test_unconfirmed_result_has_no_status_notification_or_audit_effects(admin, actors, evidence):
+    from sinegor.modules.notifications.models import Notification
+
+    approve(admin, actors)
+    process_lifecycle(admin.db)
+    assert status(admin, actors.order, "in_progress").status_code == 200
+    path = f"/api/admin/orders/{actors.order.id}"
+    events_before = admin.client.get(path + "/events").json()
+    notifications_before = admin.db.scalar(select(func.count()).select_from(Notification))
+    response = status(admin, actors.order, "result_ready", **evidence)
+    assert response.status_code == 422
+    admin.db.refresh(actors.order)
+    assert actors.order.status == OrderStatus.IN_PROGRESS
+    assert actors.order.ready_at is None
+    assert actors.order.result_notified_at is None
+    assert admin.app.state.order_mailer.messages == []
+    assert admin.client.get(path + "/events").json() == events_before
+    assert admin.db.scalar(select(func.count()).select_from(Notification)) == notifications_before
+
+
+def test_readiness_without_access_confirmation_still_requires_agreement(admin, actors):
+    actors.order.status = OrderStatus.IN_PROGRESS
+    admin.db.commit()
+    response = status(admin, actors.order, "result_ready", result_uploaded=True)
+    assert response.status_code == 409
+    assert admin.app.state.order_mailer.messages == []
+    admin.db.refresh(actors.order)
+    assert actors.order.ready_at is None and actors.order.result_notified_at is None

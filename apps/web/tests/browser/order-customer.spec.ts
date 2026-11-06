@@ -53,23 +53,16 @@ test("customer search is lazy, debounced and requires explicit selection", async
   ).toHaveLength(0);
 });
 
-test("chosen customer survives field validation, failed creation and revalidation", async ({
+test("chosen customer survives failed creation and revalidation without a price", async ({
   page,
 }) => {
   const state = await mockApi(page);
   await page.goto("/admin/orders/new");
   await page.getByRole("combobox", { name: "Заказчик", exact: true }).click();
   await page.getByRole("option", { name: /Иван Петров/ }).click();
-  await page
-    .getByLabel("Согласованная стоимость", { exact: false })
-    .fill("invalid");
-  await page
-    .getByRole("button", { name: "Создать заказ", exact: true })
-    .click();
-  await expect(page.locator('input[name="customer_id"]')).toHaveValue(
-    customerId,
-  );
-  await page.getByLabel("Согласованная стоимость", { exact: false }).fill("");
+  await expect(
+    page.getByLabel("Согласованная стоимость", { exact: false }),
+  ).toHaveCount(0);
   let attempts = 0;
   await page.route("**/api/admin/orders", async (route) => {
     if (route.request().method() !== "POST") return route.fallback();
@@ -132,6 +125,9 @@ test("outdated search replies cannot replace newer results", async ({
           display_name: q === "old" ? "Старый ответ" : "Новый ответ",
           email: "test@example.test",
           phone: null,
+          blocked_at: null,
+          block_reason: null,
+          block_comment: null,
         },
       ],
     });
@@ -214,6 +210,9 @@ test("keyboard selection sends the chosen ID among multiple customers", async ({
     display_name: "Другой заказчик",
     email: "second@example.test",
     phone: null,
+    blocked_at: null,
+    block_reason: null,
+    block_comment: null,
   });
   await page.route(`**/api/admin/customers/${secondId}`, (route) =>
     route.fulfill({ json: state.customers[1] }),

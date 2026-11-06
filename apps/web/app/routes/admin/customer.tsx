@@ -11,6 +11,7 @@ import {
   PAGE_SIZE,
   type Models,
 } from "../../lib/admin/api";
+import { CustomerAccess } from "../../components/admin/customer-access";
 import { Card, Form, Field, Button, Notice } from "../../components/ui";
 import {
   Feedback,
@@ -123,7 +124,7 @@ export default function Customer() {
         </Form>
         <p>
           <Button
-            disabled={op.busy}
+            disabled={op.busy || !!customer.blocked_at}
             onClick={() =>
               op.run(async (api) => {
                 await api.POST("/api/admin/customers/{customer_id}/invite", {
@@ -141,6 +142,11 @@ export default function Customer() {
           </Button>
         </p>
       </Card>
+      <CustomerAccess
+        key={customer.blocked_at || "active"}
+        customer={customer}
+        op={op}
+      />
       <Card title="История заказов">
         <OrdersTable rows={orders} />
         <Pagination count={orders.length} start={start} />

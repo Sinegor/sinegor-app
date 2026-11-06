@@ -33,14 +33,6 @@ export function date(value?: string | null) {
       }).format(new Date(value)) + " МСК"
     : "—";
 }
-export function money(value?: string | number | null) {
-  return value == null
-    ? "Не согласована"
-    : new Intl.NumberFormat("ru-RU", {
-        style: "currency",
-        currency: "RUB",
-      }).format(Number(value));
-}
 export const eventLabels: Record<string, string> = {
   customer_created: "Заказчик создан",
   customer_updated: "Карточка заказчика изменена",

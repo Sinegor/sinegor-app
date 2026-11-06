@@ -34,6 +34,8 @@ export default [
   ]),
   route("admin", "layouts/admin.tsx", [
     index("routes/admin/home.tsx"),
+    route("security-events", "routes/admin/security-events.tsx"),
+    route("consultations", "routes/admin/consultations.tsx"),
     route("customers", "routes/admin/customers.tsx"),
     route("customers/new", "routes/admin/customer-new.tsx"),
     route("customers/:customerId", "routes/admin/customer.tsx"),

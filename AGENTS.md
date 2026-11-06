@@ -21,6 +21,12 @@ Distinguish approved requirements from proposals and unresolved questions.
 Report contradictions or missing requirements instead of inventing solutions.
 Do not modify project documentation unless explicitly requested.
 
+## Task Reports
+
+For subsequent user tasks, create completion reports in `docs/reports/`.
+This is standing authorization to create these reports without a separate request or confirmation.
+This authorization does not extend to changes to other project documentation.
+
 ## Architecture & Business Boundaries
 
 - Keep business logic in the modular FastAPI backend.

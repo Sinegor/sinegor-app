@@ -8,22 +8,25 @@
   "scripts": {
     "dev": "react-router dev --host localhost --port 3000",
     "build": "react-router build",
-    "start": "react-router-serve ./build/server/index.js",
+    "start": "node server/index.js",
     "typecheck": "react-router typegen && tsc --noEmit",
     "api:generate": "openapi-typescript ../../contracts/openapi/api.json -o app/lib/api/schema.d.ts && prettier --write app/lib/api/schema.d.ts",
     "test": "vitest run",
-    "format": "prettier --write app tests *.ts *.json",
-    "format:check": "prettier --check app tests *.ts *.json",
-    "test:e2e": "playwright test"
+    "format": "prettier --write app server tests *.ts *.json",
+    "format:check": "prettier --check app server tests *.ts *.json",
+    "test:e2e": "playwright test",
+    "test:server": "npm run build && node --test tests/server/*.test.mjs"
   },
   "dependencies": {
     "@react-router/node": "^7.9.0",
-    "@react-router/serve": "^7.9.0",
     "isbot": "^5.1.0",
     "openapi-fetch": "^0.14.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "react-router": "^7.9.0"
+    "react-router": "^7.9.0",
+    "express": "4.22.3",
+    "compression": "1.8.2",
+    "@react-router/express": "7.18.4"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

@@ -63,6 +63,9 @@ test("reset and browser history keep the customer search field in sync", async (
     email: "other@example.test",
     display_name: "Другой заказчик",
     phone: null,
+    blocked_at: null,
+    block_reason: null,
+    block_comment: null,
   });
   await page.goto("/admin/customers");
   const search = page.getByLabel("Поиск по имени, email или телефону");

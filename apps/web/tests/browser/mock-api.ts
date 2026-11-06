@@ -25,6 +25,9 @@ export async function mockApi(page: Page) {
         email: "client@example.test",
         display_name: "Иван Петров",
         phone: "+7 900 111-22-33",
+        blocked_at: null,
+        block_reason: null,
+        block_comment: null,
       },
     ] as Models["CustomerRead"][],
     order: {
@@ -106,6 +109,7 @@ export async function mockApi(page: Page) {
       }
       if (!state.authenticated) return send({}, 401);
       if (state.role !== "admin") return send({}, 403);
+      if (path === "/api/admin/notifications/summary") return send([]);
       if (path === "/api/admin/customers" && method === "GET") {
         const q = (url.searchParams.get("q") ?? "").toLowerCase(),
           offset = Number(url.searchParams.get("offset") ?? 0),

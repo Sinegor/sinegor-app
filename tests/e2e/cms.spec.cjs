@@ -3,31 +3,119 @@ const paragraph = (text) => [
 ];
 const { test, expect, config, cms, runtimeErrors } = require("./helpers.cjs");
 
-test("public documents follow Strapi draft, publication, revision and withdrawal", async ({
+test("CMS seed creates three local neutral publications once and SSR has no frontend placeholders", async ({
+  request,
+  browser,
+}) => {
+  expect(await cms({ action: "seed-documents", publishLocal: true })).toEqual({
+    created: 3,
+    skipped: 0,
+  });
+  expect(await cms({ action: "seed-documents", publishLocal: true })).toEqual({
+    created: 0,
+    skipped: 3,
+  });
+  const catalog = await request.get("/documents");
+  expect(catalog.status()).toBe(200);
+  const main = (await catalog.text()).split("</main>")[0].split("<main")[1];
+  expect(main).not.toContain("provider-information");
+  const sitemap = await (await request.get("/sitemap.xml")).text();
+  for (const slug of [
+    "privacy-policy",
+    "personal-data-consent",
+    "service-rules",
+  ]) {
+    expect(main).toContain(`href="/documents/${slug}"`);
+    const response = await request.get(`/documents/${slug}`);
+    expect(response.status()).toBe(200);
+    const html = await response.text();
+    expect(html).toContain("Документ готовится к публикации");
+    expect(html.split("</head>")[0]).toContain(
+      'name="robots" content="noindex, follow"',
+    );
+    expect(sitemap).not.toContain(`${config.origin}/documents/${slug}`);
+  }
+  expect((await request.get("/documents/provider-information")).status()).toBe(
+    404,
+  );
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    baseURL: config.origin,
+  });
+  try {
+    const page = await context.newPage();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/documents");
+      await expect(page.locator("main .document-catalog a")).toHaveCount(3);
+      const first = page.locator("main .document-catalog a").first();
+      await first.focus();
+      await page.keyboard.press("Enter");
+      await expect(page.locator("main")).toContainText(
+        "Документ готовится к публикации",
+      );
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+      await expect(page.getByRole("contentinfo").getByRole("link")).toHaveCount(
+        4,
+      );
+    }
+  } finally {
+    await context.close();
+  }
+});
+
+test("public documents follow Strapi draft, publication, revision, slug change and deletion", async ({
   request,
   browser,
 }) => {
   const route = "/documents/privacy-policy";
   const pdf = await cms({ action: "pdf", kind: "documents" });
-  const draft = await cms({
-    action: "create",
+  const [draft] = await cms({
+    action: "find",
     kind: "documents",
+    slug: "privacy-policy",
+  });
+  await cms({ action: "unpublish", kind: "documents", id: draft.documentId });
+  await cms({
+    action: "update",
+    kind: "documents",
+    id: draft.documentId,
     data: {
-      slug: "privacy-policy",
       title: "E2E тестовый документ",
       body: paragraph("E2E синтетический текст <script>unsafe()</script>"),
       revisedOn: "2026-11-02",
       pdf: pdf.mediaId,
-      seo: { title: "E2E document SEO", description: "E2E description" },
+      seo: {
+        title: "E2E document SEO",
+        description: "E2E description",
+        noindex: false,
+      },
     },
   });
   const html = async () => (await request.get(route)).text();
   const sitemap = async () => (await request.get("/sitemap.xml")).text();
-  expect((await request.get(route)).status()).toBe(200);
-  expect((await html()).split("</head>")[0]).toContain(
-    'name="robots" content="noindex, follow"',
-  );
-  expect(await html()).toContain("Документ готовится к публикации");
+  const catalogMain = async () =>
+    (await (await request.get("/documents")).text())
+      .split("</main>")[0]
+      .split("<main")[1];
+  const checkMissing = async (path) => {
+    const response = await request.get(path);
+    expect(response.status()).toBe(404);
+    expect(response.headers()["cache-control"]).toBe("no-store");
+    const text = await response.text();
+    expect(text).not.toContain("Документ готовится к публикации");
+    expect(text.split("</head>")[0]).toContain(
+      'name="robots" content="noindex, follow"',
+    );
+    expect(text.split("</head>")[0]).not.toContain('rel="canonical"');
+    expect(text.match(/<footer[\s\S]*?<\/footer>/)[0]).toContain(
+      'href="/documents/privacy-policy"',
+    );
+  };
+  await checkMissing(route);
+  expect(await catalogMain()).not.toContain(`href="${route}"`);
   expect(await sitemap()).not.toContain(`${config.origin}${route}`);
   expect(
     (
@@ -71,14 +159,36 @@ test("public documents follow Strapi draft, publication, revision and withdrawal
     action: "update",
     kind: "documents",
     id: draft.documentId,
-    data: { title: "E2E новая редакция" },
+    data: { title: "E2E новая редакция", revisedOn: "2026-11-04" },
   });
   expect(await html()).not.toContain("E2E новая редакция");
   await cms({ action: "publish", kind: "documents", id: draft.documentId });
   expect(await html()).toContain("E2E новая редакция");
+  expect(await html()).toContain('dateTime="2026-11-04"');
   await cms({ action: "unpublish", kind: "documents", id: draft.documentId });
-  expect(await html()).toContain("Документ готовится к публикации");
+  await checkMissing(route);
+  expect(await catalogMain()).not.toContain(`href="${route}"`);
   expect(await sitemap()).not.toContain(`${config.origin}${route}`);
+  expect(await cms({ action: "seed-documents", publishLocal: true })).toEqual({
+    created: 0,
+    skipped: 3,
+  });
+  await checkMissing(route);
+  await cms({
+    action: "update",
+    kind: "documents",
+    id: draft.documentId,
+    data: { slug: "e2e-edited-slug" },
+  });
+  await cms({ action: "publish", kind: "documents", id: draft.documentId });
+  await checkMissing(route);
+  expect((await request.get("/documents/e2e-edited-slug")).status()).toBe(200);
+  expect(await catalogMain()).toContain('href="/documents/e2e-edited-slug"');
+  await cms({ action: "delete", kind: "documents", id: draft.documentId });
+  await checkMissing("/documents/e2e-edited-slug");
+  expect(await catalogMain()).not.toContain(
+    'href="/documents/e2e-edited-slug"',
+  );
 });
 
 test("document CMS outages return 503 with noindex and preserve public navigation", async ({
@@ -682,6 +792,63 @@ test("Content Manager enforces required image choices and saves root and section
       size: "large",
       alignment: "left",
     });
+  });
+  await test.step("existing public-document model is visible and editable in Content Manager", async () => {
+    const [document] = await cms({
+      action: "find",
+      kind: "documents",
+      slug: "service-rules",
+    });
+    await page.goto(
+      `${origin}/admin/content-manager/collection-types/api::public-document.public-document/${document.documentId}`,
+    );
+    await expect(
+      page.getByRole("link", { name: "Публичный документ", exact: true }),
+    ).toHaveCount(1);
+    await expect(page.locator('input[name="title"]')).toBeEditable();
+    await expect(page.locator('input[name="slug"]')).toHaveValue(
+      "service-rules",
+    );
+    await expect(page.locator('input[name="revisedOn"]')).toBeVisible();
+    await expect(
+      page.locator('[contenteditable="true"]').first(),
+    ).toContainText("Документ готовится к публикации");
+    await expect(page.getByText("pdf", { exact: true })).toBeVisible();
+    await expect(page.getByText("seo", { exact: true })).toBeVisible();
+    await page
+      .locator('input[name="title"]')
+      .fill("E2E правила после Content Manager");
+    const [saved] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.request().method() === "PUT" &&
+          r
+            .url()
+            .includes(
+              `/api::public-document.public-document/${document.documentId}`,
+            ),
+      ),
+      page.getByRole("button", { name: "Save", exact: true }).click(),
+    ]);
+    expect(saved.status()).toBe(200);
+    const [published] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.request().method() === "POST" &&
+          r
+            .url()
+            .includes(
+              `/api::public-document.public-document/${document.documentId}/actions/publish`,
+            ),
+      ),
+      page.getByRole("button", { name: "Publish", exact: true }).click(),
+    ]);
+    expect(published.status()).toBe(200);
+    const publicDocument = await request.get("/documents/service-rules");
+    expect(publicDocument.status()).toBe(200);
+    expect(await publicDocument.text()).toContain(
+      "E2E правила после Content Manager",
+    );
   });
   expect(errors).toEqual([]);
 });

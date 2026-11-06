@@ -1,6 +1,11 @@
 import { PassThrough } from "node:stream";
 import { createReadableStreamFromReadable } from "@react-router/node";
-import { ServerRouter, type EntryContext } from "react-router";
+import {
+  ServerRouter,
+  isRouteErrorResponse,
+  type EntryContext,
+  type HandleErrorFunction,
+} from "react-router";
 import { renderToPipeableStream } from "react-dom/server";
 
 export default function handleRequest(
@@ -41,3 +46,14 @@ export default function handleRequest(
     timer = setTimeout(abort, 5000);
   });
 }
+
+// Error messages, stacks and route params can contain user input.
+export const handleError: HandleErrorFunction = (error, { request }) => {
+  if (request.signal.aborted) return;
+  console.error(
+    JSON.stringify({
+      event: "ssr_error",
+      status: isRouteErrorResponse(error) ? error.status : 500,
+    }),
+  );
+};

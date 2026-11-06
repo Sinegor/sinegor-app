@@ -24,6 +24,7 @@ from sinegor.modules.customers.models import Customer as CustomerModel
 from sinegor.modules.notifications.service import deliver_from_app, enqueue, queue_invitation
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.schemas import OrderRead
+from sinegor.modules.security_events.service import record
 
 router = APIRouter(tags=["auth"])
 
@@ -88,7 +89,21 @@ def get_csrf(request: Request, response: Response):
 @router.post("/auth/magic-link/request", status_code=202)
 def request_magic_link(payload: EmailInput, request: Request, db: Database, tasks: BackgroundTasks):
     throttle(request, db, "magic_request", str(payload.email))
-    identifier = enqueue(db, "magic_link", recipient=str(payload.email))
+    customer = db.scalar(
+        select(CustomerModel)
+        .where(CustomerModel.email == str(payload.email))
+        .with_for_update(key_share=True)
+        .execution_options(populate_existing=True)
+    )
+    if customer is not None and customer.blocked_at is not None:
+        db.commit()
+        return {"message": "If access is available, a sign-in email will be sent"}
+    identifier = enqueue(
+        db,
+        "magic_link",
+        recipient=str(payload.email),
+        customer_id=customer.id if customer else None,
+    )
     db.commit()
     tasks.add_task(deliver_from_app, request.app, identifier)
     return {"message": "If access is available, a sign-in email will be sent"}
@@ -129,6 +144,7 @@ def logout(request: Request, response: Response, principal: Authenticated, db: D
         .where(Session.id == principal.session_id)
         .values(revoked_at=datetime.now(UTC))
     )
+    record(db, "credential_revoked", "logout", user_id=principal.id, user_role=principal.role)
     db.commit()
     settings = request.app.state.settings
     for cookie in (settings.session_cookie_name, settings.csrf_cookie_name):
@@ -158,7 +174,9 @@ def create_customer(payload: CustomerCreate, request: Request, principal: Admin,
         raise HTTPException(409, "Customer already exists") from exc
     try:
         identifier = queue_invitation(db, customer)
-        if not deliver_from_app(request.app, identifier, force=True):
+        if not deliver_from_app(
+            request.app, identifier, force=True, actor=(principal.id, principal.role)
+        ):
             raise MailDeliveryError("Invitation queued for retry")
     except MailDeliveryError as exc:
         raise HTTPException(
@@ -177,7 +195,9 @@ def invite_customer(customer_id: UUID, request: Request, principal: Admin, db: D
         raise HTTPException(404, "Customer not found")
     try:
         identifier = queue_invitation(db, customer)
-        if not deliver_from_app(request.app, identifier, force=True):
+        if not deliver_from_app(
+            request.app, identifier, force=True, actor=(principal.id, principal.role)
+        ):
             raise MailDeliveryError("Invitation queued for retry")
     except MailDeliveryError as exc:
         raise HTTPException(503, "Invitation delivery failed") from exc

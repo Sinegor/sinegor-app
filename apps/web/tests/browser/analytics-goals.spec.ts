@@ -52,7 +52,10 @@ test("a video goal survives consumer remounts and resets for a new visit, includ
       "sinegor.analytics-consent.v1",
       JSON.stringify({
         decision: "accepted",
-        expiresAt: Date.now() + 86400000,
+        savedAt: Date.now(),
+        expiresAt: Date.now() + 180 * 86400000,
+        textVersion: "1",
+        browserId: "2db9f30b-b3a6-4f46-9cb3-212ceea88e05",
       }),
     ),
   );

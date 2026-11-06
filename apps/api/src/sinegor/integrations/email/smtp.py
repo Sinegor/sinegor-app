@@ -10,7 +10,9 @@ from sinegor.core.config import Settings
 
 
 class MailDeliveryError(Exception):
-    pass
+    def __init__(self, message="SMTP delivery failed", *, permanent: bool = False):
+        super().__init__(message)
+        self.permanent = permanent
 
 
 class AuthMailer(Protocol):
@@ -52,6 +54,24 @@ class SMTPAuthMailer:
         )
         self._send(message)
 
+    def send_access_notice(self, recipient: str, reason: str | None) -> None:
+        message = EmailMessage()
+        message["From"] = self._sender()
+        message["To"] = recipient
+        blocked = reason is not None
+        message["Subject"] = "SINEGOR — " + (
+            "доступ заблокирован" if blocked else "доступ восстановлен"
+        )
+        message.set_content(
+            "Доступ к личному кабинету заблокирован.\nПричина: " + reason
+            if blocked
+            else "Доступ к личному кабинету восстановлен. "
+            "Для входа запросите новую одноразовую ссылку.\n"
+            + str(self.settings.public_origin).rstrip("/")
+            + "/auth/login"
+        )
+        self._send(message)
+
     def _sender(self) -> str:
         return formataddr((self.settings.smtp_from_name, str(self.settings.smtp_from or "")))
 
@@ -74,10 +94,23 @@ class SMTPAuthMailer:
         )
         self._send(message)
 
+    def send_consultation_notice(
+        self, recipient: str, email: str, phone: str | None = None
+    ) -> None:
+        message = EmailMessage()
+        message["From"] = self._sender()
+        message["To"] = recipient
+        message["Subject"] = "SINEGOR — заявка на консультацию"
+        text = "Поступила новая заявка на консультацию.\nEmail: " + email
+        if phone:
+            text += "\nТелефон: " + phone
+        message.set_content(text)
+        self._send(message)
+
     def _send(self, message: EmailMessage) -> None:
         settings = self.settings
         if not all((settings.smtp_username, settings.smtp_password, settings.smtp_from)):
-            raise MailDeliveryError("SMTP is not configured")
+            raise MailDeliveryError("SMTP is not configured", permanent=True)
         try:
             context = ssl.create_default_context()
             if settings.smtp_use_ssl:
@@ -99,7 +132,19 @@ class SMTPAuthMailer:
                     smtp.starttls(context=context)
                     smtp.ehlo()
                 smtp.login(settings.smtp_username, settings.smtp_password.get_secret_value())
-                if smtp.send_message(message):
-                    raise MailDeliveryError("SMTP refused the recipient")
-        except (smtplib.SMTPException, OSError, ValueError):
-            raise MailDeliveryError("SMTP delivery failed") from None
+                refused = smtp.send_message(message)
+                if refused:
+                    raise smtplib.SMTPRecipientsRefused(refused)
+        except smtplib.SMTPRecipientsRefused as exc:
+            # Keep only the reply class; server text and recipient keys are private.
+            permanent = bool(exc.recipients) and all(
+                500 <= reply[0] < 600 for reply in exc.recipients.values()
+            )
+            raise MailDeliveryError(permanent=permanent) from None
+        except smtplib.SMTPResponseException as exc:
+            raise MailDeliveryError(permanent=500 <= exc.smtp_code < 600) from None
+        except (smtplib.SMTPNotSupportedError, ValueError):
+            raise MailDeliveryError(permanent=True) from None
+        except (smtplib.SMTPException, OSError):
+            # A timeout may follow provider acceptance: the outcome is unknown.
+            raise MailDeliveryError() from None

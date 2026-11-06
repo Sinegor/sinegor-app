@@ -131,3 +131,32 @@ def test_smtp_rejects_control_characters(field):
             database_url="postgresql+psycopg://u:p@localhost/db",
             **{field: "injected\r\nheader"},
         )
+
+
+@pytest.mark.parametrize("phone", ["+79991234567", None])
+def test_consultation_contacts_use_existing_tls_transport_and_admin_envelope(phone):
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql+psycopg://u:p@localhost/db",
+        smtp_username="sender@example.ru",
+        smtp_password="synthetic-password",
+        smtp_from="sender@example.ru",
+    )
+    with patch("sinegor.integrations.email.smtp.smtplib.SMTP_SSL") as smtp:
+        connection = smtp.return_value.__enter__.return_value
+        connection.send_message.return_value = {}
+        SMTPAuthMailer(settings).send_consultation_notice(
+            "executor@example.ru", "visitor@example.ru", phone
+        )
+        message = connection.send_message.call_args.args[0]
+        assert message["To"] == "executor@example.ru"
+        assert message["From"].addresses[0].addr_spec == "sender@example.ru"
+        assert message["Subject"] == "SINEGOR — заявка на консультацию"
+        assert "Email: visitor@example.ru" in message.get_content()
+        assert ("Телефон: " in message.get_content()) is (phone is not None)
+        if phone:
+            assert phone in message.get_content()
+        assert smtp.call_args.args == ("smtp.yandex.ru", 465)
+        assert smtp.call_args.kwargs["context"].check_hostname
+        connection.login.assert_called_once_with("sender@example.ru", "synthetic-password")
+        connection.send_message.assert_called_once()

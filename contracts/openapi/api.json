@@ -435,6 +435,47 @@
         }
       }
     },
+    "/api/analytics/consent": {
+      "post": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Write Consent",
+        "operationId": "write_consent_api_analytics_consent_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsentInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConsentReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/customers/{customer_id}": {
       "get": {
         "tags": [
@@ -582,6 +623,102 @@
                     "$ref": "#/components/schemas/EventRead"
                   },
                   "title": "Response Customer Events Api Admin Customers  Customer Id  Events Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/customers/{customer_id}/block": {
+      "post": {
+        "tags": [
+          "customers"
+        ],
+        "summary": "Block Customer",
+        "operationId": "block_customer_api_admin_customers__customer_id__block_post",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Customer Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerBlock"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerRead"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/customers/{customer_id}/unblock": {
+      "post": {
+        "tags": [
+          "customers"
+        ],
+        "summary": "Unblock Customer",
+        "operationId": "unblock_customer_api_admin_customers__customer_id__unblock_post",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Customer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerRead"
                 }
               }
             }
@@ -2014,6 +2151,207 @@
         }
       }
     },
+    "/api/admin/notifications/summary": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Read Delivery Summary",
+        "operationId": "read_delivery_summary_api_admin_notifications_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DeliverySummary"
+                  },
+                  "type": "array",
+                  "title": "Response Read Delivery Summary Api Admin Notifications Summary Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/consultations": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Read Consultations",
+        "operationId": "read_consultations_api_admin_consultations_get",
+        "parameters": [
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "active",
+                "handled"
+              ],
+              "type": "string",
+              "default": "active",
+              "title": "View"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConsultationRead"
+                  },
+                  "title": "Response Read Consultations Api Admin Consultations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/consultations/{identifier}/retry": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Retry Consultation Delivery",
+        "operationId": "retry_consultation_delivery_api_admin_consultations__identifier__retry_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultationRetry"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/consultations/{identifier}/handle": {
+      "post": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Mark Consultation Handled",
+        "operationId": "mark_consultation_handled_api_admin_consultations__identifier__handle_post",
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Identifier"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsultationConfirmation"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/deletion-requests": {
       "get": {
         "tags": [
@@ -2350,6 +2688,124 @@
           }
         }
       }
+    },
+    "/api/admin/security-events": {
+      "get": {
+        "tags": [
+          "security-events"
+        ],
+        "summary": "List Events",
+        "operationId": "list_events_api_admin_security_events_get",
+        "parameters": [
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "name": "event_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "authentication",
+                    "rate_limit",
+                    "access_denied",
+                    "credential_issued",
+                    "credential_revoked",
+                    "privilege_changed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Type"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SecurityEventRead"
+                  },
+                  "title": "Response List Events Api Admin Security Events Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2538,6 +2994,158 @@
         ],
         "title": "Confirmation"
       },
+      "ConsentInput": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid4",
+            "title": "Event Id"
+          },
+          "browser_id": {
+            "type": "string",
+            "format": "uuid4",
+            "title": "Browser Id"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "grant",
+              "withdraw"
+            ],
+            "title": "Event Type"
+          },
+          "text_version": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Text Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "event_id",
+          "browser_id",
+          "event_type",
+          "text_version"
+        ],
+        "title": "ConsentInput"
+      },
+      "ConsentReceipt": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "grant",
+              "withdraw"
+            ],
+            "title": "Event Type"
+          },
+          "text_version": {
+            "type": "string",
+            "title": "Text Version"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "event_type",
+          "text_version",
+          "recorded_at"
+        ],
+        "title": "ConsentReceipt"
+      },
+      "ConsultationChannel": {
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "telegram"
+            ],
+            "title": "Channel"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "sent",
+              "cancelled",
+              "failed",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "permanent",
+                  "expired",
+                  "temporary",
+                  "awaiting"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "attention": {
+            "type": "boolean",
+            "title": "Attention"
+          },
+          "retry_after": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel",
+          "status",
+          "reason",
+          "attention",
+          "retry_after"
+        ],
+        "title": "ConsultationChannel"
+      },
+      "ConsultationConfirmation": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed"
+        ],
+        "title": "ConsultationConfirmation"
+      },
       "ConsultationInput": {
         "properties": {
           "email": {
@@ -2561,6 +3169,117 @@
         ],
         "title": "ConsultationInput"
       },
+      "ConsultationRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "contacts_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Contacts Expires At"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "contacts_expiring": {
+            "type": "boolean",
+            "title": "Contacts Expiring"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unresolved",
+              "handled"
+            ],
+            "title": "Status"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/ConsultationChannel"
+            },
+            "type": "array",
+            "title": "Channels"
+          },
+          "can_handle": {
+            "type": "boolean",
+            "title": "Can Handle"
+          },
+          "can_retry": {
+            "type": "boolean",
+            "title": "Can Retry"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "contacts_expires_at",
+          "observed_at",
+          "email",
+          "phone",
+          "contacts_expiring",
+          "status",
+          "channels",
+          "can_handle",
+          "can_retry"
+        ],
+        "title": "ConsultationRead"
+      },
+      "ConsultationRetry": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmed"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "telegram"
+            ],
+            "title": "Channel"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "channel"
+        ],
+        "title": "ConsultationRetry"
+      },
       "CreateFolder": {
         "properties": {
           "name_base": {
@@ -2573,6 +3292,34 @@
         "additionalProperties": false,
         "type": "object",
         "title": "CreateFolder"
+      },
+      "CustomerBlock": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "internal_comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Internal Comment"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "CustomerBlock"
       },
       "CustomerCreate": {
         "properties": {
@@ -2732,6 +3479,40 @@
               }
             ],
             "title": "Phone"
+          },
+          "blocked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked At"
+          },
+          "block_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Reason"
+          },
+          "block_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Block Comment"
           }
         },
         "type": "object",
@@ -2739,7 +3520,10 @@
           "id",
           "email",
           "display_name",
-          "phone"
+          "phone",
+          "blocked_at",
+          "block_reason",
+          "block_comment"
         ],
         "title": "CustomerRead"
       },
@@ -2974,6 +3758,39 @@
           "error"
         ],
         "title": "DeletionStatus"
+      },
+      "DeliverySummary": {
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "telegram"
+            ],
+            "title": "Channel"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "permanent",
+              "expired",
+              "delayed",
+              "temporary"
+            ],
+            "title": "Reason"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel",
+          "reason",
+          "count"
+        ],
+        "title": "DeliverySummary"
       },
       "EmailInput": {
         "properties": {
@@ -3525,6 +4342,121 @@
         ],
         "title": "ReviewInput"
       },
+      "SecurityEventRead": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Recorded At"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "authentication",
+              "rate_limit",
+              "access_denied",
+              "credential_issued",
+              "credential_revoked",
+              "privilege_changed"
+            ],
+            "title": "Event Type"
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failure"
+            ],
+            "title": "Result"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          },
+          "user_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Role"
+          },
+          "subject_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject User Id"
+          },
+          "request_id": {
+            "type": "string",
+            "title": "Request Id"
+          },
+          "reason_code": {
+            "type": "string",
+            "enum": [
+              "admin_login",
+              "magic_link_login",
+              "invalid_credentials",
+              "invalid_request",
+              "attempt_limit",
+              "authentication_required",
+              "admin_required",
+              "customer_required",
+              "order_not_owned",
+              "csrf_failed",
+              "session_created",
+              "session_rotated",
+              "logout",
+              "magic_link_issued",
+              "invitation_issued",
+              "link_replaced",
+              "link_consumed",
+              "delivery_failed",
+              "email_changed",
+              "admin_created",
+              "agreement_required",
+              "customer_blocked",
+              "customer_unblocked"
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "recorded_at",
+          "event_type",
+          "result",
+          "user_id",
+          "user_role",
+          "subject_user_id",
+          "request_id",
+          "reason_code"
+        ],
+        "title": "SecurityEventRead"
+      },
       "ServiceType": {
         "type": "string",
         "enum": [
@@ -3541,11 +4473,6 @@
           "result_uploaded": {
             "type": "boolean",
             "title": "Result Uploaded",
-            "default": false
-          },
-          "access_read_only": {
-            "type": "boolean",
-            "title": "Access Read Only",
             "default": false
           }
         },

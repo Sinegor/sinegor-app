@@ -1,6 +1,7 @@
 """Lock order first, then agreement; store immutable objects before publishing references."""
 
 import logging
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -106,8 +107,11 @@ def upload(
     actor_id: UUID,
     *,
     initial: bool,
+    authorize: Callable[[], object] | None = None,
 ) -> Agreement:
     validate_pdf(data)
+    if authorize is not None:
+        authorize()
     order, agreement = editable_order(db, order_id)
     check_revision(agreement, revision)
     if initial:

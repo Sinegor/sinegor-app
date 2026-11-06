@@ -72,8 +72,9 @@ def set_folder_link(order_id: UUID, payload: FolderLink, principal: Admin, db: D
 
 
 @router.get("/customer/orders/{order_id}/folder", response_model=CustomerFolderRead)
-def customer_folder(principal: Customer, owned: OwnedOrder, db: Database):
+def customer_folder(request: Request, principal: Customer, owned: OwnedOrder, db: Database):
     if owned.agreement is None or owned.agreement.status != AgreementStatus.APPROVED:
+        request.state.security_reason = "agreement_required"
         raise HTTPException(404, "Order folder not available")
     folder = service.folder_for(db, owned)
     if (

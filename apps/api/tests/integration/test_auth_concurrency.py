@@ -7,7 +7,7 @@ import pyotp
 import pytest
 from cryptography.fernet import Fernet
 from fastapi import HTTPException
-from sqlalchemy import delete, event, func, select
+from sqlalchemy import delete, event, func, or_, select
 from sqlalchemy.orm import Session as DBSession
 
 from sinegor.core.config import Settings
@@ -18,6 +18,7 @@ from sinegor.modules.auth.models import AdminUser, AuthToken, Session
 from sinegor.modules.auth.security import HASHER, new_secret, secret_hash
 from sinegor.modules.auth.service import admin_login, consume_link
 from sinegor.modules.customers.models import Customer
+from sinegor.modules.security_events.models import SecurityEvent
 
 pytestmark = pytest.mark.integration
 
@@ -94,6 +95,14 @@ def test_concurrent_credential_use_creates_only_one_session(
             )
     finally:
         with engine.begin() as connection:
+            connection.execute(
+                delete(SecurityEvent).where(
+                    or_(
+                        SecurityEvent.user_id == identifier,
+                        SecurityEvent.subject_user_id == identifier,
+                    )
+                )
+            )
             column = Session.customer_id if kind == "magic" else Session.admin_id
             connection.execute(delete(Session).where(column == identifier))
             connection.execute(delete(AuthToken).where(AuthToken.customer_id == identifier))
@@ -125,7 +134,9 @@ def test_link_expiring_while_waiting_for_customer_lock_is_rejected(
     monkeypatch.setattr(auth_service, "datetime", Clock)
 
     def observe(conn, cursor, statement, parameters, context, executemany):
-        if "FROM customers" in statement and "FOR UPDATE" in statement:
+        if "FROM customers" in statement and (
+            "FOR UPDATE" in statement or "FOR NO KEY UPDATE" in statement
+        ):
             waiting.set()
 
     try:
@@ -178,6 +189,14 @@ def test_link_expiring_while_waiting_for_customer_lock_is_rejected(
             )
     finally:
         with engine.begin() as connection:
+            connection.execute(
+                delete(SecurityEvent).where(
+                    or_(
+                        SecurityEvent.user_id == identifier,
+                        SecurityEvent.subject_user_id == identifier,
+                    )
+                )
+            )
             connection.execute(delete(Session).where(Session.customer_id == identifier))
             connection.execute(delete(AuthToken).where(AuthToken.customer_id == identifier))
             connection.execute(delete(Customer).where(Customer.id == identifier))

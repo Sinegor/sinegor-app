@@ -2,6 +2,7 @@ import { NavLink, Outlet, redirect } from "react-router";
 import { adminLoad, value } from "../lib/admin/api";
 import { Button } from "../components/ui";
 import { Feedback, useOperation } from "../components/admin/common";
+import { DeliveryWarning } from "../components/admin/delivery-warning";
 import { Brand } from "../components/brand";
 import { MobileNavigation } from "../components/mobile-navigation";
 import { usePrivateDocument } from "../lib/private-document";
@@ -26,6 +27,8 @@ export default function AdminLayout() {
     <>
       <NavLink to="/admin/customers">Заказчики</NavLink>
       <NavLink to="/admin/orders">Заказы</NavLink>
+      <NavLink to="/admin/consultations">Доставка заявок</NavLink>
+      <NavLink to="/admin/security-events">События безопасности</NavLink>
     </>
   );
   const logout = (
@@ -59,10 +62,14 @@ export default function AdminLayout() {
       <div className="admin-shell">
         <aside className="desktop-sidebar">
           <nav aria-label="Разделы администратора">{links}</nav>
-          <p>Сроки и даты показаны по московскому времени.</p>
+          <p>
+            Даты показаны по московскому времени, если в разделе не указано
+            иное.
+          </p>
         </aside>
         <main id="main" className="admin-main">
           <Feedback op={op} />
+          <DeliveryWarning />
           <Outlet />
         </main>
       </div>

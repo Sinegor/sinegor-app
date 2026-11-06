@@ -1,39 +1,48 @@
 import type { Content } from "./cms";
 import { readAllContent, readContent } from "./cms.server";
-import { publicDocuments } from "./documents";
+import { requiredDocumentLinks } from "./documents";
 import { contentPath } from "./public-url";
 
 export type PublicDocument = {
   slug: string;
   title: string;
-  content: Content | null;
+  content: Content;
 };
+
+function reportMissingRequired(slug: string) {
+  if (requiredDocumentLinks.some((item) => item.slug === slug))
+    console.error(
+      "Public documents configuration error: required document is not published",
+      slug,
+    );
+}
 
 export async function loadDocument(slug: string): Promise<PublicDocument> {
   if (!contentPath("documents", slug))
     throw new Response("Not Found", { status: 404 });
   const data = await readContent("documents", slug);
-  if (data && !Array.isArray(data) && data.publishedAt)
-    return { slug, title: data.title, content: data };
-  const pending = publicDocuments.find((item) => item.slug === slug);
-  if (!pending) throw new Response("Not Found", { status: 404 });
-  return { ...pending, content: null };
+  if (data === undefined || Array.isArray(data))
+    throw new Response("Content temporarily unavailable", { status: 503 });
+  if (!data?.publishedAt) {
+    reportMissingRequired(slug);
+    throw new Response("Not Found", { status: 404 });
+  }
+  return { slug: data.slug, title: data.title, content: data };
 }
 
 export async function loadDocuments(): Promise<PublicDocument[]> {
-  const content = ((await readAllContent("documents")) || []).filter(
+  const data = await readAllContent("documents");
+  if (data === undefined)
+    throw new Response("Content temporarily unavailable", { status: 503 });
+  const published = data.filter(
     (item) => item.publishedAt && contentPath("documents", item.slug),
   );
-  const documents: PublicDocument[] = publicDocuments.map((item) => {
-    const published = content.find((document) => document.slug === item.slug);
-    return {
-      ...item,
-      title: published?.title || item.title,
-      content: published || null,
-    };
-  });
-  for (const item of content)
-    if (!documents.some((document) => document.slug === item.slug))
-      documents.push({ slug: item.slug, title: item.title, content: item });
-  return documents;
+  for (const required of requiredDocumentLinks)
+    if (!published.some((item) => item.slug === required.slug))
+      reportMissingRequired(required.slug);
+  return published.map((content) => ({
+    slug: content.slug,
+    title: content.title,
+    content,
+  }));
 }

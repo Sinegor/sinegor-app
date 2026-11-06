@@ -1,23 +1,27 @@
 import { test, expect } from "@playwright/test";
-import { publicDocuments } from "../../app/lib/documents";
 
-test("four reserved documents render pending SSR pages with noindex and stay out of sitemap", async ({
+test("unconfigured CMS returns 503 without frontend document placeholders", async ({
   request,
 }) => {
-  const sitemap = await (await request.get("/sitemap.xml")).text();
-  for (const document of publicDocuments) {
-    const response = await request.get(`/documents/${document.slug}`);
-    expect(response.status()).toBe(200);
+  for (const path of [
+    "/documents",
+    "/documents/privacy-policy",
+    "/documents/personal-data-consent",
+    "/documents/service-rules",
+    "/documents/provider-information",
+    "/documents/unknown",
+  ]) {
+    const response = await request.get(path);
+    expect(response.status()).toBe(503);
     expect(response.headers()["cache-control"]).toBe("no-store");
     const html = await response.text();
-    expect(html).toContain(`<h1>${document.title}</h1>`);
-    expect(html).toContain("Документ готовится к публикации");
+    expect(html).toContain("Документы временно недоступны");
+    expect(html).not.toContain("Документ готовится к публикации");
     expect(html.split("</head>")[0]).toContain(
       'name="robots" content="noindex, follow"',
     );
-    expect(sitemap).not.toContain(`/documents/${document.slug}`);
+    expect(html.split("</head>")[0]).not.toContain('rel="canonical"');
   }
-  expect((await request.get("/documents/unknown")).status()).toBe(404);
 });
 
 test("public footer and documents fit desktop and mobile and support keyboard navigation", async ({

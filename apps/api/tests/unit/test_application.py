@@ -17,7 +17,10 @@ from sinegor.modules.auth.security import csrf_token, new_secret
 
 
 @pytest.fixture
-def app():
+def app(monkeypatch):
+    # These unit checks have no DB; durable facts are exercised with real PostgreSQL.
+    monkeypatch.setattr("sinegor.main.record_rejection", lambda *a, **kw: None)
+    monkeypatch.setattr("sinegor.api.errors.record_rejection", lambda *a, **kw: None)
     return create_app(
         Settings(
             _env_file=None,
@@ -176,7 +179,12 @@ def test_production_does_not_expose_api_docs():
             database_url="postgresql+psycopg://user:dedicated_password@localhost/sinegor",
         )
     )
-    with TestClient(app) as client:
+    # Isolate documentation routes; production role checks have integration tests.
+    with (
+        patch("sinegor.main.create_db_engine"),
+        patch("sinegor.main.verify_runtime_permissions"),
+        TestClient(app) as client,
+    ):
         for path in ("/docs", "/redoc", "/openapi.json"):
             assert client.get(path).status_code == 404
         assert client.get("/api/health/live").status_code == 200

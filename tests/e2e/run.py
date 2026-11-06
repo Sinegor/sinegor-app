@@ -285,6 +285,7 @@ def main() -> int:
         sql = (
             f"CREATE ROLE e2e_api LOGIN PASSWORD '{password}';\n"
             f"CREATE ROLE e2e_cms LOGIN PASSWORD '{password}';\n"
+            "GRANT SET ON PARAMETER sinegor.security_retention_days TO e2e_api;\n"
             f"CREATE DATABASE sinegor_e2e_{run_id}_test OWNER e2e_api;\n"
             f"CREATE DATABASE sinegor_e2e_{run_id}_cms_test OWNER e2e_cms;\n"
         )

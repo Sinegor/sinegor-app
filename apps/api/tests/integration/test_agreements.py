@@ -150,7 +150,7 @@ def test_pdf_exchange_approval_and_private_download(api):
     api.switch("admin")
     for body in (
         {"status": "in_progress"},
-        {"status": "result_ready", "result_uploaded": True, "access_read_only": True},
+        {"status": "result_ready", "result_uploaded": True},
     ):
         response = auth_helpers.post(
             api.auth, f"/api/admin/orders/{api.actors.order.id}/status", body
@@ -374,3 +374,70 @@ def test_review_validates_rejection_reason_and_approval_payload(api, reason):
     assert api.get("admin").json()["status"] == "under_review"
     assert api.review("approve", 2, reason="must not be supplied").status_code == 422
     assert api.review("approve", 2).status_code == 200
+
+
+@pytest.mark.parametrize("role", ["admin", "customer"])
+def test_final_pdf_download_preserves_bytes_digest_and_attachment(api, role):
+    signed = pdf("synthetic approved agreement")
+    assert api.upload("admin", pdf("synthetic initial agreement"), 0).status_code == 200
+    assert api.upload("customer", signed, 1).status_code == 200
+    approved = api.review("approve", 2).json()
+    digest = hashlib.sha256(signed).hexdigest()
+    assert approved["final_sha256"] == digest
+    agreement = api.auth.db.scalar(select(Agreement))
+    stored = api.storage.root / agreement.final_pdf_key
+    for _ in range(2):
+        response = api.get(role, "final")
+        assert response.status_code == 200
+        assert response.content == signed == stored.read_bytes()
+        assert hashlib.sha256(response.content).hexdigest() == digest
+        assert response.headers["etag"] == f'"{digest}"'
+        assert response.headers["content-disposition"] == (
+            f'attachment; filename="agreement-{api.actors.order.number}-final.pdf"'
+        )
+        assert response.headers["content-type"] == "application/pdf"
+        assert response.headers["cache-control"] == "no-store"
+        assert response.headers["x-agreement-revision"] == "3"
+    assert api.get("admin").json()["final_sha256"] == digest
+
+
+@pytest.mark.parametrize("role", ["admin", "customer"])
+@pytest.mark.parametrize("damage", ["missing", "changed"])
+def test_unavailable_final_pdf_is_never_delivered_as_download(api, role, damage):
+    assert api.upload("admin", pdf(), 0).status_code == 200
+    assert api.upload("customer", pdf("synthetic signed agreement"), 1).status_code == 200
+    assert api.review("approve", 2).status_code == 200
+    agreement = api.auth.db.scalar(select(Agreement))
+    stored = api.storage.root / agreement.final_pdf_key
+    if damage == "missing":
+        stored.unlink()
+    else:
+        stored.write_bytes(pdf("synthetic modified agreement"))
+    response = api.get(role, "final")
+    assert response.status_code == 503
+    assert "content-disposition" not in response.headers
+    assert response.headers["content-type"] != "application/pdf"
+    assert str(stored) not in response.text
+    assert api.get("admin").json()["status"] == "approved"
+
+
+def test_final_pdf_download_requires_session_role_and_ownership(api):
+    signed = pdf("synthetic private agreement")
+    assert api.upload("admin", pdf(), 0).status_code == 200
+    assert api.upload("customer", signed, 1).status_code == 200
+    assert api.review("approve", 2).status_code == 200
+    api.auth.client.cookies.clear()
+    for role in ("admin", "customer"):
+        response = api.auth.client.get(f"/api/{role}/orders/{api.actors.order.id}/agreement/final")
+        assert response.status_code == 401
+        assert "content-disposition" not in response.headers
+        assert signed not in response.content
+    api.switch("customer")
+    response = api.auth.client.get(f"/api/admin/orders/{api.actors.order.id}/agreement/final")
+    assert response.status_code == 403
+    api.auth.client.cookies.clear()
+    auth_helpers.login_customer(api.auth, email="other@example.ru")
+    response = api.auth.client.get(f"/api/customer/orders/{api.actors.order.id}/agreement/final")
+    assert response.status_code == 404
+    assert "content-disposition" not in response.headers
+    assert signed not in response.content

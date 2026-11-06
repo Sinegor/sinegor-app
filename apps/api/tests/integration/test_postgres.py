@@ -32,7 +32,7 @@ def test_postgres_readiness_and_request_session(database_settings):
 def test_migration_upgrade_downgrade_and_schema_drift(database_settings, alembic_config):
     config = alembic_config
     engine = create_db_engine(database_settings)
-    tables = set(Base.metadata.tables)
+    tables = {table.name for table in Base.metadata.sorted_tables}
     try:
         # This destructive test is restricted to a dedicated, empty test database.
         with engine.connect() as connection:
