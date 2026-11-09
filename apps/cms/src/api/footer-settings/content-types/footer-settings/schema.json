@@ -1,0 +1,24 @@
+{
+  "kind": "singleType",
+  "collectionName": "footer_settings",
+  "info": {
+    "singularName": "footer-settings",
+    "pluralName": "footer-settings-list",
+    "displayName": "Настройки футера"
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "attributes": {
+    "documents": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::public-document.public-document"
+    },
+    "usefulLinks": {
+      "type": "component",
+      "repeatable": true,
+      "component": "shared.footer-link"
+    }
+  }
+}

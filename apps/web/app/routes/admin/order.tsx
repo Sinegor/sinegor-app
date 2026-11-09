@@ -19,6 +19,7 @@ import {
   Feedback,
   useOperation,
   formData,
+  text,
   Events,
 } from "../../components/admin/common";
 import { TermsFields, terms } from "../../components/admin/terms";
@@ -117,6 +118,23 @@ export default function Order() {
         <dt>Заказ закрыт</dt>
         <dd>{date(order.closed_at)}</dd>
       </dl>
+      {order.status === "cancelled" && (
+        <section className="card" aria-label="Причины отмены">
+          <h2>Причины отмены</h2>
+          <h3>Основание отмены заказа</h3>
+          <p className="muted">
+            Внутренний текст — доступен только администратору.
+          </p>
+          <p className="pre-wrap">
+            {order.cancellation_internal_reason ||
+              "Основание отмены исторически не зафиксировано"}
+          </p>
+          <h3>Причина отмены для заказчика</h3>
+          <p className="pre-wrap">
+            {order.cancellation_customer_reason || "Причина отмены не указана"}
+          </p>
+        </section>
+      )}
       <div className="admin-grid">
         <div>
           <Card title="Условия заказа">
@@ -280,24 +298,78 @@ export default function Order() {
           Заказ будет закрыт. Возобновить его через сайт нельзя. Материалы этим
           действием не удаляются.
         </p>
-        <Button
-          disabled={op.busy}
-          className="danger"
-          onClick={() =>
-            op.run(async (api) => {
-              await api.POST("/api/admin/orders/{order_id}/status", {
-                params: { path },
-                body: {
-                  status: "cancelled",
-                  result_uploaded: false,
-                },
-              });
+        <Form
+          key={String(cancel)}
+          method="post"
+          busy={op.busy}
+          onSubmit={(event) => {
+            const form = event.currentTarget;
+            const data = formData(event);
+            for (const name of [
+              "cancellation_internal_reason",
+              "cancellation_customer_reason",
+            ]) {
+              const field = form.elements.namedItem(
+                name,
+              ) as HTMLTextAreaElement;
+              if (!text(data, name).trim()) {
+                field.setCustomValidity("Укажите непустую причину отмены.");
+                field.reportValidity();
+                return;
+              }
+            }
+            void op.run(async (api) => {
+              await value(
+                api.POST("/api/admin/orders/{order_id}/status", {
+                  params: { path },
+                  body: {
+                    status: "cancelled",
+                    result_uploaded: false,
+                    cancellation_internal_reason: text(
+                      data,
+                      "cancellation_internal_reason",
+                    ).trim(),
+                    cancellation_customer_reason: text(
+                      data,
+                      "cancellation_customer_reason",
+                    ).trim(),
+                  },
+                }),
+              );
               setCancel(false);
-            }, "Заказ отменён.")
-          }
+            }, "Заказ отменён.");
+          }}
         >
-          Подтвердить отмену заказа
-        </Button>
+          <label className="field">
+            Основание отмены заказа
+            <textarea
+              name="cancellation_internal_reason"
+              rows={3}
+              required
+              maxLength={10000}
+              aria-describedby="internal-reason-hint"
+            />
+          </label>
+          <p id="internal-reason-hint" className="muted">
+            Внутренний текст — доступен только администратору.
+          </p>
+          <label className="field">
+            Причина отмены для заказчика
+            <textarea
+              name="cancellation_customer_reason"
+              rows={3}
+              required
+              maxLength={10000}
+              aria-describedby="customer-reason-hint"
+            />
+          </label>
+          <p id="customer-reason-hint" className="muted">
+            Этот текст будет показан заказчику в личном кабинете.
+          </p>
+          <Button type="submit" className="danger">
+            Подтвердить отмену заказа
+          </Button>
+        </Form>
       </Modal>
     </>
   );

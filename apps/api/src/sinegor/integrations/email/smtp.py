@@ -54,6 +54,19 @@ class SMTPAuthMailer:
         )
         self._send(message)
 
+    def send_materials_deleted(self, recipient: str, order_number: int) -> None:
+        message = EmailMessage()
+        message["From"] = self._sender()
+        message["To"] = recipient
+        message["Subject"] = f"SINEGOR — материалы заказа №{order_number} удалены"
+        message.set_content(
+            f"Папка заказа №{order_number} на Яндекс Диске удалена окончательно, "
+            "без перемещения в корзину. Исходные материалы и результаты удалены.\n"
+            "Подписанное соглашение и история заказа сохранены.\n"
+            f"Личный кабинет: {str(self.settings.public_origin).rstrip('/')}/customer/orders\n"
+        )
+        self._send(message)
+
     def send_access_notice(self, recipient: str, reason: str | None) -> None:
         message = EmailMessage()
         message["From"] = self._sender()

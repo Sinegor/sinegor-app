@@ -58,7 +58,7 @@ test("CMS seed creates three local neutral publications once and SSR has no fron
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(width);
       await expect(page.getByRole("contentinfo").getByRole("link")).toHaveCount(
-        4,
+        0,
       );
     }
   } finally {
@@ -110,7 +110,7 @@ test("public documents follow Strapi draft, publication, revision, slug change a
       'name="robots" content="noindex, follow"',
     );
     expect(text.split("</head>")[0]).not.toContain('rel="canonical"');
-    expect(text.match(/<footer[\s\S]*?<\/footer>/)[0]).toContain(
+    expect(text.match(/<footer[\s\S]*?<\/footer>/)[0]).not.toContain(
       'href="/documents/privacy-policy"',
     );
   };
@@ -852,3 +852,7 @@ test("Content Manager enforces required image choices and saves root and section
   });
   expect(errors).toEqual([]);
 });
+
+require("./footer-cms.cjs");
+
+require("./footer-ssr.cjs");

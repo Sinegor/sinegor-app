@@ -23,7 +23,7 @@ function phoneError(value: string) {
     : "";
 }
 
-export function Consultation() {
+export function Consultation({ onSuccess }: { onSuccess?: () => void }) {
   const analytics = useAnalytics();
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -32,16 +32,21 @@ export function Consultation() {
   const locked = useRef(false);
   return (
     <section id="consultation" className="card consultation">
-      <h2>Обсудим вашу задачу</h2>
-      <p>
-        Оставьте email и телефон для предварительной консультации. Объём, сроки
-        и стоимость согласуются индивидуально; оплата производится вне сайта.
-      </p>
-      <p>
-        Для передачи материалов потребуется собственный аккаунт Яндекса с
-        доступом к Яндекс Диску. Документы передаются через общую папку после
-        оформления заказа.
-      </p>
+      {!sent && (
+        <>
+          <h2>Обсудим вашу задачу</h2>
+          <p>
+            Оставьте email и телефон для предварительной консультации. Объём,
+            сроки и стоимость согласуются индивидуально; оплата производится вне
+            сайта.
+          </p>
+          <p>
+            Для передачи материалов потребуется собственный аккаунт Яндекса с
+            доступом к Яндекс Диску. Документы передаются через общую папку
+            после оформления заказа.
+          </p>
+        </>
+      )}
       {sent ? (
         <Notice tone="success">
           Заявка принята. Исполнитель свяжется с вами по указанным контактам.
@@ -81,6 +86,7 @@ export function Consultation() {
                 body: { email, phone },
               });
               setSent(true);
+              onSuccess?.();
               analytics("consultation_submit");
             } catch (cause) {
               setError(message(cause));

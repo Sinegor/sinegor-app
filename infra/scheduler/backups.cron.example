@@ -1,0 +1,9 @@
+# Install only after configuring private libpq/Restic environment and writer controls.
+# /secure/backup-env must export PGSERVICEFILE, PGPASSFILE, RESTIC_REPOSITORY,
+# RESTIC_PASSWORD_FILE (no secrets in this file or command-line arguments).
+# quiesce/resume are operator-provided executable scripts: stop/resume API, CMS
+# and ALL writer/cleanup jobs; quiesce returns success only when writes have stopped.
+# A shared deployment lock must cover these controls and writers for the whole snapshot.
+# Resume is attempted even on a backup/quiesce failure. Rotation follows a successful backup.
+# Existing untagged snapshots require separate operator review; never prune foreign snapshots.
+0 2 * * * . /secure/backup-env && cd /absolute/path/sinegor-app && python3 scripts/backup/backup.py scheduled --quiesce-command /secure/quiesce-writers --resume-command /secure/resume-writers --api-service sinegor_backup_api --cms-service sinegor_backup_cms --agreements /srv/sinegor/agreements --uploads /srv/sinegor/uploads --destruction-archive /srv/sinegor/destruction --receipt /srv/sinegor/receipts/daily-$(date +\%Y-\%m-\%d).json

@@ -65,9 +65,16 @@ def transition(
     admin_id: UUID | None,
     *,
     mailer: OrderMailer | None = None,
+    cancellation_internal_reason: str | None = None,
+    cancellation_customer_reason: str | None = None,
 ) -> None:
     if target not in TRANSITIONS[order.status]:
         raise HTTPException(409, "Order status transition is not allowed")
+    if target == OrderStatus.CANCELLED and any(
+        not isinstance(reason, str) or not reason.strip() or len(reason) > 10000
+        for reason in (cancellation_internal_reason, cancellation_customer_reason)
+    ):
+        raise HTTPException(422, "Both cancellation reasons are required")
     if target != OrderStatus.CANCELLED:
         require_agreement(db, order)
     if target == OrderStatus.RESULT_READY:
@@ -78,9 +85,17 @@ def transition(
         mailer.send_result_ready(order.customer.email, order.number)
         order.ready_at = ready_at
         order.result_notified_at = datetime.now(UTC)
+        order.fulfilled_at = order.result_notified_at
         record_event(db, order, "result_notification_sent", admin_id)
     elif target == OrderStatus.CANCELLED:
+        # Retention depends on the order locking helpers from this module.
+        from sinegor.modules.retention.service import request_on_cancellation
+
         order.closed_at = datetime.now(UTC)
+        order.cancellation_internal_reason = cancellation_internal_reason.strip()
+        order.cancellation_customer_reason = cancellation_customer_reason.strip()
+        order.status = target
+        request_on_cancellation(db, order, order.closed_at, admin_id)
     order.status = target
     record_event(db, order, f"status_{target.value}", admin_id)
 

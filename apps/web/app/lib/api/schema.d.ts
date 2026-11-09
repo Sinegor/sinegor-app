@@ -691,6 +691,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/notifications/problems": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Delivery Problems */
+    get: operations["read_delivery_problems_api_admin_notifications_problems_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/consultations": {
     parameters: {
       query?: never;
@@ -879,6 +896,42 @@ export interface components {
       password: string;
       /** Code */
       code: string;
+    };
+    /** AdminOrderRead */
+    AdminOrderRead: {
+      service_type: components["schemas"]["ServiceType"];
+      /** Description */
+      description?: string | null;
+      /** Agreed Price */
+      agreed_price?: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Number */
+      number: number;
+      /**
+       * Customer Id
+       * Format: uuid
+       */
+      customer_id: string;
+      status: components["schemas"]["OrderStatus"];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Ready At */
+      ready_at: string | null;
+      /** Result Notified At */
+      result_notified_at: string | null;
+      /** Closed At */
+      closed_at: string | null;
+      /** Cancellation Customer Reason */
+      cancellation_customer_reason?: string | null;
+      /** Cancellation Internal Reason */
+      cancellation_internal_reason?: string | null;
     };
     /** AgreementRead */
     AgreementRead: {
@@ -1226,13 +1279,57 @@ export interface components {
      * DeletionReason
      * @enum {string}
      */
-    DeletionReason: "retention_expired" | "early_permission";
+    DeletionReason:
+      "retention_expired" | "early_permission" | "order_cancelled";
     /**
      * DeletionStatus
      * @enum {string}
      */
     DeletionStatus:
       "waiting" | "deferred" | "confirmed" | "performed" | "error";
+    /** DeliveryProblem */
+    DeliveryProblem: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Kind */
+      kind: string;
+      /**
+       * Channel
+       * @enum {string}
+       */
+      channel: "smtp" | "telegram";
+      /**
+       * Reason
+       * @enum {string}
+       */
+      reason: "permanent" | "expired" | "delayed" | "temporary";
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "pending" | "processing" | "failed" | "expired";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Available At
+       * Format: date-time
+       */
+      available_at: string;
+      /** Attempts */
+      attempts: number;
+      /** Error Code */
+      error_code: string | null;
+      /** Order Id */
+      order_id: string | null;
+      /** Customer Id */
+      customer_id: string | null;
+    };
     /** DeliverySummary */
     DeliverySummary: {
       /**
@@ -1372,6 +1469,8 @@ export interface components {
       result_notified_at: string | null;
       /** Closed At */
       closed_at: string | null;
+      /** Cancellation Customer Reason */
+      cancellation_customer_reason?: string | null;
     };
     /**
      * OrderStatus
@@ -1517,6 +1616,10 @@ export interface components {
        * @default false
        */
       result_uploaded: boolean;
+      /** Cancellation Internal Reason */
+      cancellation_internal_reason?: string | null;
+      /** Cancellation Customer Reason */
+      cancellation_customer_reason?: string | null;
     };
     /** ValidationError */
     ValidationError: {
@@ -2102,7 +2205,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["OrderRead"][];
+          "application/json": components["schemas"]["AdminOrderRead"][];
         };
       };
       /** @description Validation Error */
@@ -2135,7 +2238,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["OrderRead"];
+          "application/json": components["schemas"]["AdminOrderRead"];
         };
       };
       /** @description Validation Error */
@@ -2166,7 +2269,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["OrderRead"];
+          "application/json": components["schemas"]["AdminOrderRead"];
         };
       };
       /** @description Validation Error */
@@ -2201,7 +2304,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["OrderRead"];
+          "application/json": components["schemas"]["AdminOrderRead"];
         };
       };
       /** @description Validation Error */
@@ -2236,7 +2339,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["OrderRead"];
+          "application/json": components["schemas"]["AdminOrderRead"];
         };
       };
       /** @description Validation Error */
@@ -2999,6 +3102,38 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DeliverySummary"][];
+        };
+      };
+    };
+  };
+  read_delivery_problems_api_admin_notifications_problems_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DeliveryProblem"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

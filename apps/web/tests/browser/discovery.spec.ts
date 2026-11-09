@@ -65,6 +65,8 @@ test("sitemap tracks Strapi publication and noindex changes without rebuilding S
   // Keep the real Strapi public controller and serializer; only the DB service is synthetic.
   scope.strapi = {
     documents: (uid: string) => ({
+      // The shared SSR layout also reads the optional footer Single Type.
+      findFirst: async () => null,
       findMany: async (options: {
         status?: string;
         filters: { slug?: string };

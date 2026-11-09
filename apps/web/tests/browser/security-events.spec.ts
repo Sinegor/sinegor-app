@@ -88,3 +88,72 @@ test("security journal handles request failure and customer redirect", async ({
   await page.goto("/admin/security-events");
   await expect(page).toHaveURL(/\/customer\/orders/);
 });
+
+for (const timezoneId of ["UTC", "America/Los_Angeles", "Asia/Tokyo"]) {
+  test.describe(`security journal in ${timezoneId}`, () => {
+    test.use({ timezoneId });
+
+    for (const width of [1440, 390]) {
+      test(`shows Moscow event times without changing instants or order ${width}`, async ({
+        page,
+      }, info) => {
+        await page.setViewportSize({ width, height: 900 });
+        await mockApi(page);
+        await page.route("**/api/admin/security-events**", (route) =>
+          route.fulfill({
+            json: [
+              {
+                id: "10000000-0000-4000-8000-000000000001",
+                recorded_at: "2026-11-05T22:30:15.123Z",
+                event_type: "authentication",
+                result: "success",
+                user_id: "20000000-0000-4000-8000-000000000002",
+                user_role: "admin",
+                subject_user_id: null,
+                request_id: "0123456789abcdef0123456789abcdef",
+                reason_code: "admin_login",
+              },
+              {
+                id: "10000000-0000-4000-8000-000000000003",
+                recorded_at: "2026-11-05T12:00:00+02:00",
+                event_type: "authentication",
+                result: "success",
+                user_id: "20000000-0000-4000-8000-000000000002",
+                user_role: "admin",
+                subject_user_id: null,
+                request_id: "0123456789abcdef0123456789abcdef",
+                reason_code: "admin_login",
+              },
+            ],
+          }),
+        );
+        await page.goto("/admin/security-events");
+        const times = page.locator("time");
+        await expect(times).toHaveText([
+          "06.11.2026, 01:30:15 МСК",
+          "05.11.2026, 13:00:00 МСК",
+        ]);
+        await expect(times.nth(0)).toHaveAttribute(
+          "datetime",
+          "2026-11-05T22:30:15.123Z",
+        );
+        await expect(times.nth(1)).toHaveAttribute(
+          "datetime",
+          "2026-11-05T12:00:00+02:00",
+        );
+        await expect(page.getByText(/московское время/)).toBeVisible();
+        await expect(page.getByLabel("Дата с (UTC)")).toBeVisible();
+        await expect(page.getByLabel("Дата по (UTC)")).toBeVisible();
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth,
+          ),
+        ).toBe(true);
+        await page.screenshot({
+          path: info.outputPath(`moscow-${width}.png`),
+          fullPage: true,
+        });
+      });
+    }
+  });
+}

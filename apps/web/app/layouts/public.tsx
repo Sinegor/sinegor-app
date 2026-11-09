@@ -16,6 +16,7 @@ import {
 } from "../lib/public-url.server";
 import { linkSectionForPath } from "../lib/public-url";
 import { loadPageLinks } from "../lib/page-links.server";
+import { readFooter } from "../lib/cms.server";
 import { PageLinks } from "../components/page-links";
 import { PublicFooter } from "../components/public-footer";
 import {
@@ -34,6 +35,10 @@ export const middleware: Route.MiddlewareFunction[] = [
 
 export async function loader({ request }: Route.LoaderArgs) {
   const section = linkSectionForPath(documentUrl(request).pathname);
+  const [pageLinks, footer] = await Promise.all([
+    section ? loadPageLinks(section) : Promise.resolve([]),
+    readFooter(),
+  ]);
   return {
     analytics: analyticsConfig(),
     publicOrigin: publicOrigin(request),
@@ -43,7 +48,8 @@ export async function loader({ request }: Route.LoaderArgs) {
         timeZone: "Europe/Moscow",
       }).format(new Date()),
     ),
-    pageLinks: section ? await loadPageLinks(section) : [],
+    pageLinks,
+    footer,
   };
 }
 
@@ -51,10 +57,7 @@ export const shouldRevalidate: ShouldRevalidateFunction = ({
   currentUrl,
   nextUrl,
   defaultShouldRevalidate,
-}) =>
-  defaultShouldRevalidate ||
-  linkSectionForPath(currentUrl.pathname) !==
-    linkSectionForPath(nextUrl.pathname);
+}) => defaultShouldRevalidate || currentUrl.pathname !== nextUrl.pathname;
 
 export default function PublicLayout({ loaderData }: Route.ComponentProps) {
   const auth = useLocation().pathname.startsWith("/auth/");
@@ -101,7 +104,7 @@ export default function PublicLayout({ loaderData }: Route.ComponentProps) {
           <Outlet />
           <PageLinks links={loaderData.pageLinks} />
         </main>
-        <PublicFooter year={loaderData.year} />
+        <PublicFooter year={loaderData.year} data={loaderData.footer} />
       </div>
     </PublicAnalytics>
   );

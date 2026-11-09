@@ -328,7 +328,16 @@ def test_cancellation_is_terminal(admin, actors, initial):
         process_lifecycle(admin.db)
         if initial == "in_progress":
             assert status(admin, actors.order, initial).status_code == 200
-    assert status(admin, actors.order, "cancelled").status_code == 200
+    assert (
+        status(
+            admin,
+            actors.order,
+            "cancelled",
+            cancellation_internal_reason="Internal decision",
+            cancellation_customer_reason="Explanation for customer",
+        ).status_code
+        == 200
+    )
     assert actors.order.closed_at is not None
     assert status(admin, actors.order, "awaiting_materials").status_code == 409
     assert post(admin, f"/api/admin/orders/{actors.order.id}/payment", {}).status_code == 409

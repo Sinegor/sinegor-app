@@ -61,3 +61,16 @@ class DeletionRequest(Entity, Base):
     admin_note: Mapped[str | None] = mapped_column(Text)
     order: Mapped[Order] = relationship(back_populates="deletion_request")
     confirmed_by: Mapped[AdminUser | None] = relationship()
+
+
+class RetentionFileDeletion(Entity, Base):
+    """Committed deletion intent after an expired order graph has been removed.
+
+    No FK to the deleted order: retries survive removal of business history.
+    This is a work queue, not a destruction record or proof of deletion.
+    """
+
+    __tablename__ = "retention_file_deletions"
+    __table_args__ = (Index("ix_retention_file_deletions_attempt", "last_attempted_at", "id"),)
+    last_attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    file_key: Mapped[str] = mapped_column(Text, unique=True)

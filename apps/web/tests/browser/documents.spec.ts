@@ -46,7 +46,7 @@ test("public footer and documents fit desktop and mobile and support keyboard na
       await expect(footer).toContainText(
         `© ${new Intl.DateTimeFormat("en", { year: "numeric", timeZone: "Europe/Moscow" }).format(new Date())} SINEGOR LAB`,
       );
-      await expect(footer.getByRole("link")).toHaveCount(4);
+      await expect(footer.getByRole("link")).toHaveCount(0);
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth),
       ).toBeLessThanOrEqual(width);
@@ -69,12 +69,13 @@ test("public footer and documents fit desktop and mobile and support keyboard na
   ).toHaveCount(0);
   await menu.getByRole("link", { name: "Документы", exact: true }).click();
   await expect(menu).not.toBeVisible();
-  const first = page.getByRole("contentinfo").getByRole("link").first();
-  await first.focus();
-  await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("contentinfo").getByRole("link").nth(1),
-  ).toBeFocused();
+  await page.goto("/publications");
+  const settings = page
+    .getByRole("contentinfo")
+    .getByRole("button", { name: "Настройки аналитики", exact: true });
+  await settings.focus();
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/documents\/personal-data-consent$/);
+  await expect(
+    page.getByRole("dialog", { name: "Настройки аналитики" }),
+  ).toBeVisible();
 });

@@ -2,6 +2,11 @@ export type ContentKind = "pages" | "services" | "publications" | "documents";
 export type PageLinkSection =
   "home" | "ai-analysis" | "technical" | "about" | "publications" | "contacts";
 export type PageLink = { to: string; title: string };
+export type FooterLink = { label: string; href: string };
+export type FooterData = {
+  documents: FooterLink[];
+  usefulLinks: FooterLink[];
+};
 export type Media = {
   url: string;
   alternativeText: string;

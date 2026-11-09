@@ -53,7 +53,14 @@ def test_competing_workers_record_one_transition(database_settings, alembic_conf
                     return process_lifecycle(db)
                 try:
                     order = locked_order(db, order_id)
-                    transition(db, order, OrderStatus.CANCELLED, None)
+                    transition(
+                        db,
+                        order,
+                        OrderStatus.CANCELLED,
+                        None,
+                        cancellation_internal_reason="Internal decision",
+                        cancellation_customer_reason="Explanation for customer",
+                    )
                     db.commit()
                     return 1
                 except HTTPException as exc:

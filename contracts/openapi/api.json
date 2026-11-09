@@ -759,7 +759,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderRead"
+                  "$ref": "#/components/schemas/AdminOrderRead"
                 }
               }
             }
@@ -848,7 +848,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/OrderRead"
+                    "$ref": "#/components/schemas/AdminOrderRead"
                   },
                   "title": "Response List Orders Api Admin Orders Get"
                 }
@@ -893,7 +893,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderRead"
+                  "$ref": "#/components/schemas/AdminOrderRead"
                 }
               }
             }
@@ -946,7 +946,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderRead"
+                  "$ref": "#/components/schemas/AdminOrderRead"
                 }
               }
             }
@@ -999,7 +999,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderRead"
+                  "$ref": "#/components/schemas/AdminOrderRead"
                 }
               }
             }
@@ -2176,6 +2176,66 @@
         }
       }
     },
+    "/api/admin/notifications/problems": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "Read Delivery Problems",
+        "operationId": "read_delivery_problems_api_admin_notifications_problems_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 25,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeliveryProblem"
+                  },
+                  "title": "Response Read Delivery Problems Api Admin Notifications Problems Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/consultations": {
       "get": {
         "tags": [
@@ -2840,6 +2900,129 @@
           "code"
         ],
         "title": "AdminLogin"
+      },
+      "AdminOrderRead": {
+        "properties": {
+          "service_type": {
+            "$ref": "#/components/schemas/ServiceType"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "agreed_price": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreed Price"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "customer_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Customer Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "ready_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready At"
+          },
+          "result_notified_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Notified At"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "cancellation_customer_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Customer Reason"
+          },
+          "cancellation_internal_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Internal Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "service_type",
+          "id",
+          "number",
+          "customer_id",
+          "status",
+          "created_at",
+          "ready_at",
+          "result_notified_at",
+          "closed_at"
+        ],
+        "title": "AdminOrderRead"
       },
       "AgreementRead": {
         "properties": {
@@ -3744,7 +3927,8 @@
         "type": "string",
         "enum": [
           "retention_expired",
-          "early_permission"
+          "early_permission",
+          "order_cancelled"
         ],
         "title": "DeletionReason"
       },
@@ -3758,6 +3942,111 @@
           "error"
         ],
         "title": "DeletionStatus"
+      },
+      "DeliveryProblem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "smtp",
+              "telegram"
+            ],
+            "title": "Channel"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "permanent",
+              "expired",
+              "delayed",
+              "temporary"
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "processing",
+              "failed",
+              "expired"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "available_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Available At"
+          },
+          "attempts": {
+            "type": "integer",
+            "title": "Attempts"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "channel",
+          "reason",
+          "status",
+          "created_at",
+          "available_at",
+          "attempts",
+          "error_code",
+          "order_id",
+          "customer_id"
+        ],
+        "title": "DeliveryProblem"
       },
       "DeliverySummary": {
         "properties": {
@@ -4143,6 +4432,17 @@
               }
             ],
             "title": "Closed At"
+          },
+          "cancellation_customer_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Customer Reason"
           }
         },
         "additionalProperties": false,
@@ -4474,6 +4774,30 @@
             "type": "boolean",
             "title": "Result Uploaded",
             "default": false
+          },
+          "cancellation_internal_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Internal Reason"
+          },
+          "cancellation_customer_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 10000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancellation Customer Reason"
           }
         },
         "additionalProperties": false,

@@ -68,7 +68,7 @@ test("public pages render server-side and unknown publications return 404", asyn
     ["/services/technical", "Техническая обработка"],
     ["/about", "Об исполнителе"],
     ["/publications", "Публикации"],
-    ["/contacts", "Контакты"],
+    ["/contacts", "Запросить консультацию"],
   ]) {
     const response = await request.get(path);
     expect(response.status()).toBe(200);

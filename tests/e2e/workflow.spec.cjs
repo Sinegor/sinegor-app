@@ -434,25 +434,27 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         (
           await mutate(admin.request, orderPath() + "/folder/delete", {
             deletion_request_id: deletion.id,
-            confirm: true,
+            confirm: false,
           })
         ).status(),
-      ).toBe(409);
+      ).toBe(422);
       await admin.reload();
       const tomorrowMoscow = new Date(Date.now() + 27 * 3600000)
         .toISOString()
         .slice(0, 16);
       await admin
-        .getByLabel("Отложить до (МСК)", { exact: true })
+        .getByLabel("Следующее напоминание (МСК)", { exact: true })
         .fill(tomorrowMoscow);
       await admin
         .getByLabel("Причина отсрочки", { exact: true })
         .fill("E2E внешнее уточнение");
       await admin
-        .getByRole("button", { name: "Отложить удаление", exact: true })
+        .getByRole("button", { name: "Отложить", exact: true })
         .click();
       await expect(
-        admin.getByText("Удаление отложено.", { exact: true }),
+        admin.getByText("Дата следующего напоминания сохранена.", {
+          exact: true,
+        }),
       ).toBeVisible();
       expect(
         (await read(admin.request, orderPath() + "/folder")).deleted_at,
@@ -476,46 +478,20 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
       data("expire_deferral", { order_id: orderId });
       data("job", { name: "process_orders" });
     });
-    await test.step("explicit admin confirmation and async verification preserve the final PDF", async () => {
+    await test.step("one explicit admin action and async verification preserve the final PDF", async () => {
       await admin.reload();
       await admin
-        .getByRole("button", {
-          name: "Подтвердить решение об удалении",
-          exact: true,
-        })
+        .getByRole("button", { name: "Удалить материалы", exact: true })
         .click();
       await admin.getByRole("button", { name: "Закрыть", exact: true }).click();
       expect(
         (await read(admin.request, orderPath() + "/deletion-request")).status,
       ).toBe("waiting");
-      await admin
-        .getByRole("button", {
-          name: "Подтвердить решение об удалении",
-          exact: true,
-        })
-        .click();
-      await admin
-        .getByLabel("Я проверил обращения заказчика и подтверждаю решение.", {
-          exact: false,
-        })
-        .check();
-      await admin
-        .getByRole("button", { name: "Подтвердить решение", exact: true })
-        .click();
-      await expect(
-        admin.getByText(
-          "Решение сохранено. Для удаления требуется отдельное действие.",
-          { exact: true },
-        ),
-      ).toBeVisible();
       expect(
         (await read(admin.request, orderPath() + "/folder")).deleted_at,
       ).toBe(null);
       await admin
-        .getByRole("button", {
-          name: "Удалить папку окончательно",
-          exact: true,
-        })
+        .getByRole("button", { name: "Удалить материалы", exact: true })
         .click();
       await admin
         .getByLabel(
@@ -561,6 +537,24 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
               .status,
         )
         .toBe("performed");
+      data("job", { name: "process_notifications" });
+      await expect
+        .poll(
+          async () =>
+            (await control("/mail?to=customer@example.org")).subjects.filter(
+              (subject) =>
+                subject.includes("материалы заказа") &&
+                subject.includes("удалены"),
+            ).length,
+        )
+        .toBe(1);
+      data("job", { name: "process_notifications" });
+      expect(
+        (await control("/mail?to=customer@example.org")).subjects.filter(
+          (subject) =>
+            subject.includes("материалы заказа") && subject.includes("удалены"),
+        ).length,
+      ).toBe(1);
       await customer.reload();
       expect(data("inspect", { order_id: orderId }).agreement_hash).toBe(
         signedHash,

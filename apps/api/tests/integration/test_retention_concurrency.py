@@ -22,6 +22,7 @@ from sinegor.modules.auth.models import AdminUser
 from sinegor.modules.customers.models import Customer
 from sinegor.modules.disk import service as disk_service
 from sinegor.modules.disk.models import DiskFolder
+from sinegor.modules.notifications.models import Notification
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.service import locked_order
 from sinegor.modules.retention import service
@@ -64,6 +65,7 @@ def persisted(database_settings, alembic_config):
         )
     finally:
         with engine.begin() as connection:
+            connection.execute(delete(Notification).where(Notification.order_id == order_id))
             connection.execute(delete(DeletionRequest).where(DeletionRequest.order_id == order_id))
             connection.execute(delete(DiskFolder).where(DiskFolder.order_id == order_id))
             connection.execute(delete(OrderEvent).where(OrderEvent.order_id == order_id))
@@ -221,10 +223,67 @@ def test_deferral_and_deletion_cannot_overtake_each_other(persisted, first_actio
         finally:
             release.set()
         assert first.result(timeout=20) == 200
-        assert second.result(timeout=20) == 409
+        assert second.result(timeout=20) == (409 if first_action == "delete" else 200)
     with Session(persisted.engine) as db:
         item = db.get(DeletionRequest, request_id)
-        assert item.status == (
-            DeletionStatus.PERFORMED if first_action == "delete" else DeletionStatus.DEFERRED
+        assert item.status == DeletionStatus.PERFORMED
+    assert len([call for call in disk.calls if call[0] == "delete"]) == 1
+
+
+def test_competing_single_action_deletions_send_one_delete_and_one_email(persisted):
+    disk = MemoryDisk()
+    path = f"{disk.root}/order-{persisted.order_id}"
+    disk.resources[path] = Resource(path, "unified-race-resource")
+    with Session(persisted.engine) as db:
+        item = DeletionRequest(
+            order_id=persisted.order_id,
+            reason=DeletionReason.RETENTION_EXPIRED,
+            due_at=persisted.now - timedelta(days=1),
         )
-    assert len([call for call in disk.calls if call[0] == "delete"]) == (first_action == "delete")
+        db.add_all(
+            [
+                item,
+                DiskFolder(
+                    order_id=persisted.order_id, disk_path=path, resource_id="unified-race-resource"
+                ),
+            ]
+        )
+        db.commit()
+        request_id = item.id
+    barrier = Barrier(2)
+
+    def attempt():
+        with Session(persisted.engine) as db:
+            barrier.wait(timeout=10)
+            return disk_service.delete_folder(
+                db, disk, persisted.order_id, request_id, persisted.admin_id
+            ).deleted_at
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(attempt) for _ in range(2)]
+        results = [f.result(timeout=20) for f in futures]
+    assert results[0] == results[1] and results[0] is not None
+    assert len([c for c in disk.calls if c[0] == "delete"]) == 1
+    with Session(persisted.engine) as db:
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(Notification)
+                .where(
+                    Notification.kind == "materials_deleted",
+                    Notification.order_id == persisted.order_id,
+                )
+            )
+            == 1
+        )
+        assert (
+            db.scalar(
+                select(func.count())
+                .select_from(OrderEvent)
+                .where(
+                    OrderEvent.event_type == "deletion_confirmed",
+                    OrderEvent.order_id == persisted.order_id,
+                )
+            )
+            == 1
+        )

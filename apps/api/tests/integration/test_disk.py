@@ -282,27 +282,17 @@ def test_upstream_success_survives_verification_failure(admin, actors, monkeypat
     assert len([c for c in admin.disk.calls if c[0] == "delete"]) == 1
 
 
-@pytest.mark.parametrize(
-    "change", ["waiting", "deferred", "future", "wrong_order", "too_early", "missing_confirmation"]
-)
+@pytest.mark.parametrize("change", ["future", "wrong_order", "too_early"])
 def test_ineligible_requests_never_delete(admin, actors, change):
     create(admin, actors)
     request = eligible(admin, actors)
-    if change == "waiting":
-        request.status = DeletionStatus.WAITING
-    elif change == "deferred":
-        request.deferred_until = datetime.now(UTC) + timedelta(days=1)
-    elif change == "future":
+    if change == "future":
         request.due_at = datetime.now(UTC) + timedelta(days=1)
     elif change == "wrong_order":
         request.order_id = actors.other_order.id
     elif change == "too_early":
         actors.order.ready_at = datetime.now(UTC) - timedelta(days=1)
         actors.order.result_notified_at = actors.order.ready_at
-    else:
-        request.status = DeletionStatus.WAITING
-        request.confirmed_at = None
-        request.confirmed_by_id = None
     admin.db.commit()
     assert delete(admin, actors, request).status_code == 409
     assert not [c for c in admin.disk.calls if c[0] == "delete"]

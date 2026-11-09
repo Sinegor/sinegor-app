@@ -274,7 +274,13 @@ def test_cancelled_order_does_not_accept_agreement(api):
     api.switch("admin")
     assert (
         auth_helpers.post(
-            api.auth, f"/api/admin/orders/{api.actors.order.id}/status", {"status": "cancelled"}
+            api.auth,
+            f"/api/admin/orders/{api.actors.order.id}/status",
+            {
+                "status": "cancelled",
+                "cancellation_internal_reason": "Internal decision",
+                "cancellation_customer_reason": "Explanation for customer",
+            },
         ).status_code
         == 200
     )

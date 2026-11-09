@@ -22,13 +22,20 @@ def request_for(db: Session, order: Order) -> DeletionRequest | None:
     )
 
 
-def effective_due_at(order: Order, item: DeletionRequest) -> datetime:
+def eligible_at(order: Order, item: DeletionRequest) -> datetime:
+    """Deletion basis is independent of the administrator's reminder date."""
+    if order.status == OrderStatus.CANCELLED and order.closed_at is not None:
+        return order.closed_at
     due = item.due_at
     if item.reason == DeletionReason.EARLY_PERMISSION:
         due = max(due, item.early_authorized_at or due)
-    else:
+    elif item.reason == DeletionReason.RETENTION_EXPIRED:
         due = max(due, order.result_notified_at + timedelta(days=14))
-    return max(due, item.deferred_until or due)
+    return due
+
+
+def effective_due_at(order: Order, item: DeletionRequest) -> datetime:
+    return item.deferred_until or eligible_at(order, item)
 
 
 def require_result(order: Order, now: datetime) -> None:
@@ -38,6 +45,32 @@ def require_result(order: Order, now: datetime) -> None:
         or order.result_notified_at > now
     ):
         raise HTTPException(409, "A notified result is required")
+
+
+def request_on_cancellation(
+    db: Session, order: Order, now: datetime, admin_id: UUID | None
+) -> None:
+    """Use the caller's order lock and transaction; never call Disk or commit here."""
+    folder = db.scalar(select(DiskFolder).where(DiskFolder.order_id == order.id))
+    if folder is None or folder.deleted_at is not None:
+        return
+    item = request_for(db, order)
+    if item is not None:
+        if item.status == DeletionStatus.PERFORMED:
+            raise HTTPException(409, "Deletion evidence conflicts with the current folder")
+        return
+    db.add(DeletionRequest(order=order, reason=DeletionReason.ORDER_CANCELLED, due_at=now))
+    record_event(db, order, "deletion_requested", admin_id)
+
+
+def require_deletion_basis(order: Order, item: DeletionRequest, now: datetime) -> None:
+    if order.status == OrderStatus.CANCELLED:
+        if order.closed_at is None or order.closed_at > now:
+            raise HTTPException(409, "A cancelled order is required")
+    elif item.reason == DeletionReason.ORDER_CANCELLED:
+        raise HTTPException(409, "A cancelled order is required")
+    else:
+        require_result(order, now)
 
 
 def require_editable(db: Session, order: Order) -> None:
@@ -78,10 +111,10 @@ def decision_request(
     db: Session, order_id: UUID, request_id: UUID
 ) -> tuple[Order, DeletionRequest]:
     order = locked_order(db, order_id)
-    require_result(order, datetime.now(UTC))
     item = request_for(db, order)
     if item is None or item.id != request_id:
         raise HTTPException(409, "Deletion request does not match this order")
+    require_deletion_basis(order, item, datetime.now(UTC))
     return order, item
 
 
@@ -115,7 +148,7 @@ def defer(
 ) -> DeletionRequest:
     order, item = decision_request(db, order_id, request_id)
     require_editable(db, order)
-    if item.status in {DeletionStatus.PERFORMED, DeletionStatus.ERROR}:
+    if item.status == DeletionStatus.PERFORMED:
         raise HTTPException(409, "Deletion cannot be deferred in its current state")
     if (
         item.status == DeletionStatus.DEFERRED
@@ -123,8 +156,8 @@ def defer(
         and item.admin_note == note
     ):
         return item
-    if until <= datetime.now(UTC) or until <= effective_due_at(order, item):
-        raise HTTPException(409, "Deferral must extend the current deletion deadline")
+    if until <= datetime.now(UTC):
+        raise HTTPException(409, "Reminder date must be in the future")
     item.status = DeletionStatus.DEFERRED
     item.deferred_until = until
     item.admin_note = note
@@ -139,7 +172,11 @@ def process_due(db: Session, *, now: datetime | None = None) -> int:
     now = now or datetime.now(UTC)
     orders = db.scalars(
         select(Order)
-        .where(Order.status.in_([OrderStatus.RESULT_READY, OrderStatus.COMPLETED]))
+        .where(
+            Order.status.in_(
+                [OrderStatus.RESULT_READY, OrderStatus.COMPLETED, OrderStatus.CANCELLED]
+            )
+        )
         .order_by(Order.id)
         .with_for_update(skip_locked=True)
         .execution_options(populate_existing=True)
@@ -147,7 +184,11 @@ def process_due(db: Session, *, now: datetime | None = None) -> int:
     changed = 0
     for order in orders:
         item = request_for(db, order)
-        if item is None and order.result_notified_at + timedelta(days=14) <= now:
+        if (
+            item is None
+            and order.status != OrderStatus.CANCELLED
+            and order.result_notified_at + timedelta(days=14) <= now
+        ):
             folder = db.scalar(select(DiskFolder).where(DiskFolder.order_id == order.id))
             if folder is not None and folder.deleted_at is not None:
                 continue

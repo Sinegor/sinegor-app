@@ -40,6 +40,7 @@ def isolated_environment(monkeypatch):
         "CSRF_TTL_SECONDS",
         "AUTH_RATE_WINDOW_SECONDS",
         "AGREEMENT_STORAGE_DIR",
+        "DESTRUCTION_ARCHIVE_DIR",
         "AGREEMENT_MAX_BYTES",
     ):
         monkeypatch.delenv(name, raising=False)

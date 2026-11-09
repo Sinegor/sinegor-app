@@ -83,7 +83,16 @@ def main():
             created = True
             for _ in range(100):
                 check = subprocess.run(
-                    ["docker", "exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "fixture"],
+                    [
+                        "docker",
+                        "exec",
+                        container,
+                        "pg_isready",
+                        "-h",
+                        "127.0.0.1",
+                        "-U",
+                        "fixture",
+                    ],
                     capture_output=True,
                 )
                 if check.returncode == 0:
@@ -148,7 +157,16 @@ def main():
             )
             env["PATH"] = str(binaries) + os.pathsep + env["PATH"]
             probe = subprocess.run(
-                ["psql", "-X", "-w", "--dbname", "service=api", "-At", "-c", "SELECT 1"],
+                [
+                    "psql",
+                    "-X",
+                    "-w",
+                    "--dbname",
+                    "service=api",
+                    "-At",
+                    "-c",
+                    "SELECT 1",
+                ],
                 env=env,
                 capture_output=True,
             )
@@ -257,6 +275,17 @@ def main():
                 "--uploads",
                 str(workspace / "apps/cms/public/uploads"),
             ]
+            sys.path.insert(0, str(workspace / "apps/api/src"))
+            from datetime import UTC, datetime
+
+            from sinegor.modules.retention.archive import RetentionArchive
+
+            archive = RetentionArchive(private / "destruction")
+            archive_key = archive.store(
+                datetime(2026, 11, 8, tzinfo=UTC),
+                {"act.pdf": b"synthetic act", "export.csv": b"synthetic rows"},
+            )
+            create += ["--destruction-archive", str(archive.root)]
             call([*create, "--receipt", str(receipt)], env=env)
             result["passed"].append("pg_dump_both_databases_and_restic_snapshot")
             restore = [
@@ -272,6 +301,12 @@ def main():
             target = private / "restored"
             call([*restore, "--target", str(target)], env=env)
             result["passed"].append("pg_restore_both_empty_databases_and_manifest_sha256")
+            restored_archive = RetentionArchive(target / "destruction")
+            assert restored_archive.references() == archive.references()
+            assert (
+                target / "destruction" / archive_key / "act.pdf"
+            ).read_bytes() == b"synthetic act"
+            result["passed"].append("destruction_archive_manifest_bytes_and_hashes_restored")
             call(
                 [sys.executable, str(HERE / "api_fixture.py"), "verify"],
                 env=api_env
@@ -288,7 +323,9 @@ def main():
             restored_workspace = private / "restored-project"
             snapshot(root, restored_workspace)
             shutil.copytree(
-                target / "media", restored_workspace / "apps/cms/public/uploads", dirs_exist_ok=True
+                target / "media",
+                restored_workspace / "apps/cms/public/uploads",
+                dirs_exist_ok=True,
             )
             call(
                 ["node", str(HERE / "cms_fixture.cjs"), "verify"],
@@ -299,7 +336,11 @@ def main():
                 "restored_strapi_public_document_pdf_link_image_formats_and_public_controller"
             )
             call([*restore, "--target", str(target)], env=env, success=False)
-            call([*restore, "--target", str(private / "nonempty-db")], env=env, success=False)
+            call(
+                [*restore, "--target", str(private / "nonempty-db")],
+                env=env,
+                success=False,
+            )
             call(
                 [
                     *tool,
@@ -363,12 +404,23 @@ def main():
             result["passed"].append("failed_restic_has_no_receipt_success_message_or_secret_output")
             call(["restic", "check", "--read-data"], env=env)
             result["passed"].append("restic_check_read_data")
-            call([sys.executable, str(HERE / "api_fixture.py"), "verify-source"], env=api_env)
+            call(
+                [sys.executable, str(HERE / "api_fixture.py"), "verify-source"],
+                env=api_env,
+            )
             result["passed"].append("source_pdf_bytes_hashes_and_obsolete_file_unchanged")
             result["restic"] = call(["restic", "version"], env=env).stdout.decode().strip()
             result["postgres"] = (
                 call(
-                    ["psql", "--dbname", "service=api", "-At", "-c", "SHOW server_version"], env=env
+                    [
+                        "psql",
+                        "--dbname",
+                        "service=api",
+                        "-At",
+                        "-c",
+                        "SHOW server_version",
+                    ],
+                    env=env,
                 )
                 .stdout.decode()
                 .strip()

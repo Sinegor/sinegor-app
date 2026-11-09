@@ -186,6 +186,52 @@ def restic_environment():
         raise BackupError("Set RESTIC_REPOSITORY and RESTIC_PASSWORD_FILE")
 
 
+def archive_files(root):
+    # This lifecycle layer has only standard-library dependencies; no dotenv or DB access.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps/api/src"))
+    from sinegor.modules.retention.archive import RetentionArchive
+
+    try:
+        return RetentionArchive(root).references()
+    except (OSError, ValueError, KeyError, TypeError):
+        raise BackupError("Destruction archive validation failed") from None
+
+
+def rotate(args):
+    restic_environment()
+    command = [
+        "restic",
+        "forget",
+        "--tag",
+        "sinegor-managed-v1",
+        "--host",
+        "sinegor",
+        "--group-by",
+        "host,tags",
+        "--keep-daily",
+        "7",
+        "--keep-weekly",
+        "4",
+    ]
+    command += ["--prune"] if args.execute else ["--dry-run"]
+    run(command)
+    if args.execute:
+        run(["restic", "check"])
+
+
+def scheduled(args):
+    if not args.quiesce_command.is_absolute() or not args.resume_command.is_absolute():
+        raise BackupError("Writer control commands must be absolute executable paths")
+    # Resume even when quiesce fails after stopping only some writers.
+    try:
+        run([str(args.quiesce_command)])
+        backup(args)
+    finally:
+        run([str(args.resume_command)])
+    args.execute = True
+    rotate(args)
+
+
 def backup(args):
     restic_environment()
     if args.receipt.exists() or not args.receipt.parent.is_dir():
@@ -196,10 +242,16 @@ def backup(args):
     with tempfile.TemporaryDirectory(prefix="sinegor-backup-") as temporary:
         stage = Path(temporary)
         files = {}
-        for kind, source, references in (
+        archive = getattr(args, "destruction_archive", None)
+        sources = [
             ("agreements", args.agreements, agreement_files(args.api_service)),
             ("media", args.uploads, media_files(args.cms_service)),
-        ):
+        ]
+        if archive is not None:
+            references = archive_files(archive)
+            if references:
+                sources.append(("destruction", archive, references))
+        for kind, source, references in sources:
             destination = stage / kind
             destination.mkdir(mode=0o700)
             selected = copy_files(source, destination, references)
@@ -222,7 +274,19 @@ def backup(args):
             files[target.name] = sha256(target)
         manifest = {"version": 1, "databases": databases, "files": files}
         (stage / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
-        output = run(["restic", "backup", "--json", "."], cwd=stage)
+        output = run(
+            [
+                "restic",
+                "backup",
+                "--json",
+                "--tag",
+                "sinegor-managed-v1",
+                "--host",
+                "sinegor",
+                ".",
+            ],
+            cwd=stage,
+        )
         summaries = [json.loads(line) for line in output.splitlines()]
         snapshot = next(
             (
@@ -275,6 +339,7 @@ def restore_test(args):
     for name, digest in agreement_files(args.api_service).items():
         if sha256(safe_file(args.target / "agreements", name)) != digest:
             raise BackupError("Restored agreement does not match the database")
+    archive_files(args.target / "destruction")
     for name in media_files(args.cms_service):
         safe_file(args.target / "media", name)
 
@@ -292,9 +357,22 @@ def main():
     )
     create.add_argument("--agreements", type=Path, required=True)
     create.add_argument("--uploads", type=Path, required=True)
+    create.add_argument(
+        "--destruction-archive",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "apps/api/storage/destruction",
+    )
+    routine = subparsers.add_parser("scheduled")
+    routine.add_argument("--quiesce-command", type=Path, required=True)
+    routine.add_argument("--resume-command", type=Path, required=True)
+    routine.add_argument("--agreements", type=Path, required=True)
+    routine.add_argument("--uploads", type=Path, required=True)
+    routine.add_argument("--destruction-archive", type=Path, required=True)
+    rotation = subparsers.add_parser("rotate")
+    rotation.add_argument("--execute", action="store_true")
     restore = subparsers.add_parser("restore-test")
     restore.add_argument("--target", type=Path, required=True)
-    for child in (create, restore):
+    for child in (create, restore, routine):
         child.add_argument("--api-service", required=True)
         child.add_argument("--cms-service", required=True)
         child.add_argument("--receipt", type=Path, required=True)
@@ -302,6 +380,10 @@ def main():
     try:
         if args.action == "backup":
             backup(args)
+        elif args.action == "scheduled":
+            scheduled(args)
+        elif args.action == "rotate":
+            rotate(args)
         else:
             restore_test(args)
     except BackupError as exc:
@@ -310,7 +392,14 @@ def main():
     except (OSError, ValueError, KeyError, TypeError, StopIteration):
         print("Backup configuration or file validation failed", file=sys.stderr)
         return 1
-    print("Backup completed" if args.action == "backup" else "Test restore verified")
+    print(
+        {
+            "backup": "Backup completed",
+            "scheduled": "Scheduled backup and rotation completed",
+            "rotate": "Backup retention processed",
+            "restore-test": "Test restore verified",
+        }[args.action]
+    )
     return 0
 
 

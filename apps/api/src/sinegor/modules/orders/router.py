@@ -14,11 +14,11 @@ from sinegor.modules.notifications.service import deliver_from_app, enqueue
 from sinegor.modules.orders import service
 from sinegor.modules.orders.models import MaterialHandover, Order, PaymentRecord
 from sinegor.modules.orders.schemas import (
+    AdminOrderRead,
     EventRead,
     HandoverRead,
     NoteInput,
     OrderCreate,
-    OrderRead,
     OrderTerms,
     PaymentRead,
     StatusChange,
@@ -27,9 +27,9 @@ from sinegor.modules.orders.schemas import (
 router = APIRouter(tags=["orders"])
 
 
-@router.post("/admin/orders", response_model=OrderRead, status_code=201)
+@router.post("/admin/orders", response_model=AdminOrderRead, status_code=201)
 def create_order(payload: OrderCreate, principal: Admin, db: Database):
-    get_customer(db, payload.customer_id)
+    get_customer(db, payload.customer_id, lock=True)
     order = Order(**payload.model_dump())
     db.add(order)
     db.flush()
@@ -38,7 +38,7 @@ def create_order(payload: OrderCreate, principal: Admin, db: Database):
     return order
 
 
-@router.get("/admin/orders", response_model=list[OrderRead])
+@router.get("/admin/orders", response_model=list[AdminOrderRead])
 def list_orders(
     principal: Admin,
     db: Database,
@@ -56,7 +56,7 @@ def list_orders(
     return db.scalars(statement.order_by(Order.number).limit(limit).offset(offset)).all()
 
 
-@router.get("/admin/orders/{order_id}", response_model=OrderRead)
+@router.get("/admin/orders/{order_id}", response_model=AdminOrderRead)
 def read_order(order_id: UUID, principal: Admin, db: Database):
     order = db.get(Order, order_id)
     if order is None:
@@ -64,7 +64,7 @@ def read_order(order_id: UUID, principal: Admin, db: Database):
     return order
 
 
-@router.put("/admin/orders/{order_id}/terms", response_model=OrderRead)
+@router.put("/admin/orders/{order_id}/terms", response_model=AdminOrderRead)
 def update_terms(order_id: UUID, payload: OrderTerms, principal: Admin, db: Database):
     order = service.locked_order(db, order_id)
     if order.status != OrderStatus.AWAITING_AGREEMENT or order.agreement is not None:
@@ -84,7 +84,7 @@ def update_terms(order_id: UUID, payload: OrderTerms, principal: Admin, db: Data
     return order
 
 
-@router.post("/admin/orders/{order_id}/status", response_model=OrderRead)
+@router.post("/admin/orders/{order_id}/status", response_model=AdminOrderRead)
 def change_status(
     order_id: UUID, payload: StatusChange, request: Request, principal: Admin, db: Database
 ):
@@ -110,7 +110,13 @@ def change_status(
         return order
     try:
         service.transition(
-            db, order, payload.status, principal.id, mailer=request.app.state.order_mailer
+            db,
+            order,
+            payload.status,
+            principal.id,
+            mailer=request.app.state.order_mailer,
+            cancellation_internal_reason=payload.cancellation_internal_reason,
+            cancellation_customer_reason=payload.cancellation_customer_reason,
         )
     except MailDeliveryError as exc:
         raise HTTPException(503, "Result notification failed; order status unchanged") from exc

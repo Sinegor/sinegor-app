@@ -67,6 +67,7 @@ export async function customerApi(page: Page) {
       ready_at: null,
       result_notified_at: null,
       closed_at: null,
+      cancellation_customer_reason: null,
     } as Models["OrderRead"],
     agreement: customerAgreement() as Models["AgreementRead"] | null,
     folder: null as Models["CustomerFolderRead"] | null,

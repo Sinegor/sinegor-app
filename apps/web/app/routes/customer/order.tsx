@@ -96,6 +96,14 @@ export default function CustomerOrder() {
           )}
         </Notice>
       )}
+      {order.status === "cancelled" && (
+        <section className="card" aria-label="Причина отмены заказа">
+          <h2>Причина отмены заказа</h2>
+          <p className="pre-wrap">
+            {order.cancellation_customer_reason || "Причина отмены не указана"}
+          </p>
+        </section>
+      )}
       <div className="customer-grid">
         <div>
           <Card title="Условия заказа">
@@ -127,9 +135,11 @@ export default function CustomerOrder() {
             {folderUrl ? (
               <>
                 <p>
-                  {ready
-                    ? "Откройте папку заказа, чтобы получить результат."
-                    : "Передайте документы непосредственно через интерфейс Яндекс Диска. Для доступа нужен аккаунт Яндекса."}
+                  {order.status === "cancelled"
+                    ? "Заказ отменён. Связанная папка остаётся доступной до удаления материалов исполнителем."
+                    : ready
+                      ? "Откройте папку заказа, чтобы получить результат."
+                      : "Передайте документы непосредственно через интерфейс Яндекс Диска. Для доступа нужен аккаунт Яндекса."}
                 </p>
                 <a
                   className="button-link"

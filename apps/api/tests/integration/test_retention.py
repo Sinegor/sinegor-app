@@ -158,7 +158,6 @@ def test_early_delete_requires_admin_decision_and_preserves_agreement(retention,
     login_customer(retention)
     identifier = permission(retention, actors).json()["id"]
     admin(retention)
-    assert delete(retention, actors, identifier).status_code == 409
     first = confirmed(retention, actors, identifier)
     assert first.status_code == 200
     assert first.json()["confirmed_by_id"] == str(actors.admin.id)
@@ -211,7 +210,6 @@ def test_deferral_revokes_unexecuted_confirmation_and_requires_new_decision(rete
     assert item.status == DeletionStatus.DEFERRED
     assert item.confirmed_at is None and item.confirmed_by_id is None
     assert confirmed(retention, actors, identifier).status_code == 409
-    assert delete(retention, actors, identifier).status_code == 409
     assert service.process_due(retention.db, now=until - timedelta(microseconds=1)) == 0
     assert service.process_due(retention.db, now=until) == 1
     assert item.status == DeletionStatus.WAITING and item.confirmed_at is None
@@ -235,7 +233,7 @@ def test_completion_is_independent_of_deferral_and_permission_does_not_cancel_it
     assert item.status == DeletionStatus.DEFERRED
 
 
-@pytest.mark.parametrize("change", ["empty_note", "naive_time", "past_time", "shorten"])
+@pytest.mark.parametrize("change", ["empty_note", "naive_time", "past_time"])
 def test_deferral_rejects_invalid_input(retention, actors, change):
     login_customer(retention)
     identifier = permission(retention, actors).json()["id"]

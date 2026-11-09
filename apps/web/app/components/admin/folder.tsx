@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { value, diskUrl, type Models } from "../../lib/admin/api";
-import { date } from "../../lib/admin/labels";
 import { Button, Card, Field, Form } from "../ui";
 import { Check, formData, text, type Operation } from "./common";
 export function FolderPanel({
@@ -22,7 +21,6 @@ export function FolderPanel({
       {folder ? (
         <>
           <p className="break-word">Путь: {folder.disk_path}</p>
-          <p>Удалена: {date(folder.deleted_at)}</p>
           {folder.deletion_started_at && !folder.deleted_at && (
             <p>
               Операция удаления начата. Состояние и проверка — в разделе

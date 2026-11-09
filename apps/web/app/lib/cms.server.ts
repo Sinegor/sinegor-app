@@ -1,18 +1,42 @@
-import type { Content, ContentKind, Media, RichTextNode } from "./cms";
+import type {
+  Content,
+  ContentKind,
+  FooterData,
+  FooterLink,
+  Media,
+  RichTextNode,
+} from "./cms";
 import { PUBLICATION_PAGE_SIZE } from "./public-url";
 export async function readContent(
   kind: ContentKind,
   slug?: string,
   offset = 0,
 ): Promise<Content | Content[] | null | undefined> {
+  try {
+    const data = await readPublicData<Content | Content[]>(kind, slug, offset);
+    return Array.isArray(data)
+      ? data.map(withMedia)
+      : data
+        ? withMedia(data)
+        : data;
+  } catch {
+    throw new Response("Content temporarily unavailable", { status: 503 });
+  }
+}
+
+async function readPublicData<T>(
+  kind: ContentKind | "footer",
+  slug?: string,
+  offset?: number,
+): Promise<T | null | undefined> {
   const origin = process.env.CMS_ORIGIN;
   if (!origin) return undefined;
-  const url = new URL(
-    `/api/public-content/${kind}${slug ? `/${encodeURIComponent(slug)}` : ""}`,
-    origin,
-  );
-  url.searchParams.set("offset", String(offset));
   try {
+    const url = new URL(
+      `/api/public-content/${kind}${slug ? `/${encodeURIComponent(slug)}` : ""}`,
+      origin,
+    );
+    if (offset !== undefined) url.searchParams.set("offset", String(offset));
     const response = await fetch(url, {
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
@@ -21,13 +45,49 @@ export async function readContent(
     if (!response.ok) throw new Error("CMS unavailable");
     const body = await response.json();
     if (!body || !("data" in body)) throw new Error("Invalid CMS response");
-    return Array.isArray(body.data)
-      ? body.data.map(withMedia)
-      : body.data
-        ? withMedia(body.data)
-        : null;
+    return body.data ?? null;
   } catch {
     throw new Response("Content temporarily unavailable", { status: 503 });
+  }
+}
+
+function footerLinks(value: unknown): FooterLink[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((link) => {
+    if (
+      !link ||
+      typeof link.label !== "string" ||
+      !link.label.trim() ||
+      typeof link.href !== "string" ||
+      !safeFooterHref(link.href)
+    )
+      return [];
+    return [{ label: link.label, href: link.href }];
+  });
+}
+
+function safeFooterHref(href: string): boolean {
+  if (!href || /[\s\u0000-\u001f\u007f-\u009f\\]/u.test(href)) return false;
+  if (href.startsWith("/")) return !href.startsWith("//");
+  if (!/^https?:\/\//i.test(href)) return false;
+  try {
+    const url = new URL(href);
+    return ["http:", "https:"].includes(url.protocol) && !!url.hostname;
+  } catch {
+    return false;
+  }
+}
+
+export async function readFooter(): Promise<FooterData> {
+  try {
+    const data = await readPublicData<Partial<FooterData>>("footer");
+    return {
+      documents: footerLinks(data?.documents),
+      usefulLinks: footerLinks(data?.usefulLinks),
+    };
+  } catch {
+    // Footer content is optional; its endpoint must not break a public page.
+    return { documents: [], usefulLinks: [] };
   }
 }
 export async function readAllContent(kind: ContentKind) {

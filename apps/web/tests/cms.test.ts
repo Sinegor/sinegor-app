@@ -99,6 +99,23 @@ it("does not permit active script URLs in CMS media", async () => {
   );
 });
 
+it("keeps malformed CMS content as a controlled 503 after normalization", async () => {
+  vi.stubEnv("CMS_ORIGIN", "http://localhost:1337");
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { slug: "home", sections: "invalid" } }),
+        ),
+      ),
+  );
+  await expect(readContent("pages", "home")).rejects.toMatchObject({
+    status: 503,
+  });
+});
+
 it("normalizes nested image URLs and preserves section text and settings", () => {
   vi.stubEnv("CMS_ORIGIN", "http://internal:1337");
   vi.stubEnv("CMS_MEDIA_ORIGIN", "https://media.example.com");

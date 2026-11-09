@@ -108,6 +108,16 @@ for (const failure of [403, 422, 500, "network"] as const) {
     await page.getByLabel("Ваш телефон").fill("+7 (999) 123-45-67");
     await page.getByRole("button", { name: "Запросить консультацию" }).click();
     await expect(page.getByRole("alert")).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Запросить консультацию",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Заявка отправлена", exact: true }),
+    ).toHaveCount(0);
     await expect(page.getByRole("alert")).not.toContainText("private");
     await expect(page.getByLabel("Ваш email")).toHaveValue(
       "Reader@Example.com",
@@ -169,5 +179,96 @@ for (const width of [320, 390, 1440]) {
     await page.locator("#consultation").screenshot({
       path: `/tmp/sinegor-consultation-work/form-${width}-errors.png`,
     });
+  });
+}
+
+for (const width of [390, 1440]) {
+  test(`consultation page omits contact introduction and shows success after API confirmation ${width}`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    const main = page.getByRole("main");
+    await expect(
+      main.getByRole("heading", {
+        level: 1,
+        name: "Запросить консультацию",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      main.getByText("IT-лаборатория адвоката Артемьева Д. В.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(
+      main.getByRole("heading", { name: "Контакты", exact: true }),
+    ).toHaveCount(0);
+    await page.screenshot({
+      path: info.outputPath(`consultation-form-${width}.png`),
+      fullPage: true,
+    });
+    let finish!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let requests = 0;
+    await page.route("**/api/consultations", async (route) => {
+      requests++;
+      await pending;
+      await route.fulfill({ status: 202, json: {} });
+    });
+    await page.getByLabel("Ваш email").fill("reader@example.test");
+    await page.getByLabel("Ваш телефон").fill("+79991234567");
+    await page.getByRole("button", { name: "Запросить консультацию" }).click();
+    await expect.poll(() => requests).toBe(1);
+    await expect(
+      main.getByRole("heading", {
+        level: 1,
+        name: "Запросить консультацию",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      main.getByRole("heading", { name: "Заявка отправлена", exact: true }),
+    ).toHaveCount(0);
+    finish();
+    const heading = main.getByRole("heading", {
+      level: 1,
+      name: "Заявка отправлена",
+      exact: true,
+    });
+    await expect(heading).toBeVisible();
+    await expect(heading).toBeFocused();
+    await expect(
+      main.getByRole("heading", { name: "Контакты", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      main.getByText("IT-лаборатория адвоката Артемьева Д. В.", {
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await expect(page.getByRole("status")).toContainText("Заявка принята");
+    await expect(page.getByLabel("Ваш email")).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: info.outputPath(`consultation-success-${width}.png`),
+      fullPage: true,
+    });
+    await main.getByRole("link", { name: "На главную", exact: true }).click();
+    await expect(page).toHaveURL("/");
+    await page.goto("/contacts");
+    await expect(
+      main.getByRole("heading", {
+        level: 1,
+        name: "Запросить консультацию",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(page.getByLabel("Ваш email")).toBeVisible();
+    expect(requests).toBe(1);
   });
 }

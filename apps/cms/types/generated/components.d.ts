@@ -1,5 +1,16 @@
 import type { Schema, Struct } from '@strapi/strapi';
 
+export interface SharedFooterLink extends Struct.ComponentSchema {
+  collectionName: 'components_shared_footer_links';
+  info: {
+    displayName: '\u041F\u043E\u043B\u0435\u0437\u043D\u0430\u044F \u0441\u0441\u044B\u043B\u043A\u0430';
+  };
+  attributes: {
+    href: Schema.Attribute.String & Schema.Attribute.Required;
+    label: Schema.Attribute.String & Schema.Attribute.Required;
+  };
+}
+
 export interface SharedImageLayout extends Struct.ComponentSchema {
   collectionName: 'components_shared_image_layouts';
   info: {
@@ -48,6 +59,7 @@ export interface SharedSeo extends Struct.ComponentSchema {
 declare module '@strapi/strapi' {
   export namespace Public {
     export interface ComponentSchemas {
+      'shared.footer-link': SharedFooterLink;
       'shared.image-layout': SharedImageLayout;
       'shared.section': SharedSection;
       'shared.seo': SharedSeo;

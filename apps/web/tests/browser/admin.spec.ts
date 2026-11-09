@@ -251,7 +251,7 @@ test("SMTP readiness failure remains visible and does not claim result was deliv
   await expect(page.getByText("В работе", { exact: true })).toBeVisible();
 });
 
-test("deletion decision and actual deletion are separate; 202 needs explicit checking", async ({
+test("one explicit deletion action starts Disk; 202 needs explicit checking", async ({
   page,
 }) => {
   const state = await mockApi(page);
@@ -259,39 +259,18 @@ test("deletion decision and actual deletion are separate; 202 needs explicit che
   state.deletion = deletion();
   state.folder = folder();
   await page.goto(`/admin/orders/${orderId}`);
-  await page
-    .getByRole("button", {
-      name: "Подтвердить решение об удалении",
-      exact: true,
-    })
-    .click();
+  const remove = page.getByRole("button", {
+    name: "Удалить материалы",
+    exact: true,
+  });
+  await remove.click();
   await page.getByRole("button", { name: "Закрыть", exact: true }).click();
   expect(
     state.calls.filter(
       (c) => c.path.endsWith("/confirm") || c.path.endsWith("/delete"),
     ),
   ).toHaveLength(0);
-  await page
-    .getByRole("button", {
-      name: "Подтвердить решение об удалении",
-      exact: true,
-    })
-    .click();
-  await page
-    .getByLabel("Я проверил обращения заказчика", { exact: false })
-    .check();
-  await page
-    .getByRole("button", { name: "Подтвердить решение", exact: true })
-    .click();
-  await expect(
-    page.getByText(
-      "Решение сохранено. Для удаления требуется отдельное действие.",
-    ),
-  ).toBeVisible();
-  expect(state.deleteCount).toBe(0);
-  await page
-    .getByRole("button", { name: "Удалить папку окончательно", exact: true })
-    .click();
+  await remove.click();
   await page
     .getByLabel("Подтверждаю запуск или проверку", { exact: false })
     .check();
@@ -303,8 +282,8 @@ test("deletion decision and actual deletion are separate; 202 needs explicit che
   ).toBeVisible();
   expect(state.deleteCount).toBe(1);
   await expect(
-    page.getByText("Удаление проверено", { exact: true }),
-  ).toHaveCount(1); // label, not a success badge
+    page.locator(".badge").filter({ hasText: "Удаление проверено" }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", {
       name: "Проверить / повторить операцию удаления",
@@ -320,6 +299,9 @@ test("deletion decision and actual deletion are separate; 202 needs explicit che
   await expect(
     page.locator(".badge").filter({ hasText: "Удаление проверено" }),
   ).toBeVisible();
+  expect(state.calls.filter((c) => c.path.endsWith("/confirm"))).toHaveLength(
+    0,
+  );
   expect(
     state.calls
       .filter((c) => c.path.endsWith("/folder/delete"))
@@ -346,15 +328,13 @@ test("deferral sends Moscow time with an explicit timezone and a reason", async 
   state.deletion = deletion();
   state.folder = folder();
   await page.goto(`/admin/orders/${orderId}`);
-  await page.getByLabel("Отложить до (МСК)").fill("2030-01-02T14:30");
+  await page.getByLabel("Следующее напоминание (МСК)").fill("2030-01-02T14:30");
   await page
     .getByLabel("Причина отсрочки")
     .fill("Поступили уточнения по email");
-  await page
-    .getByRole("button", { name: "Отложить удаление", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Отложить", exact: true }).click();
   await expect(
-    page.getByText("Удаление отложено.", { exact: true }),
+    page.getByText("Дата следующего напоминания сохранена.", { exact: true }),
   ).toBeVisible();
   expect(state.calls.find((c) => c.path.endsWith("/defer"))!.body).toEqual({
     deletion_request_id: deletionId,
@@ -596,6 +576,12 @@ test("starting work and cancellation never bypass their confirmations", async ({
     .getByRole("button", { name: "Отменить заказ", exact: true })
     .click();
   await page
+    .getByLabel("Основание отмены заказа", { exact: true })
+    .fill("Internal decision");
+  await page
+    .getByLabel("Причина отмены для заказчика", { exact: true })
+    .fill("Explanation for customer");
+  await page
     .getByRole("button", { name: "Подтвердить отмену заказа", exact: true })
     .click();
   await expect(page.getByText("Заказ отменён.", { exact: true })).toBeVisible();
@@ -632,7 +618,7 @@ test("manual permanent deletion verification is opt-in after a lost response", a
   state.folder.deletion_started_at = "2026-10-01T10:00:00Z";
   await page.goto(`/admin/orders/${orderId}`);
   await expect(
-    page.getByRole("button", { name: "Отложить удаление", exact: true }),
+    page.getByRole("button", { name: "Отложить", exact: true }),
   ).toHaveCount(0);
   await page
     .getByRole("button", {
@@ -666,7 +652,7 @@ test("in-flight deletion keeps its confirmation dialog open until a response", a
   state.folder = folder();
   await page.goto(`/admin/orders/${orderId}`);
   await page
-    .getByRole("button", { name: "Удалить папку окончательно", exact: true })
+    .getByRole("button", { name: "Удалить материалы", exact: true })
     .click();
   await page
     .getByLabel("Подтверждаю запуск или проверку", { exact: false })
@@ -710,3 +696,86 @@ test("private SSR returns an uncached skeleton without customer data", async ({
   expect(html).not.toContain("client@example.test");
   expect(html).not.toContain("Согласованные условия");
 });
+
+for (const width of [390, 1440]) {
+  for (const deleted of [false, true]) {
+    test(`folder omits redundant deletion row and retains operation evidence ${width} deleted=${deleted}`, async ({
+      page,
+    }, info) => {
+      const state = await mockApi(page);
+      state.order.status = "completed";
+      state.folder = folder();
+      state.deletion = deletion();
+      if (deleted) {
+        state.folder.deleted_at = "2026-10-01T10:00:00Z";
+        state.deletion.status = "performed";
+        state.deletion.performed_at = state.folder.deleted_at;
+        await page.route("**/api/admin/orders/*/events?**", (route) =>
+          route.fulfill({
+            json: [
+              {
+                id: "00000000-0000-4000-8000-000000000099",
+                event_type: "disk_folder_deleted",
+                created_at: "2026-10-01T10:00:00Z",
+              },
+            ],
+          }),
+        );
+      }
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/admin/orders/${orderId}`);
+      const panel = page.locator("section.card").filter({
+        has: page.getByRole("heading", {
+          name: "Папка на Яндекс Диске",
+          exact: true,
+        }),
+      });
+      await expect(panel).toBeVisible();
+      await expect(panel.getByText(/^Удалена:/)).toHaveCount(0);
+      await expect(
+        panel.getByText(`Путь: ${state.folder.disk_path}`, { exact: true }),
+      ).toBeVisible();
+      if (deleted) {
+        await expect(panel.getByRole("button")).toHaveCount(0);
+        await expect(page.locator(".retention-card .badge")).toHaveText(
+          "Удаление проверено",
+        );
+        await expect(
+          page
+            .getByRole("table", { name: "Журнал событий" })
+            .getByText("Удаление папки проверено", { exact: true }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", {
+            name: "Удалить материалы",
+            exact: true,
+          }),
+        ).toHaveCount(0);
+      } else {
+        await expect(
+          panel.getByRole("button", {
+            name: "Получить ссылку для открытия",
+            exact: true,
+          }),
+        ).toBeVisible();
+        await expect(
+          page.getByRole("button", {
+            name: "Удалить материалы",
+            exact: true,
+          }),
+        ).toBeVisible();
+      }
+      expect(state.calls.filter((call) => call.method !== "GET")).toHaveLength(
+        0,
+      );
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      await panel.screenshot({
+        path: info.outputPath(`folder-${width}-${deleted}.png`),
+      });
+    });
+  }
+}

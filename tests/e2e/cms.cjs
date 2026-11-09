@@ -56,6 +56,7 @@ const { createStrapi } = require(
               services: "api::service.service",
               publications: "api::publication.publication",
               documents: "api::public-document.public-document",
+              footer: "api::footer-settings.footer-settings",
             }[payload.kind || "publications"],
           );
         let result;
@@ -68,7 +69,7 @@ const { createStrapi } = require(
           });
         else if (payload.action === "find")
           result = await docs.findMany({
-            filters: { slug: payload.slug },
+            filters: payload.slug ? { slug: payload.slug } : {},
             status: "draft",
           });
         else if (payload.action === "delete")

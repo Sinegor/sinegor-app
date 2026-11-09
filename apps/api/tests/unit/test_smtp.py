@@ -160,3 +160,24 @@ def test_consultation_contacts_use_existing_tls_transport_and_admin_envelope(pho
         assert smtp.call_args.kwargs["context"].check_hostname
         connection.login.assert_called_once_with("sender@example.ru", "synthetic-password")
         connection.send_message.assert_called_once()
+
+
+def test_materials_deleted_email_describes_permanent_folder_deletion_and_kept_agreement():
+    settings = Settings(
+        _env_file=None,
+        database_url="postgresql+psycopg://u:p@localhost/db",
+        smtp_username="sender@example.ru",
+        smtp_password="app_password",
+        smtp_from="sender@example.ru",
+    )
+    with patch("sinegor.integrations.email.smtp.smtplib.SMTP_SSL") as smtp:
+        connection = smtp.return_value.__enter__.return_value
+        connection.send_message.return_value = {}
+        SMTPAuthMailer(settings).send_materials_deleted("client@example.ru", 217)
+        message = connection.send_message.call_args.args[0]
+        assert message["To"] == "client@example.ru"
+        assert "217" in message["Subject"]
+        body = message.get_content()
+        assert "окончательно" in body and "без перемещения в корзину" in body
+        assert "Исходные материалы и результаты" in body
+        assert "Подписанное соглашение и история заказа сохранены" in body

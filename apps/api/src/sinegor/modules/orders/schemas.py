@@ -30,17 +30,33 @@ class OrderRead(OrderTerms):
     ready_at: datetime | None
     result_notified_at: datetime | None
     closed_at: datetime | None
+    cancellation_customer_reason: str | None = None
+
+
+class AdminOrderRead(OrderRead):
+    cancellation_internal_reason: str | None = None
 
 
 class StatusChange(BaseModel):
     model_config = ConfigDict(extra="forbid")
     status: OrderStatus
     result_uploaded: bool = False
+    cancellation_internal_reason: str | None = Field(default=None, max_length=10000)
+    cancellation_customer_reason: str | None = Field(default=None, max_length=10000)
 
     @model_validator(mode="after")
     def result_evidence(self):
         if self.status == OrderStatus.RESULT_READY and not self.result_uploaded:
             raise ValueError("Confirm result upload")
+        reasons = ("cancellation_internal_reason", "cancellation_customer_reason")
+        if self.status == OrderStatus.CANCELLED:
+            for field in reasons:
+                value = getattr(self, field)
+                if value is None or not value.strip():
+                    raise ValueError("Both cancellation reasons are required")
+                setattr(self, field, value.strip())
+        elif any(getattr(self, field) is not None for field in reasons):
+            raise ValueError("Cancellation reasons require cancelled status")
         return self
 
 

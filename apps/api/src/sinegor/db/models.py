@@ -8,7 +8,7 @@ from sinegor.modules.customers.models import Customer
 from sinegor.modules.disk.models import DiskFolder
 from sinegor.modules.notifications.models import Notification
 from sinegor.modules.orders.models import MaterialHandover, Order, PaymentRecord
-from sinegor.modules.retention.models import DeletionRequest
+from sinegor.modules.retention.models import DeletionRequest, RetentionFileDeletion
 from sinegor.modules.security_events.models import SecurityEvent
 
 __all__ = [
@@ -21,6 +21,7 @@ __all__ = [
     "Customer",
     "CustomerEvent",
     "DeletionRequest",
+    "RetentionFileDeletion",
     "DiskFolder",
     "MaterialHandover",
     "Notification",

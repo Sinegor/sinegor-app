@@ -1,6 +1,6 @@
 """Order folder ownership and deletion evidence stay in the business backend."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -21,6 +21,7 @@ from sinegor.modules.disk.models import DiskFolder
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.service import locked_order, record_event
 from sinegor.modules.retention.models import DeletionRequest
+from sinegor.modules.retention.service import eligible_at, require_deletion_basis
 
 
 def folder_for(db: Session, order: Order) -> DiskFolder:
@@ -129,22 +130,22 @@ def delete_folder(
         .execution_options(populate_existing=True)
     )
     if deletion is None:
-        raise HTTPException(409, "A confirmed deletion request for this order is required")
+        raise HTTPException(409, "A deletion request for this order is required")
     if folder.deleted_at and deletion.status == DeletionStatus.PERFORMED:
         return folder
     now = datetime.now(UTC)
+    require_deletion_basis(order, deletion, now)
     if (
-        deletion.status not in {DeletionStatus.CONFIRMED, DeletionStatus.ERROR}
-        or deletion.confirmed_at is None
-        or deletion.confirmed_by_id is None
-        or deletion.confirmed_at > now
-        or order.result_notified_at is None
-        or order.status not in {OrderStatus.RESULT_READY, OrderStatus.COMPLETED}
-        or deletion.deferred_until is not None
-        and deletion.deferred_until > now
-        or deletion.reason == DeletionReason.RETENTION_EXPIRED
-        and (now < deletion.due_at or now < order.result_notified_at + timedelta(days=14))
-        or deletion.reason == DeletionReason.EARLY_PERMISSION
+        deletion.status
+        not in {
+            DeletionStatus.WAITING,
+            DeletionStatus.DEFERRED,
+            DeletionStatus.CONFIRMED,
+            DeletionStatus.ERROR,
+        }
+        or eligible_at(order, deletion) > now
+        or order.status != OrderStatus.CANCELLED
+        and deletion.reason == DeletionReason.EARLY_PERMISSION
         and (
             deletion.early_authorized_at is None
             or deletion.early_authorized_at < order.result_notified_at
@@ -156,6 +157,14 @@ def delete_folder(
     available_path(db, folder.disk_path, folder.resource_id, exclude_id=folder.id)
     if not folder.resource_id:
         raise HTTPException(409, "Folder identity must be verified before deletion")
+    # The explicit protected delete action also records the administrator's decision.
+    # No preliminary approval endpoint or elapsed reminder is required.
+    if deletion.confirmed_at is None:
+        deletion.confirmed_at = now
+        deletion.confirmed_by_id = admin_id
+        record_event(db, order, "deletion_confirmed", admin_id)
+    if deletion.status in {DeletionStatus.WAITING, DeletionStatus.DEFERRED}:
+        deletion.status = DeletionStatus.CONFIRMED
     if permanent_deletion_verified and not folder.deletion_succeeded:
         if folder.deletion_started_at is None or folder.deletion_operation_id:
             raise HTTPException(409, "No uncertain deletion attempt to verify")
@@ -170,9 +179,15 @@ def delete_folder(
         and not folder.deletion_operation_id
         and not folder.deletion_succeeded
     ):
-        resource = disk.metadata(folder.disk_path)
-        if resource is None or resource.resource_id != folder.resource_id:
-            raise DiskConflict("Folder is missing or its identity has changed")
+        try:
+            resource = disk.metadata(folder.disk_path)
+            if resource is None or resource.resource_id != folder.resource_id:
+                raise DiskConflict("Folder is missing or its identity has changed")
+        except DiskError:
+            deletion.status = DeletionStatus.ERROR
+            record_event(db, order, "disk_deletion_failed", admin_id)
+            db.commit()
+            raise
         folder.deletion_started_at = datetime.now(UTC)
         record_event(db, order, "disk_deletion_started", admin_id)
         # Durable intent survives a lost DELETE response or a later commit failure.
@@ -212,5 +227,17 @@ def delete_folder(
     deletion.status = DeletionStatus.PERFORMED
     deletion.performed_at = folder.deleted_at
     record_event(db, order, "disk_folder_deleted", admin_id)
+    # Persist the verified result and its delivery job in the same transaction.
+    from sinegor.modules.notifications.service import enqueue
+
+    enqueue(
+        db,
+        "materials_deleted",
+        order_id=order.id,
+        customer_id=order.customer_id,
+        recipient=order.customer.email,
+        payload={"deletion_request_id": str(deletion.id)},
+        dedup_key=f"materials_deleted:{deletion.id}",
+    )
     db.commit()
     return folder

@@ -12,6 +12,7 @@ import {
   Pagination,
   useOperation,
 } from "../../components/admin/common";
+import { DeliveryProblems } from "../../components/admin/delivery-problems";
 import { Button, Card, Modal, Notice } from "../../components/ui";
 export { AdminErrorBoundary as ErrorBoundary } from "../../components/admin/common";
 export const meta = () => [{ title: "Проблемы доставки — SINEGOR LAB" }];
@@ -20,18 +21,40 @@ export function clientLoader({ request }: ClientLoaderFunctionArgs) {
   const url = new URL(request.url);
   const start = offset(url);
   const view =
-    url.searchParams.get("view") === "handled" ? "handled" : "active";
+    url.searchParams.get("view") === "notifications"
+      ? "notifications"
+      : url.searchParams.get("view") === "handled"
+        ? "handled"
+        : "active";
   const observedAt = performance.now();
   return adminLoad(async (api) => ({
     observedAt,
     start,
     view,
-    rows: await value(
-      api.GET("/api/admin/consultations", {
-        params: { query: { offset: start, limit: PAGE_SIZE, view } },
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(5000)]),
-      }),
-    ),
+    problems:
+      view === "notifications"
+        ? await value(
+            api.GET("/api/admin/notifications/problems", {
+              params: { query: { offset: start, limit: PAGE_SIZE } },
+              signal: AbortSignal.any([
+                request.signal,
+                AbortSignal.timeout(5000),
+              ]),
+            }),
+          )
+        : [],
+    rows:
+      view === "notifications"
+        ? []
+        : await value(
+            api.GET("/api/admin/consultations", {
+              params: { query: { offset: start, limit: PAGE_SIZE, view } },
+              signal: AbortSignal.any([
+                request.signal,
+                AbortSignal.timeout(5000),
+              ]),
+            }),
+          ),
   }));
 }
 
@@ -56,7 +79,7 @@ type Choice =
   | { id: string; action: "retry"; channel: "smtp" | "telegram" };
 
 export default function Consultations() {
-  const { rows, start, view, observedAt } =
+  const { rows, problems, start, view, observedAt } =
     useLoaderData<typeof clientLoader>();
   const op = useOperation();
   const revalidator = useRevalidator();
@@ -132,11 +155,19 @@ export default function Consultations() {
           Обновить
         </Button>
       </div>
-      <p>
-        Контакты доступны до семи суток с обращения. Успешно отправленный канал
-        повторно не отправляется.
-      </p>
+      {view !== "notifications" && (
+        <p>
+          Контакты доступны до семи суток с обращения. Успешно отправленный
+          канал повторно не отправляется.
+        </p>
+      )}
       <nav className="actions" aria-label="Состояние заявок">
+        <Link
+          to="/admin/consultations?view=notifications"
+          aria-current={view === "notifications" ? "page" : undefined}
+        >
+          Все проблемы доставки
+        </Link>
         <Link
           to="/admin/consultations"
           aria-current={view === "active" ? "page" : undefined}
@@ -151,7 +182,10 @@ export default function Consultations() {
         </Link>
       </nav>
       <Feedback op={op} />
-      {rows.length === 0 && (
+      {view === "notifications" && (
+        <DeliveryProblems rows={problems} start={start} />
+      )}
+      {view !== "notifications" && rows.length === 0 && (
         <Notice>
           {view === "handled"
             ? "Заявок, обработанных вручную, нет."
@@ -248,7 +282,10 @@ export default function Consultations() {
           );
         })}
       </div>
-      <Pagination count={rows.length} start={start} />
+      <Pagination
+        count={view === "notifications" ? problems.length : rows.length}
+        start={start}
+      />
       <Modal
         open={choice !== null}
         title={

@@ -443,6 +443,39 @@ export interface AdminUser extends Struct.CollectionTypeSchema {
   };
 }
 
+export interface ApiFooterSettingsFooterSettings
+  extends Struct.SingleTypeSchema {
+  collectionName: 'footer_settings';
+  info: {
+    displayName: '\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0444\u0443\u0442\u0435\u0440\u0430';
+    pluralName: 'footer-settings-list';
+    singularName: 'footer-settings';
+  };
+  options: {
+    draftAndPublish: true;
+  };
+  attributes: {
+    createdAt: Schema.Attribute.DateTime;
+    createdBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    documents: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::public-document.public-document'
+    >;
+    locale: Schema.Attribute.String & Schema.Attribute.Private;
+    localizations: Schema.Attribute.Relation<
+      'oneToMany',
+      'api::footer-settings.footer-settings'
+    > &
+      Schema.Attribute.Private;
+    publishedAt: Schema.Attribute.DateTime;
+    updatedAt: Schema.Attribute.DateTime;
+    updatedBy: Schema.Attribute.Relation<'oneToOne', 'admin::user'> &
+      Schema.Attribute.Private;
+    usefulLinks: Schema.Attribute.Component<'shared.footer-link', true>;
+  };
+}
+
 export interface ApiPagePage extends Struct.CollectionTypeSchema {
   collectionName: 'pages';
   info: {
@@ -1103,6 +1136,7 @@ declare module '@strapi/strapi' {
       'admin::transfer-token': AdminTransferToken;
       'admin::transfer-token-permission': AdminTransferTokenPermission;
       'admin::user': AdminUser;
+      'api::footer-settings.footer-settings': ApiFooterSettingsFooterSettings;
       'api::page.page': ApiPagePage;
       'api::public-document.public-document': ApiPublicDocumentPublicDocument;
       'api::publication.publication': ApiPublicationPublication;

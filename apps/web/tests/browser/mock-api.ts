@@ -42,7 +42,9 @@ export async function mockApi(page: Page) {
       ready_at: null,
       result_notified_at: null,
       closed_at: null,
-    } as Models["OrderRead"],
+      cancellation_internal_reason: null,
+      cancellation_customer_reason: null,
+    } as Models["AdminOrderRead"],
     agreement: null as Models["AgreementRead"] | null,
     folder: null as Models["FolderRead"] | null,
     deletion: null as Models["DeletionRead"] | null,
@@ -173,6 +175,17 @@ export async function mockApi(page: Page) {
         if (body?.status === "result_ready" && state.readinessFailure)
           return send({}, 503);
         Object.assign(state.order, { status: body?.status });
+        if (body?.status === "cancelled") {
+          Object.assign(state.order, {
+            cancellation_internal_reason: body.cancellation_internal_reason,
+            cancellation_customer_reason: body.cancellation_customer_reason,
+            closed_at: now,
+          });
+          if (state.folder && !state.folder.deleted_at && !state.deletion) {
+            state.deletion = deletion();
+            state.deletion.reason = "order_cancelled";
+          }
+        }
         return send(state.order);
       }
       if (path.endsWith("/agreement"))
@@ -238,6 +251,7 @@ export async function mockApi(page: Page) {
       }
       if (path.endsWith("/folder/delete")) {
         state.deleteCount++;
+        state.deletion!.status = "confirmed";
         state.folder!.deletion_started_at = now;
         state.folder!.deletion_operation_id = "operation-1";
         if (state.deleteCount > 1) {

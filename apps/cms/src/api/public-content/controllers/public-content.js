@@ -1,3 +1,4 @@
+const { isSafeFooterHref } = require("../../../utils/footer-links");
 const types = {
   pages: "api::page.page",
   services: "api::service.service",
@@ -56,7 +57,56 @@ const clean = (item) => ({
   contactEmail: item.contactEmail,
   contactPhone: item.contactPhone,
 });
+async function getFooter(ctx) {
+  const settings = await strapi
+    .documents("api::footer-settings.footer-settings")
+    .findFirst({
+      status: "published",
+      populate: { documents: { fields: ["documentId"] }, usefulLinks: true },
+    });
+  const ids = (settings?.documents || []).map((doc) => doc.documentId);
+  // Read current published records rather than trusting populated relation variants.
+  // Preserve the editor's relation order, independently of DB query order.
+  const documents = ids.length
+    ? await strapi.documents(types.documents).findMany({
+        status: "published",
+        filters: { documentId: { $in: ids } },
+        fields: ["documentId", "title", "slug", "publishedAt"],
+        limit: -1,
+      })
+    : [];
+  const byId = new Map(
+    documents
+      .filter((doc) => doc.publishedAt && doc.slug && doc.title)
+      .map((doc) => [doc.documentId, doc]),
+  );
+  ctx.set("Cache-Control", "no-store");
+  ctx.body = {
+    data: {
+      documents: ids.flatMap((id) => {
+        const doc = byId.get(id);
+        return doc
+          ? [
+              {
+                label: doc.title,
+                href: `/documents/${encodeURIComponent(doc.slug)}`,
+              },
+            ]
+          : [];
+      }),
+      usefulLinks: (settings?.usefulLinks || [])
+        .filter(
+          (link) =>
+            typeof link.label === "string" &&
+            link.label.trim() &&
+            isSafeFooterHref(link.href),
+        )
+        .map(({ label, href }) => ({ label, href })),
+    },
+  };
+}
 async function get(ctx, single) {
+  if (!single && ctx.params.kind === "footer") return getFooter(ctx);
   const uid = Object.hasOwn(types, ctx.params.kind)
     ? types[ctx.params.kind]
     : null;

@@ -74,7 +74,11 @@ class Order(Entity, Base):
     )
     ready_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     result_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fulfilled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    cancellation_internal_reason: Mapped[str | None] = mapped_column(Text)
+    cancellation_customer_reason: Mapped[str | None] = mapped_column(Text)
 
     customer: Mapped[Customer] = relationship(back_populates="orders")
     agreement: Mapped[Agreement | None] = relationship(

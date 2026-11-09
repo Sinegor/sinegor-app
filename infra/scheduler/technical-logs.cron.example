@@ -1,0 +1,4 @@
+# File logging only: route the existing services through scripts/logging/run.py.
+# Match the configured log directory in infra/logging/logrotate.conf.
+# Run as the owner of the private log directory; never run against Docker internals.
+5 0 * * * /usr/sbin/logrotate --state /srv/sinegor/logrotate.state /absolute/path/sinegor-app/infra/logging/logrotate.conf

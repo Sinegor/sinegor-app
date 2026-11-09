@@ -50,11 +50,11 @@ const reasons: Record<Event["reason_code"], string> = {
   admin_created: "Учётная запись администратора создана",
   agreement_required: "Доступ к папке до утверждения соглашения запрещён",
 };
-const utcDate = (value: string) =>
+const moscowDate = (value: string) =>
   new Intl.DateTimeFormat("ru-RU", {
     dateStyle: "short",
     timeStyle: "medium",
-    timeZone: "UTC",
+    timeZone: "Europe/Moscow",
   }).format(new Date(value));
 
 export function clientLoader({ request }: ClientLoaderFunctionArgs) {
@@ -96,8 +96,8 @@ export default function SecurityEvents() {
         <h1>События безопасности</h1>
       </div>
       <p>
-        Журнал доступен только для просмотра. Даты и время в этом разделе
-        указаны в UTC.
+        Журнал доступен только для просмотра. Время событий — московское время
+        (Europe/Moscow, МСК). Фильтры по датам используют UTC.
       </p>
       <Form className="filter-bar" method="get" key={`${from}:${to}:${kind}`}>
         <Field
@@ -133,7 +133,7 @@ export default function SecurityEvents() {
           <Card key={row.id} title={eventTypes[row.event_type]}>
             <p>
               <time dateTime={row.recorded_at}>
-                {utcDate(row.recorded_at)} UTC
+                {moscowDate(row.recorded_at)} МСК
               </time>{" "}
               · {row.result === "success" ? "Успех" : "Отказ"}
             </p>

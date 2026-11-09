@@ -54,3 +54,17 @@ class ConsultationConfirmation(BaseModel):
 
 class ConsultationRetry(ConsultationConfirmation):
     channel: Literal["smtp", "telegram"]
+
+
+class DeliveryProblem(BaseModel):
+    id: UUID
+    kind: str
+    channel: Literal["smtp", "telegram"]
+    reason: Literal["permanent", "expired", "delayed", "temporary"]
+    status: Literal["pending", "processing", "failed", "expired"]
+    created_at: datetime
+    available_at: datetime
+    attempts: int
+    error_code: str | None
+    order_id: UUID | None
+    customer_id: UUID | None

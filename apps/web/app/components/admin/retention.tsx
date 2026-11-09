@@ -6,6 +6,13 @@ import { Check, formData, text, type Operation } from "./common";
 export function moscowDate(value: string) {
   return new Date(`${value}+03:00`).toISOString();
 }
+function reminderInput(value: string | null) {
+  if (!value) return "";
+  // Moscow's current UTC+03 offset, independent of the browser timezone.
+  return new Date(new Date(value).getTime() + 3 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 16);
+}
 export function RetentionPanel({
   order,
   request,
@@ -17,9 +24,7 @@ export function RetentionPanel({
   folder: Models["FolderRead"] | null;
   op: Operation;
 }) {
-  const [confirming, setConfirming] = useState<"decision" | "delete" | null>(
-    null,
-  );
+  const [confirming, setConfirming] = useState(false);
   if (!request)
     return (
       <Card title="Удаление материалов" className="retention-card">
@@ -43,13 +48,15 @@ export function RetentionPanel({
         <dd>
           {request.reason === "early_permission"
             ? "Досрочное разрешение заказчика"
-            : "Истечение срока хранения"}
+            : request.reason === "order_cancelled"
+              ? "Отмена заказа"
+              : "Истечение срока хранения"}
         </dd>
         <dt>Срок</dt>
         <dd>{date(request.due_at)}</dd>
         <dt>Досрочное разрешение</dt>
         <dd>{date(request.early_authorized_at)}</dd>
-        <dt>Отсрочка до</dt>
+        <dt>Следующее напоминание</dt>
         <dd>{date(request.deferred_until)}</dd>
         <dt>Решение подтверждено</dt>
         <dd>{date(request.confirmed_at)}</dd>
@@ -65,13 +72,8 @@ export function RetentionPanel({
         <>
           {!started && (
             <>
-              <Button
-                disabled={op.busy}
-                onClick={() => setConfirming("decision")}
-              >
-                Подтвердить решение об удалении
-              </Button>
               <Form
+                key={request.deferred_until ?? "new-reminder"}
                 method="post"
                 busy={op.busy}
                 onSubmit={(event) => {
@@ -91,34 +93,49 @@ export function RetentionPanel({
                           },
                         },
                       ),
-                    "Удаление отложено.",
+                    "Дата следующего напоминания сохранена.",
                   );
                 }}
               >
                 <Field
-                  label="Отложить до (МСК)"
+                  label="Следующее напоминание (МСК)"
                   name="deferred_until"
                   type="datetime-local"
+                  defaultValue={reminderInput(request.deferred_until)}
                   required
                 />
                 <label className="field">
                   Причина отсрочки
-                  <textarea name="note" rows={3} required maxLength={2000} />
+                  <textarea
+                    name="note"
+                    rows={3}
+                    required
+                    maxLength={2000}
+                    defaultValue={request.admin_note ?? ""}
+                  />
                 </label>
-                <Button type="submit">Отложить удаление</Button>
+                <p>
+                  Дата меняет только напоминание. Удалить материалы можно
+                  отдельным явным действием и до этой даты.
+                </p>
+                <Button type="submit">
+                  {request.deferred_until
+                    ? "Изменить дату напоминания"
+                    : "Отложить"}
+                </Button>
               </Form>
             </>
           )}
-          {["confirmed", "error"].includes(request.status) && folder && (
+          {folder && (
             <p>
               <Button
                 className="danger"
                 disabled={op.busy}
-                onClick={() => setConfirming("delete")}
+                onClick={() => setConfirming(true)}
               >
                 {started
                   ? "Проверить / повторить операцию удаления"
-                  : "Удалить папку окончательно"}
+                  : "Удалить материалы"}
               </Button>
             </p>
           )}
@@ -134,13 +151,9 @@ export function RetentionPanel({
       <Modal
         busy={op.busy}
         open={!!confirming}
-        title={
-          confirming === "decision"
-            ? "Подтвердить решение?"
-            : "Окончательное удаление папки"
-        }
+        title="Удалить материалы"
         onClose={() => {
-          if (!op.busy) setConfirming(null);
+          if (!op.busy) setConfirming(false);
         }}
       >
         {confirming && op.notice?.error && (
@@ -152,66 +165,48 @@ export function RetentionPanel({
         <p className="break-word">
           Папка: {folder?.disk_path ?? "не привязана"}
         </p>
+        <p>
+          Это действие подтверждает решение и запускает окончательное удаление
+          папки без корзины. Подписанное соглашение и история заказа
+          сохраняются.
+        </p>
         <Form
-          key={confirming}
+          key={String(confirming)}
           busy={op.busy}
           method="post"
           onSubmit={(event) => {
-            const data = formData(event),
-              mode = confirming;
-            if (!mode) return;
+            const data = formData(event);
+            if (!confirming) return;
             void op.run(
               async (api) => {
-                if (mode === "decision")
-                  await api.POST(
-                    "/api/admin/orders/{order_id}/deletion-request/confirm",
-                    {
-                      params: { path: { order_id: order.id } },
-                      body: { deletion_request_id: request.id, confirm: true },
-                    },
-                  );
-                else
-                  await api.POST("/api/admin/orders/{order_id}/folder/delete", {
-                    params: { path: { order_id: order.id } },
-                    body: {
-                      deletion_request_id: request.id,
-                      confirm: true,
-                      permanent_deletion_verified:
-                        data.get("permanent_deletion_verified") === "on",
-                    },
-                  });
-                setConfirming(null);
+                await api.POST("/api/admin/orders/{order_id}/folder/delete", {
+                  params: { path: { order_id: order.id } },
+                  body: {
+                    deletion_request_id: request.id,
+                    confirm: true,
+                    permanent_deletion_verified:
+                      data.get("permanent_deletion_verified") === "on",
+                  },
+                });
+                setConfirming(false);
               },
-              mode === "decision"
-                ? "Решение сохранено. Для удаления требуется отдельное действие."
-                : "Запрос обработан. Проверьте состояние удаления ниже; операция может ещё выполняться.",
-              mode === "delete"
-                ? "Удаление не подтверждено. Проверьте состояние операции перед повтором."
-                : undefined,
+              "Запрос обработан. Проверьте состояние удаления ниже; операция может ещё выполняться.",
+              "Удаление не подтверждено. Проверьте состояние операции перед повтором.",
             );
           }}
         >
           <Check name="confirm">
-            {confirming === "decision"
-              ? "Я проверил обращения заказчика и подтверждаю решение. Это действие пока не удаляет файлы."
-              : "Подтверждаю запуск или проверку окончательного удаления именно этой папки"}
+            Подтверждаю запуск или проверку окончательного удаления именно этой
+            папки
           </Check>
-          {confirming === "delete" &&
-            started &&
-            !folder?.deletion_operation_id && (
-              <Check name="permanent_deletion_verified" required={false}>
-                После потери ответа я лично проверил именно окончательное
-                удаление этой папки в интерфейсе Яндекса (не перемещение и не
-                корзину)
-              </Check>
-            )}
-          <Button
-            className={confirming === "delete" ? "danger" : ""}
-            type="submit"
-          >
-            {confirming === "decision"
-              ? "Подтвердить решение"
-              : "Подтвердить операцию удаления"}
+          {started && !folder?.deletion_operation_id && (
+            <Check name="permanent_deletion_verified" required={false}>
+              После потери ответа я лично проверил именно окончательное удаление
+              этой папки в интерфейсе Яндекса (не перемещение и не корзину)
+            </Check>
+          )}
+          <Button className="danger" type="submit">
+            Подтвердить операцию удаления
           </Button>
         </Form>
       </Modal>

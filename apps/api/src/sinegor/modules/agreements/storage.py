@@ -118,6 +118,16 @@ class AgreementStorage:
             pass  # A retry after unlink succeeded but the database commit failed.
         except OSError as exc:
             raise AgreementStorageError("Could not remove obsolete agreement PDF") from exc
+        # Do not acknowledge durable deletion before the directory entry is persisted.
+        # This also runs on a retry after unlink succeeded but its transaction failed.
+        try:
+            directory = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        except OSError as exc:
+            raise AgreementStorageError("Could not persist agreement PDF deletion") from exc
 
     def orphan_keys(self, referenced: set[str], before: datetime) -> list[str]:
         self._directory()

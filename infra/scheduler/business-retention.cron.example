@@ -1,0 +1,4 @@
+# Run as application user, with the same DATABASE_URL/private storage as API.
+# Preview first: .venv/bin/python -m sinegor.jobs.cleanup_business --dry-run
+# Uses approved deadlines; never invokes the Disk API or security journal purge.
+30 3 * * * cd /absolute/path/sinegor-app/apps/api && SINEGOR_ENV_FILE=/secure/backend.env .venv/bin/python -m sinegor.jobs.cleanup_business --execute --limit 100

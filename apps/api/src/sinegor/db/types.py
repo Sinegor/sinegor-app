@@ -39,6 +39,7 @@ class PaymentStatus(StrEnum):
 class DeletionReason(StrEnum):
     RETENTION_EXPIRED = "retention_expired"
     EARLY_PERMISSION = "early_permission"
+    ORDER_CANCELLED = "order_cancelled"
 
 
 class DeletionStatus(StrEnum):

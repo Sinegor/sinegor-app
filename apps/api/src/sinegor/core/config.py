@@ -65,9 +65,10 @@ class Settings(BaseSettings):
     telegram_admin_chat_id: SecretStr | None = None
     telegram_timeout: int = Field(default=10, ge=1, le=30)
     agreement_storage_dir: Path = API_ROOT / "storage" / "agreements"
+    destruction_archive_dir: Path = API_ROOT / "storage" / "destruction"
     agreement_max_bytes: int = Field(default=20 * 1024 * 1024, ge=1, le=50 * 1024 * 1024)
 
-    @field_validator("agreement_storage_dir")
+    @field_validator("agreement_storage_dir", "destruction_archive_dir")
     @classmethod
     def validate_agreement_storage(cls, value: Path) -> Path:
         if not value.is_absolute():

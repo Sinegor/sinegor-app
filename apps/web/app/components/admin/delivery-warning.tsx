@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { Link, useLocation, useRevalidator } from "react-router";
 import { browserApi } from "../../lib/api/client";
 import { value, type Models } from "../../lib/admin/api";
 import { Notice } from "../ui";
@@ -12,10 +12,13 @@ const reasons = {
 };
 
 export function DeliveryWarning() {
+  const location = useLocation();
+  const revalidator = useRevalidator();
   const [delivery, setDelivery] = useState<
     Models["DeliverySummary"][] | null
   >();
   useEffect(() => {
+    if (revalidator.state !== "idle") return;
     const api = browserApi();
     let disposed = false;
     let controller: AbortController | undefined;
@@ -46,7 +49,7 @@ export function DeliveryWarning() {
       window.clearInterval(interval);
       controller?.abort();
     };
-  }, []);
+  }, [location.key, revalidator.state]);
 
   if (delivery === undefined || delivery?.length === 0) return null;
   if (delivery === null) {
@@ -65,7 +68,9 @@ export function DeliveryWarning() {
           </li>
         ))}
       </ul>
-      <Link to="/admin/consultations">Открыть заявки</Link>
+      <Link to="/admin/consultations?view=notifications">
+        Открыть проблемы доставки
+      </Link>
     </Notice>
   );
 }

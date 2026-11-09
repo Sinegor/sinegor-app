@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import case, func, or_, select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -29,8 +29,8 @@ from sinegor.modules.notifications.consultations import (
     retry_not_before,
 )
 from sinegor.modules.notifications.models import Notification
+from sinegor.modules.notifications.problems import delivery_summary as delivery_summary
 from sinegor.modules.notifications.retry import (
-    TELEGRAM_KINDS,
     deadline,
     deadline_expression,
     retry_delay,
@@ -114,7 +114,8 @@ def queue_invitation(db: Session, customer: Customer) -> UUID:
 
 
 def deletion_deadline(order: Order) -> datetime | None:
-    if (
+    cancelled = order.status == OrderStatus.CANCELLED
+    if not cancelled and (
         order.status not in {OrderStatus.RESULT_READY, OrderStatus.COMPLETED}
         or not order.result_notified_at
     ):
@@ -128,6 +129,8 @@ def deletion_deadline(order: Order) -> datetime | None:
     ):
         return None
     deletion = order.deletion_request
+    if cancelled and deletion is None:
+        return None
     if deletion is not None:
         if deletion.status == DeletionStatus.PERFORMED:
             return None
@@ -141,7 +144,9 @@ def queue_deletion_reminders(db: Session, *, now: datetime | None = None) -> int
         select(Order)
         .join(DiskFolder)
         .where(
-            Order.status.in_([OrderStatus.RESULT_READY, OrderStatus.COMPLETED]),
+            Order.status.in_(
+                [OrderStatus.RESULT_READY, OrderStatus.COMPLETED, OrderStatus.CANCELLED]
+            ),
             DiskFolder.deleted_at.is_(None),
         )
         .order_by(Order.id)
@@ -152,13 +157,15 @@ def queue_deletion_reminders(db: Session, *, now: datetime | None = None) -> int
         deadline = deletion_deadline(order)
         if deadline is not None and deadline <= now:
             key = f"deletion_due:{order.id}:{deadline.isoformat()}"
-            if db.scalar(select(Notification.id).where(Notification.dedup_key == key)) is None:
+            previous = db.scalar(select(Notification).where(Notification.dedup_key == key))
+            if previous is None or previous.status == "cancelled":
                 enqueue(
                     db,
                     "deletion_due",
                     order_id=order.id,
                     payload={"due_at": deadline.isoformat()},
                     dedup_key=key,
+                    retry_cancelled=True,
                 )
                 count += 1
     db.commit()
@@ -253,6 +260,20 @@ def _deliver(
             db, order, OrderStatus.RESULT_READY, UUID(item.payload["admin_id"]), mailer=order_mailer
         )
         db.commit()
+        return True
+    if item.kind == "materials_deleted":
+        deletion = order.deletion_request
+        folder = order.disk_folder
+        if (
+            deletion is None
+            or folder is None
+            or str(deletion.id) != item.payload.get("deletion_request_id")
+            or deletion.status != DeletionStatus.PERFORMED
+            or deletion.performed_at is None
+            or folder.deleted_at is None
+        ):
+            return False
+        mailer.send_materials_deleted(item.recipient, order.number)
         return True
     if item.kind.startswith("agreement_"):
         if order.status == OrderStatus.CANCELLED:
@@ -464,34 +485,3 @@ def deliver_order_from_app(app, order_id: UUID) -> None:
         db.commit()
     for identifier in identifiers:
         deliver_from_app(app, identifier)
-
-
-def delivery_summary(db: Session, *, now: datetime | None = None) -> list[dict]:
-    """Only aggregate safe state for the admin shell, never contact data or provider text."""
-    now = now or datetime.now(UTC)
-    channel = case((Notification.kind.in_(TELEGRAM_KINDS), "telegram"), else_="smtp")
-    reason = case(
-        (Notification.status == "failed", "permanent"),
-        (or_(Notification.status == "expired", deadline_expression() <= now), "expired"),
-        (
-            (Notification.kind.in_(["customer_blocked", "customer_unblocked"]))
-            & Notification.last_error_code.is_not(None),
-            "temporary",
-        ),
-        else_="delayed",
-    )
-    rows = db.execute(
-        select(channel.label("channel"), reason.label("reason"), func.count().label("count"))
-        .where(
-            Notification.status.in_(["pending", "processing", "failed", "expired"]),
-            or_(
-                Notification.status.in_(["failed", "expired"]),
-                Notification.created_at <= now - timedelta(hours=24),
-                Notification.kind.in_(["customer_blocked", "customer_unblocked"])
-                & Notification.last_error_code.is_not(None),
-            ),
-        )
-        .group_by(channel, reason)
-        .order_by(channel, reason)
-    )
-    return [dict(row._mapping) for row in rows]

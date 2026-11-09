@@ -10,11 +10,13 @@ from sinegor.modules.notifications.consultations import (
     list_consultations,
     retry_consultation,
 )
+from sinegor.modules.notifications.problems import list_delivery_problems
 from sinegor.modules.notifications.schemas import (
     ConsultationConfirmation,
     ConsultationInput,
     ConsultationRead,
     ConsultationRetry,
+    DeliveryProblem,
     DeliverySummary,
 )
 from sinegor.modules.notifications.service import deliver_from_app, delivery_summary, enqueue
@@ -42,6 +44,16 @@ def request_consultation(
 @router.get("/admin/notifications/summary", response_model=list[DeliverySummary])
 def read_delivery_summary(principal: Admin, db: Database):
     return delivery_summary(db)
+
+
+@router.get("/admin/notifications/problems", response_model=list[DeliveryProblem])
+def read_delivery_problems(
+    principal: Admin,
+    db: Database,
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    return list_delivery_problems(db, limit=limit, offset=offset)
 
 
 @router.get("/admin/consultations", response_model=list[ConsultationRead])

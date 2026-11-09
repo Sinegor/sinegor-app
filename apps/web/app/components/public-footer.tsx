@@ -1,31 +1,80 @@
 import { Link } from "react-router";
-import { requiredDocumentLinks } from "../lib/documents";
+import type { FooterData, FooterLink } from "../lib/cms";
 import { AnalyticsSettings } from "./public-analytics";
 
-export function PublicFooter({ year }: { year: number }) {
+function FooterLinks({ links }: { links: FooterLink[] }) {
+  return (
+    <ul>
+      {links.map((link, index) => (
+        <li key={`${link.href}-${index}`}>
+          {link.href.startsWith("/") ? (
+            <Link to={link.href}>{link.label}</Link>
+          ) : (
+            <a href={link.href}>{link.label}</a>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function FooterSection({
+  id,
+  title,
+  links,
+}: {
+  id: string;
+  title: string;
+  links: FooterLink[];
+}) {
+  return (
+    <nav aria-labelledby={id}>
+      <h2 id={id}>{title}</h2>
+      <FooterLinks links={links.slice(0, 5)} />
+      {links.length > 5 && (
+        <details className="footer-links-more">
+          <summary>
+            <span className="footer-show-all">Показать все</span>
+            <span className="footer-collapse">Свернуть</span>
+          </summary>
+          <FooterLinks links={links.slice(5)} />
+        </details>
+      )}
+    </nav>
+  );
+}
+
+export function PublicFooter({
+  year,
+  data,
+}: {
+  year: number;
+  data: FooterData;
+}) {
   return (
     <footer className="public-footer">
-      <div>
-        <p className="brand-name">
-          SINEGOR <span>LAB</span>
-        </p>
-        <p>IT-лаборатория адвоката Артемьева Д. В.</p>
-        <p className="footer-copyright">© {year} SINEGOR LAB</p>
+      <div className="footer-columns">
+        <div>
+          <p className="brand-name">
+            SINEGOR <span>LAB</span>
+          </p>
+          <p>IT-лаборатория адвоката Артемьева Д. В.</p>
+        </div>
+        <FooterSection
+          id="footer-documents-title"
+          title="Документы"
+          links={data.documents}
+        />
+        <FooterSection
+          id="footer-useful-title"
+          title="Полезные ссылки"
+          links={data.usefulLinks}
+        />
       </div>
-      <nav aria-labelledby="footer-legal-title">
-        <h2 id="footer-legal-title">Правовая информация</h2>
-        <ul>
-          {requiredDocumentLinks.map((document) => (
-            <li key={document.slug}>
-              <Link to={`/documents/${document.slug}`}>{document.title}</Link>
-            </li>
-          ))}
-          <li>
-            <Link to="/about">Об исполнителе</Link>
-          </li>
-        </ul>
+      <div className="footer-bottom">
+        <p>© {year} SINEGOR LAB</p>
         <AnalyticsSettings />
-      </nav>
+      </div>
     </footer>
   );
 }

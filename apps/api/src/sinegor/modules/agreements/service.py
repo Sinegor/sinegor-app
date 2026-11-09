@@ -225,6 +225,9 @@ def cleanup_orphans(db: Session, storage: AgreementStorage, *, now: datetime | N
     ):
         references.update(key for key in row if key is not None)
     references.update(db.scalars(select(AgreementFileDeletion.file_key)))
+    from sinegor.modules.retention.models import RetentionFileDeletion
+
+    references.update(db.scalars(select(RetentionFileDeletion.file_key)))
     keys = storage.orphan_keys(references, (now or datetime.now(UTC)) - timedelta(days=1))
     for key in keys:
         storage.delete(key)
