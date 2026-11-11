@@ -1,0 +1,9 @@
+[Unit]
+Description=Check SINEGOR notification scheduler independently of HTTP health
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/lib/sinegor/check_notifications.py --max-age 900
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sinegor-notifications-watchdog

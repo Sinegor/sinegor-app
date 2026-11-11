@@ -9,6 +9,7 @@ from sinegor.core.logging import configure_logging
 from sinegor.db import models  # noqa: F401 -- register ORM mappings
 from sinegor.db.session import create_db_engine, create_session_factory
 from sinegor.modules.agreements.storage import AgreementStorage
+from sinegor.modules.destruction.service import cleanup_expired
 from sinegor.modules.retention.archive import RetentionArchive
 from sinegor.modules.retention.business import cleanup_business
 
@@ -47,6 +48,11 @@ def main() -> int:
             )
             output["archive"] = asdict(result)
             failed |= bool(result.failed)
+            if not result.failed:
+                with create_session_factory(engine)() as db:
+                    output["expired_register_entries"] = cleanup_expired(
+                        db, dry_run=not args.execute
+                    )
         except Exception:
             output["archive_error"] = "archive_cleanup_failed"
             failed = True

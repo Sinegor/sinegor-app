@@ -74,3 +74,5 @@ class RetentionFileDeletion(Entity, Base):
     __table_args__ = (Index("ix_retention_file_deletions_attempt", "last_attempted_at", "id"),)
     last_attempted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     file_key: Mapped[str] = mapped_column(Text, unique=True)
+    # Independent registry survives deletion of the order and its agreement.
+    operation_id: Mapped[UUID | None] = mapped_column(index=True)

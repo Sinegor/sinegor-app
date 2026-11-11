@@ -14,3 +14,5 @@ Production Compose для web/api/cms/proxy пока отсутствует. П�
 Перед production нужны конфигурация сервисов и доверия proxy, TLS, секреты, установка расписаний, резервирование и проверка восстановления. Lock-файлы приложений уже существуют; image PostgreSQL в dev закреплён по major-тегу `postgres:16`. Он не является неизменяемым digest.
 
 [E2E-контур](../tests/e2e/README.md) создаёт свой контейнер PostgreSQL с tmpfs и не использует dev Compose/тома.
+
+Уведомления: подготовлены `scheduler/sinegor-notifications.{service,timer}` и независимый watchdog с `check_notifications.py`. Timer вызывает существующий CLI через Compose; перед включением требуется проверка очереди и явный `NOTIFICATION_QUEUE_REVIEWED=yes`. Конфигурация ссылается на будущий production Compose и требует адаптации на T2. Dev-сервер ничего не включает. Режимы, мониторинг и установка — в [инструкции](../docs/development/notification-scheduler.md).

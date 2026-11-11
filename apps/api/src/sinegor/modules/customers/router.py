@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from sqlalchemy import delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 
@@ -13,6 +14,8 @@ from sinegor.modules.auth.schemas import CustomerRead
 from sinegor.modules.customers.access import change_access
 from sinegor.modules.customers.models import Customer
 from sinegor.modules.customers.schemas import CustomerBlock, CustomerUpdate
+from sinegor.modules.destruction import service as destruction
+from sinegor.modules.destruction.metadata import customer_metadata
 from sinegor.modules.notifications.service import deliver_from_app
 from sinegor.modules.orders.schemas import EventRead
 from sinegor.modules.security_events.service import record
@@ -66,6 +69,22 @@ def read_customer(customer_id: UUID, principal: Admin, db: Database):
 @router.patch("/{customer_id}", response_model=CustomerRead)
 def update_customer(customer_id: UUID, payload: CustomerUpdate, principal: Admin, db: Database):
     customer = get_customer(db, customer_id, lock=True)
+    # Legacy unnamed customers remain usable, but a manual card save must supply a name.
+    name = (
+        payload.display_name
+        if "display_name" in payload.model_fields_set
+        else customer.display_name
+    )
+    if name is None or not name.strip():
+        raise RequestValidationError(
+            [
+                {
+                    "type": "value_error",
+                    "loc": ("body", "display_name"),
+                    "msg": "Укажите ФИО заказчика.",
+                }
+            ]
+        )
     changes = {
         key: value
         for key, value in payload.model_dump(exclude_unset=True).items()
@@ -89,14 +108,39 @@ def update_customer(customer_id: UUID, payload: CustomerUpdate, principal: Admin
             user_role="admin",
             subject_user_id=customer.id,
         )
+    operation = None
+    event_id = uuid4()
+    # Only removing an existing phone is partial destruction. FIO remains required.
+    if "phone" in changes and changes["phone"] in {None, ""} and customer.phone:
+        operation = destruction.prepare(
+            db,
+            key=f"customer_fields:{customer.id}:{event_id}",
+            kind="customer_fields",
+            metadata=customer_metadata(
+                customer,
+                categories=["Номер телефона"],
+                entity={"customer_id": str(customer.id), "customer_event_id": str(event_id)},
+                source="customers.phone",
+                basis=None,
+                method="Очистка поля в PostgreSQL",
+                initiator=f"admin:{principal.id}",
+                executor="FastAPI",
+            ),
+        )
     for key, value in changes.items():
         setattr(customer, key, value)
     db.add(
         CustomerEvent(
-            customer_id=customer.id, actor_admin_id=principal.id, event_type="customer_updated"
+            id=event_id,
+            customer_id=customer.id,
+            actor_admin_id=principal.id,
+            event_type="customer_updated",
         )
     )
     try:
+        db.flush()
+        if operation is not None:
+            destruction.confirm(db, operation)
         db.commit()
     except IntegrityError as exc:
         db.rollback()

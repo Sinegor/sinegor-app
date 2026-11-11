@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SINEGOR notification CLI every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Persistent=true
+Unit=sinegor-notifications.service
+
+[Install]
+WantedBy=timers.target

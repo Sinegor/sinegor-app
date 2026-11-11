@@ -37,6 +37,19 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
         await run_in_threadpool(record_rejection, request, 422, invalid_input=True)
+        path = request.url.path.rstrip("/")
+        customer_card = (request.method == "POST" and path == "/api/admin/customers") or (
+            request.method == "PATCH" and path.startswith("/api/admin/customers/")
+        )
+        if customer_card and any(
+            tuple(error["loc"][:2]) == ("body", "display_name") for error in exc.errors()
+        ):
+            return error_response(
+                request,
+                422,
+                "customer_name_invalid",
+                "Укажите ФИО заказчика (не более 255 символов).",
+            )
         if request.url.path.startswith("/api/admin/orders/") and request.url.path.endswith(
             "/folder"
         ):

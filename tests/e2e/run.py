@@ -207,8 +207,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--suite",
-        choices=("all", "workflow", "cms", "notifications", "resilience"),
+        choices=("all", "workflow", "cms", "notifications", "resilience", "scheduler"),
         default="all",
+    )
+    parser.add_argument(
+        "--no-scheduler",
+        action="store_true",
+        help="Disable periodic notification CLI for diagnosis",
     )
     parser.add_argument("--output", type=Path, help="New or empty directory for safe result JSON")
     args = parser.parse_args()
@@ -304,6 +309,8 @@ def main() -> int:
             data=sql,
         )
         certificate(private)
+        config["scheduler_enabled"] = not args.no_scheduler
+        summary["scheduler_enabled"] = config["scheduler_enabled"]
         config_path = private / "run.json"
         write_config(config_path, config)
         control_env = isolated_environment() | {"SINEGOR_E2E_CONFIG": str(config_path)}
@@ -372,6 +379,15 @@ def main() -> int:
                 expected=204,
             )
             wait_http(config["origin"] + "/", processes["proxy"])
+            if config["scheduler_enabled"]:
+                process = stack.start(
+                    "scheduler",
+                    [sys.executable, str(test_dir / "scheduler.py")],
+                    workspace,
+                    control_env,
+                )
+                config["service_pids"]["scheduler"] = process.pid
+                write_config(config_path, config)
             print("E2E: real frontend / FastAPI / PostgreSQL / Strapi ready", flush=True)
             command = [
                 "node",

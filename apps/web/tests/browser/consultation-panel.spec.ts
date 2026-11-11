@@ -87,7 +87,10 @@ for (const width of [1440, 390]) {
     const { state } = await setup(page);
     await page.goto("/admin/consultations");
     await expect(
-      page.getByRole("heading", { name: "Проблемы доставки", exact: true }),
+      page.getByRole("heading", {
+        name: "Контроль отправки уведомлений",
+        exact: true,
+      }),
     ).toBeVisible();
     await expect(
       page.getByText("panel@example.test", { exact: true }),
@@ -96,7 +99,7 @@ for (const width of [1440, 390]) {
       page.getByText(/Контакты будут удалены менее чем через 24 часа/),
     ).toBeVisible();
     await expect(
-      page.getByText("Telegram: отправлено", { exact: true }),
+      page.getByText("Telegram: Отправлено", { exact: true }),
     ).toBeVisible();
     expect(
       await page.evaluate(
@@ -123,7 +126,7 @@ for (const width of [1440, 390]) {
     await dialog.getByRole("button", { name: "Подтвердить отправку" }).focus();
     await page.keyboard.press("Enter");
     await expect(
-      page.getByText("Недоставленных консультационных заявок нет."),
+      page.getByText("Консультационных заявок с незавершённой отправкой нет."),
     ).toBeVisible();
     expect(state.calls).toEqual([
       {
@@ -148,9 +151,11 @@ test("manual handling requires confirmation and exposes an unambiguous handled s
   expect(state.calls).toHaveLength(0);
   await dialog.getByRole("button", { name: "Подтвердить обработку" }).click();
   await expect(
-    page.getByText("Недоставленных консультационных заявок нет."),
+    page.getByText("Консультационных заявок с незавершённой отправкой нет."),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Обработанные", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Обработаны вручную", exact: true })
+    .click();
   await expect(
     page.getByText("Обработано вручную", { exact: true }),
   ).toBeVisible();

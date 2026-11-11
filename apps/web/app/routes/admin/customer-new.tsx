@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router";
+import { CustomerNameField } from "../../components/admin/customer-name-field";
 import { ApiError } from "../../lib/api/client";
 import { value } from "../../lib/admin/api";
 import { Field, Button, Card, Form } from "../../components/ui";
@@ -32,7 +33,7 @@ export default function CustomerNew() {
                   api.POST("/api/admin/customers", {
                     body: {
                       email: text(data, "email"),
-                      display_name: text(data, "display_name") || null,
+                      display_name: text(data, "display_name"),
                       phone: text(data, "phone") || null,
                     },
                   }),
@@ -62,11 +63,7 @@ export default function CustomerNew() {
             maxLength={320}
             autoComplete="email"
           />
-          <Field
-            label="Имя или наименование"
-            name="display_name"
-            maxLength={255}
-          />
+          <CustomerNameField />
           <Field
             label="Телефон"
             name="phone"

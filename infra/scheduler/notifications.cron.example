@@ -1,3 +1,6 @@
+# Legacy alternative only: do not install together with sinegor-notifications.timer.
+# Review and approve the existing queue before enabling any real delivery.
+# Production timer + watchdog: docs/development/notification-scheduler.md
 # Run as the application user after installing dependencies and applying migrations.
 # Configure SINEGOR_ENV_FILE when using a separate backend environment file.
 * * * * * cd /absolute/path/sinegor-app/apps/api && .venv/bin/python -m sinegor.jobs.process_notifications

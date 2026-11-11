@@ -325,7 +325,7 @@ def deliver_one(
         db.rollback()
         return False
     if item.kind in {"consultation", "consultation_telegram"} and now >= contact_deadline(item):
-        expire_consultation(item)
+        expire_consultation(item, db=db)
         db.commit()
         return item.status == "sent"
     if item.status in {"sent", "cancelled"}:

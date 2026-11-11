@@ -141,11 +141,11 @@ test("a pending operation shows progress, preserves the form and then confirms s
   const submit = page.getByRole("button", { name: "Сохранить карточку" });
   const before = (await submit.boundingBox())!;
   try {
-    await page.getByLabel("Имя или наименование").fill("Обновлённое имя");
+    await page.getByLabel("ФИО заказчика").fill("Обновлённое имя");
     await submit.click();
     await expect(page.getByRole("status")).toContainText("Выполняется");
     await expect(submit).toBeDisabled();
-    await expect(page.getByLabel("Имя или наименование")).toHaveValue(
+    await expect(page.getByLabel("ФИО заказчика")).toHaveValue(
       "Обновлённое имя",
     );
     expect((await submit.boundingBox())!.width).toBe(before.width);

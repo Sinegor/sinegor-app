@@ -1,12 +1,23 @@
-from pydantic import BaseModel, Field, model_validator
+from typing import Annotated
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 from sinegor.modules.auth.schemas import EmailInput
 
 
 class CustomerUpdate(EmailInput):
     email: str | None = None
-    display_name: str | None = Field(default=None, max_length=255)
+    # None is an omission default only; explicit null is rejected by validation.
+    display_name: Annotated[str, Field(min_length=1, max_length=255)] | SkipJsonSchema[None] = None
     phone: str | None = Field(default=None, max_length=50)
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, value: str | None) -> str:
+        if value is None or not value.strip():
+            raise ValueError("Укажите ФИО заказчика.")
+        return value
 
     @model_validator(mode="after")
     def validate_email(self):

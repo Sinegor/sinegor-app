@@ -18,8 +18,15 @@ class EmailInput(BaseModel):
 
 
 class CustomerCreate(EmailInput):
-    display_name: str | None = Field(default=None, max_length=255)
+    display_name: str = Field(min_length=1, max_length=255)
     phone: str | None = Field(default=None, max_length=50)
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Укажите ФИО заказчика.")
+        return value
 
 
 class AdminLogin(EmailInput):

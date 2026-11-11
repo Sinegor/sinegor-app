@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
 
 from sinegor.db.types import AgreementStatus
 from sinegor.integrations.yandex_disk.client import DiskError
@@ -14,6 +14,7 @@ from sinegor.modules.disk.schemas import (
     FolderLink,
     FolderRead,
 )
+from sinegor.modules.notifications.service import deliver_from_app
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.service import locked_order, record_event
 
@@ -93,9 +94,11 @@ def delete_folder(
     payload: DeleteFolder,
     request: Request,
     response: Response,
+    tasks: BackgroundTasks,
     principal: Admin,
     db: Database,
 ):
+    notification_ids: list[UUID] = []
     folder = service.delete_folder(
         db,
         request.app.state.yandex_disk,
@@ -103,7 +106,10 @@ def delete_folder(
         payload.deletion_request_id,
         principal.id,
         permanent_deletion_verified=payload.permanent_deletion_verified,
+        notification_ids=notification_ids,
     )
+    for identifier in notification_ids:
+        tasks.add_task(deliver_from_app, request.app, identifier)
     if folder.deleted_at is None:
         response.status_code = 202
     return folder

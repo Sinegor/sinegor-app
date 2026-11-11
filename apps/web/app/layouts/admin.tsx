@@ -27,8 +27,9 @@ export default function AdminLayout() {
     <>
       <NavLink to="/admin/customers">Заказчики</NavLink>
       <NavLink to="/admin/orders">Заказы</NavLink>
-      <NavLink to="/admin/consultations">Доставка заявок</NavLink>
+      <NavLink to="/admin/consultations">Контроль отправки уведомлений</NavLink>
       <NavLink to="/admin/security-events">События безопасности</NavLink>
+      <NavLink to="/admin/destructions">Реестр уничтожения</NavLink>
     </>
   );
   const logout = (

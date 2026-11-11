@@ -132,6 +132,17 @@ def test_cancellation_preserves_existing_request_and_reminders(retention, actors
 
 
 def test_email_waits_for_verified_async_result_and_retries_smtp(retention, actors):
+    class Mailer:
+        fail = True
+        sent = []
+
+        def send_materials_deleted(self, recipient, number):
+            if self.fail:
+                raise MailDeliveryError()
+            self.sent.append((recipient, number))
+
+    mailer = Mailer()
+    retention.app.state.notification_mailer = mailer
     item = request(retention, actors)
     retention.disk.pending = True
     assert helpers.delete(retention, actors, item.id).status_code == 202
@@ -145,16 +156,6 @@ def test_email_waits_for_verified_async_result_and_retries_smtp(retention, actor
     assert helpers.delete(retention, actors, item.id).status_code == 200
     (email,) = jobs(retention, "materials_deleted")
 
-    class Mailer:
-        fail = True
-        sent = []
-
-        def send_materials_deleted(self, recipient, number):
-            if self.fail:
-                raise MailDeliveryError()
-            self.sent.append((recipient, number))
-
-    mailer = Mailer()
     channels = dict(auth_mailer=None, order_mailer=None, mailer=mailer, telegram=None)
     assert notifications.process_pending(retention.db, retention.settings, **channels) == 0
     assert email.status == "pending"

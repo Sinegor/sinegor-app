@@ -1,4 +1,5 @@
-import { Link } from "react-router";
+import { NotificationStatus } from "./notification-status";
+import { Link, useSearchParams } from "react-router";
 import type { Models } from "../../lib/admin/api";
 import { date } from "../../lib/admin/labels";
 import { Card, Notice } from "../ui";
@@ -18,17 +19,11 @@ const kinds: Record<string, string> = {
   agreement_approved: "Соглашение утверждено",
   agreement_rejected: "Соглашение отклонено",
 };
-const statuses = {
-  pending: "ожидает отправки",
-  processing: "отправляется",
-  failed: "отправка остановлена",
-  expired: "автоматические повторы завершены",
-};
 const reasons = {
-  delayed: "Не доставлено более 24 часов.",
-  permanent: "Постоянная ошибка доставки.",
+  delayed: "Отправка задерживается более 24 часов.",
+  permanent: "Автоматическая отправка остановлена из-за постоянной ошибки.",
   expired: "Срок автоматических повторов истёк.",
-  temporary: "Временная ошибка доставки, ожидается повтор.",
+  temporary: "Временная ошибка отправки, ожидается повтор.",
 };
 const errors: Record<string, string> = {
   smtp_failed: "Временный сбой SMTP.",
@@ -48,20 +43,24 @@ export function DeliveryProblems({
   start: number;
   rows: Models["DeliveryProblem"][];
 }) {
+  const [params] = useSearchParams();
+  const firstPage = new URLSearchParams(params);
+  firstPage.set("problems_offset", "0");
   return (
     <>
       <p>
-        Здесь показаны все уведомления, учитываемые предупреждением о проблемах
-        доставки.
+        Здесь показаны проблемные уведомления всех видов по Email и Telegram.
+        Статус «Отправлено» означает подтверждение SMTP или Telegram API, а не
+        получение или прочтение сообщения адресатом.
       </p>
       {rows.length === 0 && (
         <Notice>
           {start === 0 ? (
-            "Актуальных проблем доставки нет."
+            "Проблемных уведомлений нет"
           ) : (
             <>
-              На этой странице проблем доставки нет.{" "}
-              <Link to="/admin/consultations?view=notifications">
+              На этой странице проблемных уведомлений нет.{" "}
+              <Link to={`?${firstPage}#notification-problems`}>
                 В начало списка
               </Link>
             </>
@@ -76,14 +75,18 @@ export function DeliveryProblems({
             title={kinds[row.kind] || "Уведомление"}
           >
             <dl className="details">
-              <dt>Событие</dt>
-              <dd>{row.id}</dd>
               <dt>Создано</dt>
               <dd>{date(row.created_at)}</dd>
               <dt>Канал</dt>
               <dd>{row.channel === "smtp" ? "Email" : "Telegram"}</dd>
               <dt>Статус</dt>
-              <dd>{statuses[row.status]}</dd>
+              <dd>
+                <NotificationStatus
+                  status={row.status}
+                  reason={row.reason}
+                  manualRetry={row.error_code === "manual_retry"}
+                />
+              </dd>
               <dt>Причина</dt>
               <dd>{reasons[row.reason]}</dd>
             </dl>
@@ -92,12 +95,22 @@ export function DeliveryProblems({
             ) : (
               <p>Попыток отправки: {row.attempts}.</p>
             )}
-            {row.error_code && errors[row.error_code] && (
-              <p>{errors[row.error_code]}</p>
-            )}
-            {row.status === "pending" && (
-              <p>Плановое время попытки: {date(row.available_at)}.</p>
-            )}
+            <details>
+              <summary>Подробности уведомления</summary>
+              <p>
+                Событие: <span>{row.id}</span>
+              </p>
+              {row.error_code && errors[row.error_code] && (
+                <p>{errors[row.error_code]}</p>
+              )}
+            </details>
+            {row.status === "pending" &&
+              (row.reason !== "expired" ||
+                row.error_code === "manual_retry") && (
+                <p>
+                  Следующая попытка (плановое время): {date(row.available_at)}.
+                </p>
+              )}
             <div className="actions">
               {row.order_id && (
                 <Link to={`/admin/orders/${row.order_id}`}>Открыть заказ</Link>
@@ -108,7 +121,7 @@ export function DeliveryProblems({
                 </Link>
               )}
               {["consultation", "consultation_telegram"].includes(row.kind) && (
-                <Link to="/admin/consultations">
+                <Link to="/admin/consultations#consultation-requests">
                   Открыть консультационные заявки
                 </Link>
               )}

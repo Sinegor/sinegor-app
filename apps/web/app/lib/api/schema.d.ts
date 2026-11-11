@@ -878,6 +878,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/destructions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Operations */
+    get: operations["list_operations_api_admin_destructions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/destructions/{identifier}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Operation */
+    get: operations["read_operation_api_admin_destructions__identifier__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/destructions/{identifier}/documents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Form Documents */
+    post: operations["form_documents_api_admin_destructions__identifier__documents_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/destructions/{identifier}/documents/{document}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Document */
+    get: operations["read_document_api_admin_destructions__identifier__documents__document__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1143,7 +1211,7 @@ export interface components {
        */
       email: string;
       /** Display Name */
-      display_name?: string | null;
+      display_name: string;
       /** Phone */
       phone?: string | null;
     };
@@ -1203,7 +1271,7 @@ export interface components {
       /** Email */
       email?: string | null;
       /** Display Name */
-      display_name?: string | null;
+      display_name?: string;
       /** Phone */
       phone?: string | null;
     };
@@ -1344,6 +1412,39 @@ export interface components {
       reason: "permanent" | "expired" | "delayed" | "temporary";
       /** Count */
       count: number;
+    };
+    /** DestructionRead */
+    DestructionRead: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Kind */
+      kind: string;
+      /** State */
+      state: string;
+      /** Subject */
+      subject: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Destroyed At */
+      destroyed_at: string | null;
+      /** Expires At */
+      expires_at: string | null;
+      /** Error Code */
+      error_code: string | null;
+      /** Act Url */
+      act_url: string | null;
+      /** Extract Url */
+      extract_url: string | null;
+      /** Metadata Json */
+      metadata_json: {
+        [key: string]: unknown;
+      };
     };
     /** EmailInput */
     EmailInput: {
@@ -3473,6 +3574,137 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SecurityEventRead"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_operations_api_admin_destructions_get: {
+    parameters: {
+      query?: {
+        q?: string | null;
+        kind?: string | null;
+        state?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DestructionRead"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_operation_api_admin_destructions__identifier__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        identifier: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DestructionRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  form_documents_api_admin_destructions__identifier__documents_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        identifier: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DestructionRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_document_api_admin_destructions__identifier__documents__document__get: {
+    parameters: {
+      query?: {
+        download?: boolean;
+      };
+      header?: never;
+      path: {
+        identifier: string;
+        document: "act" | "extract";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

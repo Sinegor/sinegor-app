@@ -1,5 +1,6 @@
 """The existing scheduler command must clean contacts in a fresh interpreter."""
 
+import json
 import os
 import subprocess
 import sys
@@ -42,7 +43,10 @@ def forbidden(*args, **kwargs):
 
 with patch('smtplib.SMTP', forbidden), patch('smtplib.SMTP_SSL', forbidden), \\
      patch('http.client.HTTPSConnection.request', forbidden):
-    runpy.run_module('sinegor.jobs.process_notifications', run_name='__main__')
+    try:
+        runpy.run_module('sinegor.jobs.process_notifications', run_name='__main__')
+    except SystemExit as exc:
+        assert exc.code == 0
 assert not external_calls, 'Cleanup attempted external delivery'
 """
     try:
@@ -70,7 +74,9 @@ assert not external_calls, 'Cleanup attempted external delivery'
                 check=False,
             )
             assert result.returncode == 0, f"Notification CLI exit code: {result.returncode}"
-            assert result.stdout.strip() == "Notifications delivered: 0"
+            entries = [json.loads(line) for line in result.stdout.splitlines()]
+            assert entries[0]["event"] == "notifications_run_started"
+            assert entries[-1]["event"] == "notifications_run_completed delivered=0"
             assert "cli@example.ru" not in result.stderr and "+79991234567" not in result.stderr
         with Session(engine) as db:
             for identifier in ids[:2]:

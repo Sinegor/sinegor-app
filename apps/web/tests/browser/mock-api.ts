@@ -112,6 +112,11 @@ export async function mockApi(page: Page) {
       if (!state.authenticated) return send({}, 401);
       if (state.role !== "admin") return send({}, 403);
       if (path === "/api/admin/notifications/summary") return send([]);
+      if (
+        path === "/api/admin/notifications/problems" ||
+        path === "/api/admin/consultations"
+      )
+        return send([]);
       if (path === "/api/admin/customers" && method === "GET") {
         const q = (url.searchParams.get("q") ?? "").toLowerCase(),
           offset = Number(url.searchParams.get("offset") ?? 0),

@@ -138,7 +138,7 @@ test("administrator retries and manually handles consultation delivery problems 
     await page.getByRole("button", { name: "Войти", exact: true }).click();
     await expect(page).toHaveURL(config.origin + "/admin/customers");
     await page
-      .getByRole("link", { name: "Доставка заявок", exact: true })
+      .getByRole("link", { name: "Контроль отправки уведомлений", exact: true })
       .click();
     await expect(
       page.getByText("panel-retry@example.org", { exact: true }),
@@ -153,7 +153,7 @@ test("administrator retries and manually handles consultation delivery problems 
     await expect.poll(() => data("notifications").smtp.status).toBe("sent");
     await page.getByRole("button", { name: "Обновить", exact: true }).click();
     await expect(
-      page.getByText("Недоставленных консультационных заявок нет."),
+      page.getByText("Консультационных заявок с незавершённой отправкой нет."),
     ).toBeVisible();
     expect((await control(mailbox)).count).toBe(beforeMail + 1);
     expect((await control("/telegram")).messages).toHaveLength(
@@ -178,7 +178,7 @@ test("administrator retries and manually handles consultation delivery problems 
       .toBe("cancelled");
     expect(data("notifications").smtp.contact_cleared).toBe(true);
     expect(data("notifications").telegram.status).toBe("sent");
-    await page.getByRole("link", { name: "Обработанные", exact: true }).click();
+    await page.getByRole("link", { name: "Обработаны вручную", exact: true }).click();
     await expect(
       page.getByText("Обработано вручную", { exact: true }),
     ).toBeVisible();

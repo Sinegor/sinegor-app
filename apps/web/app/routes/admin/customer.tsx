@@ -11,6 +11,7 @@ import {
   PAGE_SIZE,
   type Models,
 } from "../../lib/admin/api";
+import { CustomerNameField } from "../../components/admin/customer-name-field";
 import { CustomerAccess } from "../../components/admin/customer-access";
 import { Card, Form, Field, Button, Notice } from "../../components/ui";
 import {
@@ -80,7 +81,7 @@ export default function Customer() {
             if (data.get("email") !== customer.email)
               changes.email = text(data, "email");
             if (data.get("display_name") !== (customer.display_name ?? ""))
-              changes.display_name = text(data, "display_name") || null;
+              changes.display_name = text(data, "display_name");
             if (data.get("phone") !== (customer.phone ?? ""))
               changes.phone = text(data, "phone") || null;
             void op.run(
@@ -103,12 +104,7 @@ export default function Customer() {
             maxLength={320}
             defaultValue={customer.email}
           />
-          <Field
-            label="Имя или наименование"
-            name="display_name"
-            maxLength={255}
-            defaultValue={customer.display_name ?? ""}
-          />
+          <CustomerNameField defaultValue={customer.display_name ?? ""} />
           <Field
             label="Телефон"
             name="phone"

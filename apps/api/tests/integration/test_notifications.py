@@ -290,7 +290,7 @@ def test_email_edit_cancels_pending_old_identity(channels, actors):
             channels,
             "PATCH",
             f"/api/admin/customers/{actors.customer.id}",
-            {"email": "new@example.ru"},
+            {"email": "new@example.ru", "display_name": "Иван Петров"},
         ).status_code
         == 200
     )
@@ -393,7 +393,13 @@ def test_result_ready_can_retry_cancelled_notification_after_email_round_trip(ch
     original_email = actors.customer.email
     customer_path = f"/api/admin/customers/{actors.customer.id}"
     assert (
-        mutate(channels, "PATCH", customer_path, {"email": "changed@example.ru"}).status_code == 200
+        mutate(
+            channels,
+            "PATCH",
+            customer_path,
+            {"email": "changed@example.ru", "display_name": "Иван Петров"},
+        ).status_code
+        == 200
     )
     assert process(channels, now=job.available_at) == 0
     assert job.status == "cancelled" and job.recipient is None and job.payload == {}
@@ -496,7 +502,7 @@ def test_result_notification_can_be_reissued_after_customer_email_changes(channe
             channels,
             "PATCH",
             f"/api/admin/customers/{actors.customer.id}",
-            {"email": "updated@example.ru"},
+            {"email": "updated@example.ru", "display_name": "Иван Петров"},
         ).status_code
         == 200
     )

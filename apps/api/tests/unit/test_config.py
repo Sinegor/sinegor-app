@@ -58,3 +58,20 @@ def test_unsafe_production_configuration_rejected(changes):
     values.update(changes)
     with pytest.raises(ValidationError):
         Settings(_env_file=None, **values)
+
+
+def test_destruction_archive_env_value_is_preserved_and_process_env_has_priority(
+    tmp_path, monkeypatch
+):
+    env_file = tmp_path / "api.env"
+    chosen = tmp_path / "chosen-by-owner"
+    env_file.write_text(f"DATABASE_URL={URL}\nDESTRUCTION_ARCHIVE_DIR={chosen}\n")
+    before = env_file.read_bytes()
+    monkeypatch.setenv("SINEGOR_ENV_FILE", str(env_file))
+    settings = load_settings()
+    assert settings.destruction_archive_dir == chosen
+    override = tmp_path / "explicit-process-value"
+    monkeypatch.setenv("DESTRUCTION_ARCHIVE_DIR", str(override))
+    assert load_settings().destruction_archive_dir == override
+    unchanged = env_file.read_bytes() == before
+    assert unchanged and not chosen.exists() and not override.exists()

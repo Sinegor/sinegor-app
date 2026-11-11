@@ -85,5 +85,5 @@ def retry_consultation_delivery(
 def mark_consultation_handled(
     identifier: UUID, payload: ConsultationConfirmation, principal: Admin, db: Database
 ):
-    handle_consultation(db, identifier)
+    handle_consultation(db, identifier, principal.id)
     return {"message": "Consultation handled"}

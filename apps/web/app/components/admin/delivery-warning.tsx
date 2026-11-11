@@ -6,19 +6,21 @@ import { Notice } from "../ui";
 
 const reasons = {
   temporary: "временная ошибка, ожидается повтор",
-  delayed: "не доставлено более 24 часов",
-  permanent: "постоянная ошибка",
+  delayed: "отправка задерживается более 24 часов",
+  permanent: "ошибка отправки",
   expired: "срок автоматических повторов истёк",
 };
 
 export function DeliveryWarning() {
   const location = useLocation();
   const revalidator = useRevalidator();
+  const onControlPage =
+    location.pathname.replace(/\/+$/, "") === "/admin/consultations";
   const [delivery, setDelivery] = useState<
     Models["DeliverySummary"][] | null
   >();
   useEffect(() => {
-    if (revalidator.state !== "idle") return;
+    if (onControlPage || revalidator.state !== "idle") return;
     const api = browserApi();
     let disposed = false;
     let controller: AbortController | undefined;
@@ -49,17 +51,22 @@ export function DeliveryWarning() {
       window.clearInterval(interval);
       controller?.abort();
     };
-  }, [location.key, revalidator.state]);
+  }, [location.key, revalidator.state, onControlPage]);
 
+  if (onControlPage) return null;
   if (delivery === undefined || delivery?.length === 0) return null;
   if (delivery === null) {
     return (
-      <Notice tone="warning">Не удалось проверить доставку уведомлений.</Notice>
+      <Notice tone="warning">Не удалось проверить отправку уведомлений.</Notice>
     );
   }
   return (
     <Notice tone="warning">
-      <strong>Проблемы доставки</strong>
+      <strong>Проблемные уведомления</strong>
+      <p>
+        Количество проблемных уведомлений:{" "}
+        {delivery.reduce((total, item) => total + item.count, 0)}.
+      </p>
       <ul>
         {delivery.map((item) => (
           <li key={`${item.channel}:${item.reason}`}>
@@ -68,8 +75,8 @@ export function DeliveryWarning() {
           </li>
         ))}
       </ul>
-      <Link to="/admin/consultations?view=notifications">
-        Открыть проблемы доставки
+      <Link to="/admin/consultations?view=notifications#notification-problems">
+        Открыть контроль отправки уведомлений
       </Link>
     </Notice>
   );

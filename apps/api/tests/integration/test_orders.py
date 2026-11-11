@@ -66,7 +66,11 @@ def status(auth, order, target, **extra):
 
 
 def test_customer_cards_and_audit(admin, actors):
-    created = post(admin, "/api/admin/customers", {"email": " New@Example.ru ", "phone": "+7"})
+    created = post(
+        admin,
+        "/api/admin/customers",
+        {"email": " New@Example.ru ", "display_name": "Новый заказчик", "phone": "+7"},
+    )
     assert created.status_code == 201
     identifier = created.json()["id"]
     path = f"/api/admin/customers/{identifier}"
@@ -109,7 +113,7 @@ def test_email_edit_revokes_old_credentials(admin, actors):
         admin,
         "PATCH",
         f"/api/admin/customers/{actors.customer.id}",
-        {"email": " CHANGED@Example.RU "},
+        {"email": " CHANGED@Example.RU ", "display_name": "Иван Петров"},
     )
     assert changed.status_code == 200 and changed.json()["email"] == "changed@example.ru"
     assert (

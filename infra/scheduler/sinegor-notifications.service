@@ -1,0 +1,16 @@
+[Unit]
+Description=SINEGOR notification queue (existing backend CLI)
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/sinegor/notifications-scheduler.env
+ExecStartPre=/usr/bin/test ${NOTIFICATION_QUEUE_REVIEWED} = yes
+ExecStart=/usr/bin/docker compose --project-directory ${SINEGOR_PROJECT_DIR} --env-file ${SINEGOR_COMPOSE_ENV_FILE} -f ${SINEGOR_COMPOSE_FILE} exec --interactive=false -T ${SINEGOR_API_SERVICE} ${SINEGOR_PYTHON} -m sinegor.jobs.process_notifications
+# Do not kill just the docker exec client: its child inside the container could survive.
+# The independent check alerts on runs lasting more than 15 minutes.
+TimeoutStartSec=infinity
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sinegor-notifications

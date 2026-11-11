@@ -19,12 +19,17 @@ for (const width of [1440, 390]) {
     await page.goto("/admin/customers");
     const notice = page
       .getByRole("status")
-      .filter({ hasText: "Проблемы доставки" });
+      .filter({ hasText: "Проблемные уведомления" });
     await expect(notice).toBeVisible();
-    await expect(notice).toContainText(
-      "Email: не доставлено более 24 часов — 2",
+    await expect(notice).toContainText("Количество проблемных уведомлений: 4.");
+    await expect(notice.getByRole("link")).toHaveAttribute(
+      "href",
+      "/admin/consultations?view=notifications#notification-problems",
     );
-    await expect(notice).toContainText("Telegram: постоянная ошибка — 1");
+    await expect(notice).toContainText(
+      "Email: отправка задерживается более 24 часов — 2",
+    );
+    await expect(notice).toContainText("Telegram: ошибка отправки — 1");
     await expect(notice).toContainText(
       "Email: срок автоматических повторов истёк — 1",
     );
@@ -55,7 +60,7 @@ test("warning fetch failure is visible and does not block administrative work", 
   );
   await page.goto("/admin/customers");
   await expect(
-    page.getByText("Не удалось проверить доставку уведомлений."),
+    page.getByText("Не удалось проверить отправку уведомлений."),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Контакты и заказы" }),
@@ -94,11 +99,11 @@ test("delivery warning refreshes while the admin page remains open", async ({
   rows = [{ channel: "smtp", reason: "delayed", count: 1 }];
   await page.clock.fastForward(60000);
   await expect(
-    page.getByRole("status").filter({ hasText: "Проблемы доставки" }),
-  ).toContainText("Email: не доставлено более 24 часов — 1");
+    page.getByRole("status").filter({ hasText: "Проблемные уведомления" }),
+  ).toContainText("Email: отправка задерживается более 24 часов — 1");
   rows = [];
   await page.clock.fastForward(60000);
   await expect(
-    page.getByText("Проблемы доставки", { exact: true }),
+    page.getByText("Проблемные уведомления", { exact: true }),
   ).toHaveCount(0);
 });

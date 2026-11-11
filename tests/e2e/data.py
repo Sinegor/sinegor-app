@@ -105,6 +105,19 @@ def main():
                             .where(OrderEvent.order_id == order.id)
                         ),
                     }
+            elif action == "queue_unsent_consultation":
+                from sinegor.modules.notifications.service import enqueue
+
+                identifier = enqueue(
+                    db,
+                    "consultation",
+                    recipient="missed-task@example.org",
+                    payload={"phone": "+79991234567"},
+                )
+                enqueue(
+                    db, "consultation_telegram", dedup_key=f"consultation_telegram:{identifier}"
+                )
+                db.commit()
             elif action in {"notifications", "retry_notification"}:
                 item = db.scalar(
                     select(Notification)

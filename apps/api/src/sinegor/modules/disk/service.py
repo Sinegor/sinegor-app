@@ -17,6 +17,8 @@ from sinegor.integrations.yandex_disk.client import (
     YandexDisk,
 )
 from sinegor.integrations.yandex_disk.paths import folder_url, overlaps
+from sinegor.modules.destruction import service as destruction
+from sinegor.modules.destruction.metadata import customer_metadata
 from sinegor.modules.disk.models import DiskFolder
 from sinegor.modules.orders.models import Order
 from sinegor.modules.orders.service import locked_order, record_event
@@ -119,6 +121,7 @@ def delete_folder(
     admin_id: UUID,
     *,
     permanent_deletion_verified: bool = False,
+    notification_ids: list[UUID] | None = None,
 ) -> DiskFolder:
     order = locked_order(db, order_id)
     binding_lock(db)
@@ -165,6 +168,31 @@ def delete_folder(
         record_event(db, order, "deletion_confirmed", admin_id)
     if deletion.status in {DeletionStatus.WAITING, DeletionStatus.DEFERRED}:
         deletion.status = DeletionStatus.CONFIRMED
+    operation = destruction.prepare(
+        db,
+        key=f"disk_folder:{deletion.id}",
+        kind="disk_folder",
+        metadata=customer_metadata(
+            order.customer,
+            categories=["Материалы и результаты заказа в папке Яндекс Диска"],
+            entity={
+                "order_id": str(order.id),
+                "customer_id": str(order.customer_id),
+                "folder_id": str(folder.id),
+                "resource_id": folder.resource_id,
+                "deletion_request_id": str(deletion.id),
+            },
+            source="disk_folders",
+            basis={
+                DeletionReason.RETENTION_EXPIRED: "Истечение срока хранения материалов заказа",
+                DeletionReason.EARLY_PERMISSION: "Досрочное разрешение заказчика",
+                DeletionReason.ORDER_CANCELLED: "Отмена заказа",
+            }[deletion.reason],
+            method="Удаление папки целиком через Яндекс Диск API (permanently=true)",
+            initiator=f"admin:{deletion.confirmed_by_id}",
+            executor=f"FastAPI; admin:{admin_id}",
+        ),
+    )
     if permanent_deletion_verified and not folder.deletion_succeeded:
         if folder.deletion_started_at is None or folder.deletion_operation_id:
             raise HTTPException(409, "No uncertain deletion attempt to verify")
@@ -173,7 +201,9 @@ def delete_folder(
         folder.deletion_succeeded = True
         record_event(db, order, "disk_deletion_manually_verified", admin_id)
         db.commit()
-        return delete_folder(db, disk, order_id, request_id, admin_id)
+        return delete_folder(
+            db, disk, order_id, request_id, admin_id, notification_ids=notification_ids
+        )
     if (
         folder.deletion_started_at is None
         and not folder.deletion_operation_id
@@ -185,14 +215,18 @@ def delete_folder(
                 raise DiskConflict("Folder is missing or its identity has changed")
         except DiskError:
             deletion.status = DeletionStatus.ERROR
+            destruction.mark_error(operation, "disk_verification_failed")
             record_event(db, order, "disk_deletion_failed", admin_id)
             db.commit()
             raise
         folder.deletion_started_at = datetime.now(UTC)
+        operation.state, operation.error_code = "executing", None
         record_event(db, order, "disk_deletion_started", admin_id)
         # Durable intent survives a lost DELETE response or a later commit failure.
         db.commit()
-        return delete_folder(db, disk, order_id, request_id, admin_id)
+        return delete_folder(
+            db, disk, order_id, request_id, admin_id, notification_ids=notification_ids
+        )
     recheck = False
     try:
         if folder.deletion_succeeded:
@@ -203,34 +237,43 @@ def delete_folder(
                 folder.deletion_operation_id = None
                 raise DiskError("Disk deletion failed; retry after checking the folder")
             if status == "in-progress":
+                operation.state = "verifying"
+                db.commit()
                 return folder
         else:
             folder.deletion_operation_id = disk.delete(folder.disk_path, folder.resource_id)
             if folder.deletion_operation_id:
+                operation.state = "verifying"
                 db.commit()
                 return folder
         if not folder.deletion_succeeded:
             folder.deletion_succeeded = True
+            operation.state = "verifying"
             db.commit()
             recheck = True
         elif disk.metadata(folder.disk_path) is not None:
             raise DiskError("Disk folder deletion is not yet verified")
     except DiskError:
+        destruction.mark_error(operation, "disk_deletion_unconfirmed", uncertain=True)
         deletion.status = DeletionStatus.ERROR
         record_event(db, order, "disk_deletion_failed", admin_id)
         db.commit()
         raise
     if recheck:
         # Reacquire locks and revalidate eligibility after persisting upstream success.
-        return delete_folder(db, disk, order_id, request_id, admin_id)
+        return delete_folder(
+            db, disk, order_id, request_id, admin_id, notification_ids=notification_ids
+        )
+    operation.metadata_json = {**operation.metadata_json, "executor": f"FastAPI; admin:{admin_id}"}
     folder.deleted_at = datetime.now(UTC)
     deletion.status = DeletionStatus.PERFORMED
     deletion.performed_at = folder.deleted_at
     record_event(db, order, "disk_folder_deleted", admin_id)
+    destruction.confirm(db, operation, now=folder.deleted_at)
     # Persist the verified result and its delivery job in the same transaction.
     from sinegor.modules.notifications.service import enqueue
 
-    enqueue(
+    identifier = enqueue(
         db,
         "materials_deleted",
         order_id=order.id,
@@ -240,4 +283,6 @@ def delete_folder(
         dedup_key=f"materials_deleted:{deletion.id}",
     )
     db.commit()
+    if notification_ids is not None:
+        notification_ids.append(identifier)
     return folder

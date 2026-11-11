@@ -23,6 +23,7 @@ from sinegor.modules.analytics.router import router as analytics_router
 from sinegor.modules.auth.router import router as auth_router
 from sinegor.modules.auth.security import new_secret, valid_csrf
 from sinegor.modules.customers.router import router as customers_router
+from sinegor.modules.destruction.router import router as destruction_router
 from sinegor.modules.disk.router import disk_error
 from sinegor.modules.disk.router import router as disk_router
 from sinegor.modules.notifications.router import router as notifications_router
@@ -90,6 +91,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(notifications_router, prefix="/api")
     app.include_router(retention_router, prefix="/api")
     app.include_router(security_events_router, prefix="/api")
+    app.include_router(destruction_router, prefix="/api")
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):

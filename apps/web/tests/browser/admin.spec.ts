@@ -77,7 +77,7 @@ test("saved customer after SMTP failure opens existing card and retries invitati
   state.invitationFailure = true;
   await page.goto("/admin/customers/new");
   await page.getByLabel("Email", { exact: true }).fill("new@example.test");
-  await page.getByLabel("Имя или наименование").fill("Новый заказчик");
+  await page.getByLabel("ФИО заказчика").fill("Новый заказчик");
   await page.getByRole("button", { name: "Создать и пригласить" }).click();
   await expect(
     page.getByText("Заказчик создан, но приглашение не отправлено.", {
@@ -377,7 +377,7 @@ test("customer edits preserve nullable fields and order history remains accessib
 }) => {
   const state = await mockApi(page);
   await page.goto(`/admin/customers/${customerId}`);
-  await page.getByLabel("Имя или наименование").fill("Обновлённое имя");
+  await page.getByLabel("ФИО заказчика").fill("Обновлённое имя");
   await page.getByLabel("Телефон", { exact: true }).fill("");
   await page
     .getByRole("button", { name: "Сохранить карточку", exact: true })

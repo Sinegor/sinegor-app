@@ -124,7 +124,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         .getByLabel("Email", { exact: true })
         .fill("customer@example.org");
       await admin
-        .getByLabel("Имя или наименование", { exact: true })
+        .getByLabel("ФИО заказчика", { exact: true })
         .fill("E2E заказчик");
       await admin
         .getByRole("button", { name: "Создать и пригласить", exact: true })
@@ -235,6 +235,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
     await test.step("a real session cannot access another customer's order or admin operations", async () => {
       const created = await mutate(admin.request, "/api/admin/customers", {
         email: "other@example.org",
+        display_name: "Другой заказчик",
       });
       expect(created.status()).toBe(201);
       const otherOrder = await mutate(admin.request, "/api/admin/orders", {
@@ -369,8 +370,8 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
       data("age_result_notification", { order_id: orderId });
       await admin.reload();
       await expect(
-        admin.getByRole("status").filter({ hasText: "Проблемы доставки" }),
-      ).toContainText("Email: не доставлено более 24 часов — 1");
+        admin.getByRole("status").filter({ hasText: "Проблемные уведомления" }),
+      ).toContainText("Email: отправка задерживается более 24 часов — 1");
       const summary = await read(
         admin.request,
         "/api/admin/notifications/summary",
@@ -394,7 +395,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
         .toBe("result_ready");
       await admin.reload();
       await expect(
-        admin.getByText("Проблемы доставки", { exact: true }),
+        admin.getByText("Проблемные уведомления", { exact: true }),
       ).toHaveCount(0);
       await customer.reload();
       await expect(
@@ -537,7 +538,7 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
               .status,
         )
         .toBe("performed");
-      data("job", { name: "process_notifications" });
+      // Initial delivery must work independently of the periodic CLI.
       await expect
         .poll(
           async () =>
@@ -555,6 +556,54 @@ test("order lifecycle preserves authorization, delivery, retention and signed ag
             subject.includes("материалы заказа") && subject.includes("удалены"),
         ).length,
       ).toBe(1);
+      await test.step("confirmed destruction has private immutable printable PDFs", async () => {
+        data("job", { name: "process_orders" });
+        const rows = await read(
+          admin.request,
+          `/api/admin/destructions?kind=disk_folder&q=${orderId}`,
+        );
+        expect(rows.length).toBe(1);
+        const event = rows[0];
+        expect(event.state).toBe("ready");
+        expect(event.metadata_json.entity.order_id).toBe(orderId);
+        const documentPath = `/api/admin/destructions/${event.id}/documents`;
+        const extract = await admin.request.get(`${documentPath}/extract`);
+        expect(extract.status()).toBe(200);
+        expect(extract.headers()["content-type"]).toBe("application/pdf");
+        expect(extract.headers()["cache-control"]).toBe("no-store");
+        const bytes = await extract.body();
+        expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+        expect(
+          (await customer.request.get(`${documentPath}/extract`)).status(),
+        ).toBe(403);
+        expect((await request.get(`${documentPath}/act`)).status()).toBe(401);
+        await admin.goto(`/admin/destructions?q=${orderId}`);
+        await expect(
+          admin.getByRole("heading", {
+            name: "Реестр уничтожения",
+            exact: true,
+          }),
+        ).toBeVisible();
+        for (const name of ["акт", "выгрузку"]) {
+          const pending = admin.waitForEvent("download");
+          await admin
+            .getByRole("link", { name: `Скачать ${name}`, exact: true })
+            .click();
+          expect(
+            fs
+              .readFileSync(await (await pending).path())
+              .subarray(0, 5)
+              .toString(),
+          ).toBe("%PDF-");
+        }
+        expect((await mutate(admin.request, documentPath)).status()).toBe(200);
+        expect(
+          (
+            await (await admin.request.get(`${documentPath}/extract`)).body()
+          ).equals(bytes),
+        ).toBe(true);
+        await admin.goto(`/admin/orders/${orderId}`);
+      });
       await customer.reload();
       expect(data("inspect", { order_id: orderId }).agreement_hash).toBe(
         signedHash,

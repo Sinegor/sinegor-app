@@ -346,7 +346,9 @@ def test_smtp_failure_keeps_public_response_generic_and_invalidates_token(auth, 
 def test_invitation_failure_can_be_retried_without_recreating_customer(auth, actors):
     login_admin(auth, actors)
     auth.mailer.fail = True
-    response = post(auth, "/api/admin/customers", {"email": "retry@example.ru"})
+    response = post(
+        auth, "/api/admin/customers", {"email": "retry@example.ru", "display_name": "Иван Петров"}
+    )
     assert response.status_code == 503
     customer = auth.db.scalar(select(Customer).where(Customer.email == "retry@example.ru"))
     assert customer is not None
@@ -460,7 +462,11 @@ def test_review_failed_resend_preserves_delivered_link(auth, actors):
 def test_review_failed_creation_returns_customer_id_for_api_retry(auth, actors):
     login_admin(auth, actors)
     auth.mailer.fail = True
-    created = post(auth, "/api/admin/customers", {"email": "api-retry@example.ru"})
+    created = post(
+        auth,
+        "/api/admin/customers",
+        {"email": "api-retry@example.ru", "display_name": "Иван Петров"},
+    )
     assert created.status_code == 503
     customer_id = created.headers["X-Customer-ID"]
     auth.mailer.fail = False

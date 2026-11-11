@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
+from sinegor.modules.destruction import service as destruction
 from sinegor.modules.notifications.models import Notification
 from sinegor.modules.notifications.retry import CONSULTATION_KINDS
 
@@ -20,8 +21,48 @@ def contact_deadline(item: Notification) -> datetime:
     return item.created_at + timedelta(days=7)
 
 
-def expire_consultation(item: Notification) -> None:
+def _destruction_metadata(items: list[Notification], initiator: str, basis: str | None) -> dict:
+    subjects = []
+    for item in items:
+        categories = []
+        if item.recipient:
+            categories.append("Адрес электронной почты")
+        if item.payload.get("phone"):
+            categories.append("Номер телефона")
+        if any(value for key, value in item.payload.items() if key != "phone"):
+            categories.append("Сведения обращения за консультацией")
+        if not categories:
+            continue
+        identity = item.recipient or item.payload.get("phone")
+        subjects.append(
+            {
+                "identity": identity or "Субъект не установлен по сохранившимся сведениям",
+                "categories": categories,
+                "source": "notifications.recipient" if item.recipient else "notifications.payload",
+            }
+        )
+    return {
+        "subjects": subjects,
+        "entity": {"notification_ids": ",".join(str(item.id) for item in items)},
+        "source": "notifications",
+        "basis": basis,
+        "method": "Обнуление recipient и очистка payload в PostgreSQL",
+        "initiator": initiator,
+        "executor": "FastAPI",
+    }
+
+
+def expire_consultation(item: Notification, *, db: Session | None = None) -> None:
     """Caller holds the row lock and has checked the seven-day contact deadline."""
+    operation = None
+    if db is not None:
+        metadata = _destruction_metadata(
+            [item], "scheduler", "Истечение семидневного срока хранения"
+        )
+        if metadata["subjects"]:
+            operation = destruction.prepare(
+                db, key=f"consultation_auto:{item.id}", kind="consultation_auto", metadata=metadata
+            )
     if item.status not in {"sent", "cancelled"}:
         item.status = "expired"
     item.last_error_code = (
@@ -33,6 +74,9 @@ def expire_consultation(item: Notification) -> None:
     )
     item.recipient, item.payload = None, {}
     item.lease_id = item.lease_until = None
+    if operation is not None:
+        db.flush()
+        destruction.confirm(db, operation)
 
 
 def purge_expired_consultations(db: Session, *, now: datetime | None = None) -> int:
@@ -58,7 +102,7 @@ def purge_expired_consultations(db: Session, *, now: datetime | None = None) -> 
     for item in items:
         # Revoke even an active lease: it cannot extend the contact retention window.
         # The delivery worker's lease-conditional update cannot restore cleared data.
-        expire_consultation(item)
+        expire_consultation(item, db=db)
     db.commit()
     return len(items)
 
@@ -203,16 +247,30 @@ def retry_consultation(db: Session, identifier: UUID, channel: str) -> UUID:
     return item.id
 
 
-def handle_consultation(db: Session, identifier: UUID) -> None:
+def handle_consultation(db: Session, identifier: UUID, admin_id: UUID | None = None) -> None:
     items = _locked_pair(db, identifier)
     if any(item.status == "processing" for item in items):
         raise HTTPException(409, "Delivery is in progress")
     if not any(item.status in UNDELIVERED or item.last_error_code == HANDLED for item in items):
         raise HTTPException(409, "Consultation is already delivered")
+    operation = None
+    metadata = _destruction_metadata(
+        items, f"admin:{admin_id}" if admin_id else "Администратор не установлен", None
+    )
+    if metadata["subjects"]:
+        operation = destruction.prepare(
+            db,
+            key=f"consultation_manual:{identifier}",
+            kind="consultation_manual",
+            metadata=metadata,
+        )
     for item in items:
         if item.status in UNDELIVERED:
             item.status = "cancelled"
             item.last_error_code = HANDLED
             item.lease_id = item.lease_until = None
         item.recipient, item.payload = None, {}
+    if operation is not None:
+        db.flush()
+        destruction.confirm(db, operation)
     db.commit()

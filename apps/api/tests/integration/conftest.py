@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 
@@ -28,6 +29,33 @@ def database_settings(monkeypatch):
 @pytest.fixture
 def alembic_config(database_settings):
     return Config(str(Path(__file__).resolve().parents[2] / "alembic.ini"))
+
+
+@pytest.fixture(autouse=True)
+def isolate_destruction_evidence(database_settings):
+    """External CLI/concurrent sessions commit outside db_session's savepoint.
+
+    Keep their documentary side effects as isolated as their existing source fixtures.
+    Never remove rows that predate this test, or weaken production downgrade guards.
+    """
+    engine = create_db_engine(database_settings)
+    try:
+        with engine.connect() as connection:
+            previous = (
+                set(connection.scalars(text("SELECT id FROM destruction_operations")))
+                if inspect(connection).has_table("destruction_operations")
+                else set()
+            )
+        yield
+    finally:
+        with engine.begin() as connection:
+            if inspect(connection).has_table("destruction_operations"):
+                current = set(connection.scalars(text("SELECT id FROM destruction_operations")))
+                for identifier in current - previous:
+                    connection.execute(
+                        text("DELETE FROM destruction_operations WHERE id=:id"), {"id": identifier}
+                    )
+        engine.dispose()
 
 
 @pytest.fixture

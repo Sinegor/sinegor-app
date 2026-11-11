@@ -56,7 +56,7 @@ describe("API security", () => {
     );
     await expect(
       client.POST("/api/admin/customers", {
-        body: { email: "customer@example.test" },
+        body: { email: "customer@example.test", display_name: "Иван Петров" },
       }),
     ).rejects.toMatchObject({
       status: 503,
@@ -109,6 +109,11 @@ describe("API security", () => {
 
 describe("safe Russian API errors", () => {
   it.each([
+    [
+      422,
+      "customer_name_invalid",
+      "Укажите ФИО заказчика (не более 255 символов).",
+    ],
     [
       403,
       "csrf_failed",

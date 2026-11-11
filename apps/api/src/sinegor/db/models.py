@@ -5,6 +5,7 @@ from sinegor.modules.analytics.models import AnalyticsConsentEvent
 from sinegor.modules.audit.models import CustomerEvent, OrderEvent
 from sinegor.modules.auth.models import AdminUser, AuthRateLimit, AuthToken, Session
 from sinegor.modules.customers.models import Customer
+from sinegor.modules.destruction.models import DestructionOperation
 from sinegor.modules.disk.models import DiskFolder
 from sinegor.modules.notifications.models import Notification
 from sinegor.modules.orders.models import MaterialHandover, Order, PaymentRecord
@@ -21,6 +22,7 @@ __all__ = [
     "Customer",
     "CustomerEvent",
     "DeletionRequest",
+    "DestructionOperation",
     "RetentionFileDeletion",
     "DiskFolder",
     "MaterialHandover",

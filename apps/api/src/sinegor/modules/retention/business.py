@@ -1,6 +1,6 @@
 """Explicit expired business-graph removal with durable, private file retries.
 
-No Disk API calls, no security journal privileges, no destruction register.
+No Disk API calls and no security journal privileges.
 Each customer's transaction is isolated; PDF removal follows committed intents.
 """
 
@@ -19,6 +19,9 @@ from sinegor.modules.audit.models import CustomerEvent, OrderEvent
 from sinegor.modules.auth.models import AuthToken
 from sinegor.modules.auth.models import Session as AuthSession
 from sinegor.modules.customers.models import Customer
+from sinegor.modules.destruction import service as destruction
+from sinegor.modules.destruction.metadata import customer_metadata
+from sinegor.modules.destruction.models import DestructionOperation
 from sinegor.modules.disk.models import DiskFolder
 from sinegor.modules.notifications.models import Notification
 from sinegor.modules.orders.models import MaterialHandover, Order, PaymentRecord
@@ -62,7 +65,24 @@ def _eligible(db: Session, order: Order, now: datetime, *, unsigned: bool) -> bo
     return request is None or request.status == DeletionStatus.PERFORMED
 
 
-def _remove_order(db: Session, order: Order) -> None:
+def _business_metadata(customer: Customer, categories: list[str], entity: dict, basis: str) -> dict:
+    return customer_metadata(
+        customer,
+        categories=categories,
+        entity=entity,
+        source="business_retention",
+        basis=basis,
+        method=(
+            "Удаление записей PostgreSQL и файлов соглашения на сервере"
+            if "agreement_id" in entity
+            else "Удаление записей PostgreSQL"
+        ),
+        initiator="scheduler",
+        executor="FastAPI business retention",
+    )
+
+
+def _remove_order(db: Session, order: Order, customer: Customer) -> None:
     agreement = db.scalar(select(Agreement).where(Agreement.order_id == order.id))
     keys = set(
         db.scalars(
@@ -79,6 +99,45 @@ def _remove_order(db: Session, order: Order) -> None:
             )
             if k
         )
+    signed = agreement is not None and (
+        agreement.status == AgreementStatus.APPROVED or agreement.final_pdf_key is not None
+    )
+    basis = (
+        "Истечение пятилетнего срока хранения соглашения и истории заказа"
+        if signed
+        else "Истечение срока хранения карточки без подписанных соглашений"
+    )
+    entity = {"order_id": str(order.id), "customer_id": str(customer.id)}
+    agreement_operation = None
+    if signed:
+        agreement_operation = destruction.prepare(
+            db,
+            key=f"agreement:{agreement.id}",
+            kind="agreement",
+            metadata=_business_metadata(
+                customer,
+                ["Данные окончательного подписанного соглашения", "PDF соглашения"],
+                {**entity, "agreement_id": str(agreement.id)},
+                basis,
+            ),
+        )
+    categories = ["История заказа"]
+    for model, category in (
+        (OrderEvent, "События заказа"),
+        (DeletionRequest, "Записи об удалении материалов"),
+        (DiskFolder, "Сведения о папке заказа"),
+        (MaterialHandover, "Сведения о передаче материалов"),
+        (PaymentRecord, "Сведения об оплате"),
+        (Notification, "Сведения уведомлений по заказу"),
+    ):
+        if db.scalar(select(model.id).where(model.order_id == order.id).limit(1)):
+            categories.append(category)
+    history_operation = destruction.prepare(
+        db,
+        key=f"order_history:{order.id}",
+        kind="order_history",
+        metadata=_business_metadata(customer, categories, entity, basis),
+    )
     # Unexpected cross-order references are a dependency, not permission to unlink.
     for key in keys:
         if not KEY_PATTERN.fullmatch(key):
@@ -96,10 +155,20 @@ def _remove_order(db: Session, order: Order) -> None:
             .limit(1)
         ):
             raise ValueError("Shared agreement storage reference")
-        if not db.scalar(
-            select(RetentionFileDeletion.id).where(RetentionFileDeletion.file_key == key)
-        ):
-            db.add(RetentionFileDeletion(file_key=key))
+        intent = db.scalar(
+            select(RetentionFileDeletion).where(RetentionFileDeletion.file_key == key)
+        )
+        if intent is None:
+            db.add(
+                RetentionFileDeletion(
+                    file_key=key,
+                    operation_id=agreement_operation.id if agreement_operation else None,
+                )
+            )
+        elif agreement_operation is not None:
+            if intent.operation_id not in {None, agreement_operation.id}:
+                raise ValueError("Shared agreement deletion intent")
+            intent.operation_id = agreement_operation.id
     db.flush()  # Intent and graph removal are committed in the same transaction.
     for model in (
         Notification,
@@ -119,6 +188,10 @@ def _remove_order(db: Session, order: Order) -> None:
     db.execute(
         delete(Order).where(Order.id == order.id).execution_options(synchronize_session="fetch")
     )
+    db.flush()
+    destruction.confirm(db, history_operation)
+    if agreement_operation is not None and not keys:
+        destruction.confirm(db, agreement_operation)
 
 
 def _drain_files(db: Session, storage: AgreementStorage, limit: int) -> None:
@@ -139,8 +212,22 @@ def _drain_files(db: Session, storage: AgreementStorage, limit: int) -> None:
             if is_referenced(db, item.file_key):
                 continue
             storage.delete(item.file_key)
+            operation_id = item.operation_id
             db.delete(item)
+            db.flush()
+            if operation_id and not db.scalar(
+                select(RetentionFileDeletion.id)
+                .where(RetentionFileDeletion.operation_id == operation_id)
+                .limit(1)
+            ):
+                operation = db.get(DestructionOperation, operation_id)
+                if operation is not None:
+                    destruction.confirm(db, operation)
         except AgreementStorageError:
+            if item.operation_id:
+                operation = db.get(DestructionOperation, item.operation_id)
+                if operation is not None:
+                    destruction.mark_error(operation, "agreement_pdf_cleanup_failed")
             logger.error("retention_pdf_cleanup_failed")
     db.commit()
 
@@ -203,8 +290,36 @@ def cleanup_business(
             remove_customer = len(eligible) == len(orders)
             if not dry_run:
                 for item in eligible:
-                    _remove_order(db, item)
+                    _remove_order(db, item, customer)
                 if remove_customer:
+                    categories = ["Адрес электронной почты"]
+                    if customer.display_name:
+                        categories.append("ФИО")
+                    if customer.phone:
+                        categories.append("Номер телефона")
+                    if customer.blocked_at is not None:
+                        categories.append("Сведения об ограничении доступа")
+                    for model, category in (
+                        (CustomerEvent, "События карточки заказчика"),
+                        (AuthToken, "Сведения токенов авторизации"),
+                        (AuthSession, "Сведения сессий авторизации"),
+                        (Notification, "Сведения уведомлений заказчика"),
+                    ):
+                        if db.scalar(
+                            select(model.id).where(model.customer_id == customer_id).limit(1)
+                        ):
+                            categories.append(category)
+                    customer_operation = destruction.prepare(
+                        db,
+                        key=f"customer:{customer.id}",
+                        kind="customer",
+                        metadata=_business_metadata(
+                            customer,
+                            categories,
+                            {"customer_id": str(customer_id)},
+                            "Истечение срока хранения карточки заказчика",
+                        ),
+                    )
                     # Unknown cross-customer actors retain the card through FK checks.
                     for model in (Notification, AuthToken, AuthSession, CustomerEvent):
                         db.execute(
@@ -217,6 +332,8 @@ def cleanup_business(
                         .where(Customer.id == customer_id)
                         .execution_options(synchronize_session="fetch")
                     )
+                    db.flush()
+                    destruction.confirm(db, customer_operation)
                 db.commit()
             else:
                 if not eligible and not remove_customer:

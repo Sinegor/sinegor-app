@@ -13,6 +13,10 @@ const statusMessages: Record<number, string> = {
 };
 
 const codedMessages: Record<string, { status: number; message: string }> = {
+  customer_name_invalid: {
+    status: 422,
+    message: "Укажите ФИО заказчика (не более 255 символов).",
+  },
   csrf_failed: {
     status: 403,
     message: "Защита формы истекла. Обновите страницу и повторите действие.",

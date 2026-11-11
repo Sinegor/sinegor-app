@@ -13,7 +13,7 @@ test("saving one customer field preserves parallel contact changes", async ({
   // A second tab saved contact changes after this tab loaded the customer.
   state.customers[0].email = "updated@example.test";
   state.customers[0].phone = "+7 999 222-33-44";
-  await page.getByLabel("Имя или наименование").fill("Новое имя");
+  await page.getByLabel("ФИО заказчика").fill("Новое имя");
   await page
     .getByRole("button", { name: "Сохранить карточку", exact: true })
     .click();

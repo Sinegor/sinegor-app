@@ -121,7 +121,7 @@ def test_credentials_issue_replace_consume_and_email_revocation(auth, actors):
     csrf = auth.client.get("/api/auth/csrf").json()["csrf_token"]
     response = auth.client.patch(
         f"/api/admin/customers/{actors.customer.id}",
-        json={"email": "updated@example.ru"},
+        json={"email": "updated@example.ru", "display_name": "Иван Петров"},
         headers={"Origin": str(auth.settings.public_origin).rstrip("/"), "X-CSRF-Token": csrf},
     )
     assert response.status_code == 200
