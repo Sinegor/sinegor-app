@@ -1,0 +1,7 @@
+# Mandatory for the local check: API cannot contact real external integrations.
+services:
+  web:
+    environment:
+      YANDEX_METRIKA_ENABLED: "false"
+networks:
+  outbound: {internal: true}

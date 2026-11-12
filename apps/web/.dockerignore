@@ -1,0 +1,15 @@
+*
+!package.json
+!package-lock.json
+!*.ts
+!tsconfig.json
+!app/
+!app/**
+!server/
+!server/**
+!assets/
+!assets/**
+!public/
+!public/**
+**/.env*
+**/node_modules

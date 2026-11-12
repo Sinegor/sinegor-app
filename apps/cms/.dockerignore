@@ -1,0 +1,13 @@
+*
+!package.json
+!package-lock.json
+!favicon.png
+!config/
+!config/**
+!src/
+!src/**
+!public/
+!public/robots.txt
+**/.env*
+**/node_modules
+**/.gitkeep
