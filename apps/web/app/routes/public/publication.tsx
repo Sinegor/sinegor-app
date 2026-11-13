@@ -1,3 +1,4 @@
+import { withPublicMetadata } from "../../lib/seo";
 import { readContent } from "../../lib/cms.server";
 import type { Content } from "../../lib/cms";
 import { ContentSections, contentMeta } from "../../components/cms-content";
@@ -13,7 +14,7 @@ export async function loader({ params }: Route.LoaderArgs) {
   if (!article) throw new Response("Not Found", { status: 404 });
   return { article, content: null };
 }
-export function meta({ data }: Route.MetaArgs) {
+function pageMeta({ data }: Route.MetaArgs) {
   return data?.content
     ? contentMeta(data.content)
     : data?.article
@@ -23,6 +24,9 @@ export function meta({ data }: Route.MetaArgs) {
           { name: "robots", content: "noindex, nofollow" },
         ];
 }
+export const meta = (args: Route.MetaArgs) =>
+  withPublicMetadata(args, pageMeta(args));
+
 export default function Publication({ loaderData }: Route.ComponentProps) {
   const { article, content } = loaderData;
   if (content)

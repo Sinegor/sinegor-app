@@ -3,6 +3,104 @@ const paragraph = (text) => [
 ];
 const { test, expect, config, cms, runtimeErrors } = require("./helpers.cjs");
 
+test("additional SEO follows real Strapi publication, metadata updates and withdrawal in SSR", async ({
+  request,
+  browser,
+}) => {
+  const draft = await cms({
+    action: "create",
+    data: {
+      slug: "e2e-additional-seo",
+      title: "E2E материал для проверки метаданных",
+      sections: [{ general: paragraph("Самостоятельный тестовый материал") }],
+      seo: {
+        title: "E2E SEO заголовок",
+        description: "E2E SEO описание",
+        noindex: false,
+      },
+    },
+  });
+  const route = "/publications/e2e-additional-seo";
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  try {
+    expect((await request.get(route)).status()).toBe(404);
+    await cms({ action: "publish", id: draft.documentId });
+    const page = await context.newPage();
+    await page.goto(config.origin + route);
+    await expect(
+      page.locator('head meta[property="og:title"]'),
+    ).toHaveAttribute("content", "E2E SEO заголовок — SINEGOR LAB");
+    await expect(
+      page.locator('head meta[property="og:description"]'),
+    ).toHaveAttribute("content", "E2E SEO описание");
+    await expect(page.locator('head meta[property="og:url"]')).toHaveAttribute(
+      "content",
+      config.origin + route,
+    );
+    const image = await page
+      .locator('head meta[property="og:image"]')
+      .getAttribute("content");
+    expect(image).toMatch(/^https?:\/\//);
+    expect((await request.get(image)).status()).toBe(200);
+    const structured = (
+      await page
+        .locator('head script[type="application/ld+json"]')
+        .allTextContents()
+    ).map(JSON.parse);
+    expect(
+      structured.find((item) => item["@type"] === "Article"),
+    ).toMatchObject({
+      headline: "E2E материал для проверки метаданных",
+      description: "E2E SEO описание",
+      url: config.origin + route,
+    });
+    expect(
+      structured.find((item) => item["@type"] === "Article"),
+    ).not.toHaveProperty("author");
+    expect(
+      structured.find((item) => item["@type"] === "Article"),
+    ).toHaveProperty("datePublished");
+    expect(
+      structured.find((item) => item["@type"] === "BreadcrumbList")
+        .itemListElement,
+    ).toHaveLength(3);
+
+    await cms({
+      action: "update",
+      id: draft.documentId,
+      data: {
+        seo: {
+          title: "E2E новая редакция",
+          description: "E2E новое описание",
+          noindex: false,
+        },
+      },
+    });
+    // A saved draft must not alter public metadata before publication.
+    await page.reload();
+    await expect(
+      page.locator('head meta[property="og:title"]'),
+    ).toHaveAttribute("content", "E2E SEO заголовок — SINEGOR LAB");
+    await cms({ action: "publish", id: draft.documentId });
+    await page.reload();
+    await expect(
+      page.locator('head meta[property="og:title"]'),
+    ).toHaveAttribute("content", "E2E новая редакция — SINEGOR LAB");
+    await expect(
+      page.locator('head meta[property="og:description"]'),
+    ).toHaveAttribute("content", "E2E новое описание");
+    await cms({ action: "unpublish", id: draft.documentId });
+    const missing = await request.get(route);
+    expect(missing.status()).toBe(404);
+    const head = (await missing.text()).split("</head>")[0];
+    expect(head).not.toContain('property="og:');
+    expect(head).not.toContain('type="application/ld+json"');
+  } finally {
+    await context.close();
+    await cms({ action: "delete", id: draft.documentId });
+  }
+});
+
 test("CMS seed creates three local neutral publications once and SSR has no frontend placeholders", async ({
   request,
   browser,

@@ -1,3 +1,4 @@
+import { withPublicMetadata } from "../../lib/seo";
 import type { Route } from "./+types/technical";
 import { loadPage } from "../../lib/cms.server";
 import {
@@ -13,8 +14,11 @@ const fallbackMeta = () =>
     "Техническая обработка",
     "Самостоятельная услуга по технической подготовке цифровых документов.",
   );
-export const meta = ({ data }: Route.MetaArgs) =>
+const pageMeta = ({ data }: Route.MetaArgs) =>
   data?.content ? contentMeta(data.content) : fallbackMeta();
+export const meta = (args: Route.MetaArgs) =>
+  withPublicMetadata(args, pageMeta(args));
+
 export default function Page({ loaderData }: Route.ComponentProps) {
   const content = loaderData.content;
   if (content) return <ContentPage content={content} />;

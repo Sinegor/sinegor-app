@@ -1,3 +1,4 @@
+import { withPublicMetadata } from "../../lib/seo";
 import type { Route } from "./+types/about";
 import { loadPage } from "../../lib/cms.server";
 import {
@@ -10,8 +11,11 @@ import { Link } from "react-router";
 import { AboutSummary, publicMeta } from "../../components/public-content";
 const fallbackMeta = () =>
   publicMeta("Об исполнителе", "IT-лаборатория адвоката Артемьева Д. В.");
-export const meta = ({ data }: Route.MetaArgs) =>
+const pageMeta = ({ data }: Route.MetaArgs) =>
   data?.content ? contentMeta(data.content) : fallbackMeta();
+export const meta = (args: Route.MetaArgs) =>
+  withPublicMetadata(args, pageMeta(args));
+
 export default function About({ loaderData }: Route.ComponentProps) {
   const content = loaderData.content;
   if (content) return <ContentPage content={content} />;

@@ -1,3 +1,4 @@
+import { withPublicMetadata } from "../../lib/seo";
 import type { Route } from "./+types/publications";
 import { Link } from "react-router";
 import { readContent, loadPublications } from "../../lib/cms.server";
@@ -15,7 +16,7 @@ const fallbackMeta = () =>
     "Публикации",
     "Материалы SINEGOR LAB об исследовании и подготовке документов.",
   );
-export const meta = ({ data }: Route.MetaArgs) =>
+const pageMeta = ({ data }: Route.MetaArgs) =>
   data?.content ? contentMeta(data.content) : fallbackMeta();
 export async function loader({ request }: Route.LoaderArgs) {
   const offset = publicationOffset(new URL(request.url).search);
@@ -25,6 +26,9 @@ export async function loader({ request }: Route.LoaderArgs) {
   ]);
   return { ...list, content: (content || null) as Content | null };
 }
+export const meta = (args: Route.MetaArgs) =>
+  withPublicMetadata(args, pageMeta(args));
+
 export default function Publications({ loaderData }: Route.ComponentProps) {
   const { articles, offset, content, hasNext } = loaderData;
   return (

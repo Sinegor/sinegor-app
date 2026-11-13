@@ -1,3 +1,4 @@
+import { withPublicMetadata } from "../../lib/seo";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Route } from "./+types/contacts";
@@ -9,8 +10,11 @@ import { ContentMedia } from "../../components/content-media";
 import { publicMeta } from "../../components/public-content";
 const fallbackMeta = () =>
   publicMeta("Контакты", "Запрос предварительной консультации в SINEGOR LAB.");
-export const meta = ({ data }: Route.MetaArgs) =>
+const pageMeta = ({ data }: Route.MetaArgs) =>
   data?.content ? contentMeta(data.content) : fallbackMeta();
+export const meta = (args: Route.MetaArgs) =>
+  withPublicMetadata(args, pageMeta(args));
+
 export default function Contacts({ loaderData }: Route.ComponentProps) {
   const content = loaderData.content;
   const [sent, setSent] = useState(false);

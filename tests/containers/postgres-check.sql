@@ -2,12 +2,12 @@
 -- Run as postgres in the isolated project's API database after migrate + grants.
 DO $$
 BEGIN
-    IF current_setting('log_min_messages') <> 'fatal'
+    IF current_setting('log_min_messages') <> 'warning'
        OR current_setting('log_min_error_statement') <> 'panic'
        OR current_setting('log_error_verbosity') <> 'terse'
        OR current_setting('log_statement') <> 'none'
        OR current_setting('log_parameter_max_length_on_error') <> '0' THEN
-        RAISE EXCEPTION 'PostgreSQL must suppress SQL errors, statements and DETAIL values';
+        RAISE EXCEPTION 'PostgreSQL must retain warnings/errors without statements or DETAIL values';
     END IF;
     IF has_database_privilege('sinegor_api', 'sinegor_cms', 'CONNECT')
        OR has_database_privilege('sinegor_cms', 'sinegor', 'CONNECT') THEN

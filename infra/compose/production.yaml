@@ -14,7 +14,7 @@ services:
   postgres:
     image: postgres:16.14@sha256:4b7183ac05f8ef417db21fd72d71047a4238340c261d3cc3ddb6d579ab5071ae
     # SQL error messages can contain values even when statement logging is off.
-    command: ["postgres", "-c", "log_min_messages=fatal", "-c", "log_min_error_statement=panic", "-c", "log_error_verbosity=terse", "-c", "log_statement=none", "-c", "log_parameter_max_length_on_error=0"]
+    command: ["postgres", "-c", "log_min_messages=warning", "-c", "log_min_error_statement=panic", "-c", "log_error_verbosity=terse", "-c", "log_statement=none", "-c", "log_parameter_max_length_on_error=0"]
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres

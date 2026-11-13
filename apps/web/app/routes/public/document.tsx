@@ -1,3 +1,4 @@
+import { withPublicMetadata } from "../../lib/seo";
 import { Link } from "react-router";
 import { loadDocument } from "../../lib/documents.server";
 import { contentMeta } from "../../components/cms-content";
@@ -12,7 +13,7 @@ export async function loader({ params }: Route.LoaderArgs) {
 export const headers: Route.HeadersFunction = () => ({
   "Cache-Control": "no-store",
 });
-export function meta({ data }: Route.MetaArgs) {
+function pageMeta({ data }: Route.MetaArgs) {
   return data?.content
     ? contentMeta(data.content)
     : [
@@ -20,6 +21,9 @@ export function meta({ data }: Route.MetaArgs) {
         { name: "robots", content: "noindex, follow" },
       ];
 }
+export const meta = (args: Route.MetaArgs) =>
+  withPublicMetadata(args, pageMeta(args));
+
 export default function Document({ loaderData }: Route.ComponentProps) {
   const { title, content } = loaderData;
   return (

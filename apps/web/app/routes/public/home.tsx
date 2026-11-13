@@ -1,3 +1,4 @@
+import { withPublicMetadata } from "../../lib/seo";
 import type { Route } from "./+types/home";
 import type { Content } from "../../lib/cms";
 import { loadPage, readContent, readAllContent } from "../../lib/cms.server";
@@ -37,15 +38,18 @@ const fallbackMeta = () =>
     "Исследование юридических документов",
     "ИИ-анализ юридических материалов и техническая подготовка документов. Предварительная консультация в SINEGOR LAB.",
   );
-export const meta = ({ data }: Route.MetaArgs) =>
+const pageMeta = ({ data }: Route.MetaArgs) =>
   data?.content ? contentMeta(data.content) : fallbackMeta();
+export const meta = (args: Route.MetaArgs) =>
+  withPublicMetadata(args, pageMeta(args));
+
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { content, services, articles, about } = loaderData;
   if (content)
     return (
       <div className="public-page">
         <section className="public-hero">
-          <LabArt className="hero-art" />
+          <LabArt className="hero-art" desktopOnly />
           <div>
             <p className="eyebrow">SINEGOR LAB · Право и технологии</p>
             <h1>{content.title}</h1>
@@ -96,7 +100,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
   return (
     <div className="public-page">
       <section className="public-hero">
-        <LabArt className="hero-art" />
+        <LabArt className="hero-art" desktopOnly />
         <div>
           <p className="eyebrow">SINEGOR LAB · Право и технологии</p>
           <h1>Исследование юридических документов</h1>

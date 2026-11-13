@@ -1,3 +1,4 @@
+import { withPublicMetadata } from "../../lib/seo";
 import { Link } from "react-router";
 import { loadDocuments } from "../../lib/documents.server";
 import { publicMeta } from "../../components/public-content";
@@ -10,12 +11,15 @@ export async function loader() {
 export const headers: Route.HeadersFunction = () => ({
   "Cache-Control": "no-store",
 });
-export function meta({ data }: Route.MetaArgs) {
+function pageMeta({ data }: Route.MetaArgs) {
   return [
     ...publicMeta("Документы", "Правовая информация SINEGOR LAB"),
     ...(!data ? [{ name: "robots", content: "noindex, follow" }] : []),
   ];
 }
+export const meta = (args: Route.MetaArgs) =>
+  withPublicMetadata(args, pageMeta(args));
+
 export default function Documents({ loaderData }: Route.ComponentProps) {
   return (
     <section className="public-page">
