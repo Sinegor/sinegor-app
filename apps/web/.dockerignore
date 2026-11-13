@@ -9,6 +9,8 @@
 !server/**
 !assets/
 !assets/**
+# The presentation is managed by Strapi, never shipped in the web image.
+assets/Презентация_1.1.mp4
 !public/
 !public/**
 **/.env*

@@ -102,29 +102,20 @@ test("consultation sends both contacts, shows success and handles throttling", a
   await expect(page.getByRole("status")).toContainText("Заявка принята");
 });
 
-test("presentation video plays and public pages fit wide and mobile screens", async ({
+test("empty presentation and public pages fit wide and mobile screens", async ({
   page,
 }) => {
   await page.goto("/");
   const video = page.locator("video");
-  await expect(video).toHaveAttribute("controls", "");
+  await expect(video).not.toHaveAttribute("controls");
   await expect(video).toHaveAttribute(
     "poster",
     new RegExp(`${encodeURI("заставка")}.*\\.jpg$`),
   );
-  await expect(video.locator("source")).toHaveAttribute(
-    "src",
-    new RegExp(`${encodeURI("Презентация_1")}\\.1.*\\.mp4$`),
+  await expect(video.locator("source")).toHaveCount(0);
+  await expect(page.locator(".hero-video").getByRole("status")).toContainText(
+    "Видеопрезентация пока недоступна",
   );
-  await video.evaluate(async (element: HTMLVideoElement) => {
-    await element.play();
-  });
-  await expect
-    .poll(() =>
-      video.evaluate((element: HTMLVideoElement) => element.currentTime),
-    )
-    .toBeGreaterThan(0);
-  await video.evaluate((element: HTMLVideoElement) => element.pause());
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     for (const path of [

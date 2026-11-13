@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
-import { createServer } from "node:http";
+import { createServer, type Server } from "node:http";
+import { readFile } from "node:fs/promises";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import type { AddressInfo } from "node:net";
@@ -30,8 +31,42 @@ const allowAnalytics = (page: Page) =>
     .click();
 let origin: string;
 let server: ChildProcess;
+let cms: Server;
 
 test.beforeAll(async () => {
+  // Supply video through the CMS contract; playback must not depend on the
+  // original presentation being bundled in the frontend.
+  const content = JSON.parse(
+    await readFile("../cms/scripts/f4-content.json", "utf8"),
+  ) as { kind: string; data: { slug: string; [key: string]: unknown } }[];
+  cms = createServer((request, response) => {
+    const [, kind, slug] = new URL(request.url!, "http://localhost").pathname
+      .replace("/api/public-content", "")
+      .split("/");
+    const items = content.filter((item) => item.kind === kind);
+    const data = slug
+      ? items.find((item) => item.data.slug === slug)?.data
+      : items.map((item) => item.data);
+    response.writeHead(slug && !data ? 404 : 200, {
+      "Content-Type": "application/json",
+    });
+    response.end(
+      JSON.stringify({
+        data:
+          slug === "home" && data
+            ? {
+                ...data,
+                video: {
+                  url: `${origin}/media/sinegor-lab-preview.mp4`,
+                  mime: "video/mp4",
+                },
+              }
+            : data,
+      }),
+    );
+  }).listen(0, "127.0.0.1");
+  await once(cms, "listening");
+  const cmsOrigin = `http://127.0.0.1:${(cms.address() as AddressInfo).port}`;
   const reservation = createServer().listen(0, "127.0.0.1");
   await once(reservation, "listening");
   const port = (reservation.address() as AddressInfo).port;
@@ -46,7 +81,8 @@ test.beforeAll(async () => {
         NODE_ENV: "production",
         HOST: "127.0.0.1",
         PORT: String(port),
-        CMS_ORIGIN: "",
+        CMS_ORIGIN: cmsOrigin,
+        CMS_MEDIA_ORIGIN: origin,
         PUBLIC_ORIGIN: origin,
         YANDEX_METRIKA_ENABLED: "true",
         YANDEX_METRIKA_ID: "12345678",
@@ -65,10 +101,15 @@ test.beforeAll(async () => {
     .toBe(200);
 });
 test.afterAll(async () => {
-  if (!server || server.exitCode !== null) return;
-  const exited = once(server, "exit");
-  server.kill("SIGTERM");
-  await exited;
+  if (server && server.exitCode === null) {
+    const exited = once(server, "exit");
+    server.kill("SIGTERM");
+    await exited;
+  }
+  if (cms) {
+    cms.closeAllConnections();
+    await new Promise<void>((resolve) => cms.close(() => resolve()));
+  }
 });
 
 test.beforeEach(async ({ context }) => {

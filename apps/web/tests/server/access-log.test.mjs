@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { createServer, request } from "node:http";
 import { after, before, test } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
@@ -315,11 +315,20 @@ test("SSR assets, HEAD, gzip, resource routes and discovery remain available", a
 });
 
 test("an interrupted static response still emits exactly one private diagnostic record", async () => {
-  const assets = await readdir(
-    new URL("../../build/client/assets/", import.meta.url),
+  const directory = new URL("../../build/client/assets/", import.meta.url);
+  const assets = await Promise.all(
+    (await readdir(directory))
+      .filter((file) => /\.(png|jpg|js)$/.test(file))
+      .map(async (file) => ({
+        file,
+        size: (await stat(new URL(file, directory))).size,
+      })),
   );
-  const video = assets.find((file) => file.endsWith(".mp4"));
-  assert.ok(video);
+  const asset = assets.sort((a, b) => b.size - a.size)[0];
+  assert.ok(
+    asset?.size > 256 * 1024,
+    "A large static asset exercises interruption",
+  );
   const start = stdout.length,
     errorStart = stderr.length;
   await new Promise((resolve, reject) => {
@@ -327,7 +336,7 @@ test("an interrupted static response still emits exactly one private diagnostic 
       {
         host: "127.0.0.1",
         port,
-        path: `/assets/${encodeURIComponent(video)}?q=${encodeURIComponent(markers[0])}`,
+        path: `/assets/${encodeURIComponent(asset.file)}?q=${encodeURIComponent(markers[0])}`,
       },
       (res) => {
         res.once("data", () => res.destroy());

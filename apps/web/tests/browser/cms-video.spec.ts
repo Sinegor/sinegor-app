@@ -11,9 +11,14 @@ test("home reloads its video after CMS replacement and removal", async ({
   page,
 }) => {
   let version: number | null = 1;
+  let offline = false;
   const movie = await readFile("public/media/sinegor-lab-preview.mp4");
   const cms = createServer((request, response) => {
     const path = new URL(request.url!, "http://localhost").pathname;
+    if (offline) {
+      response.writeHead(503).end();
+      return;
+    }
     if (path.startsWith("/uploads/")) {
       if (path === "/uploads/2.mp4") {
         response.writeHead(404).end();
@@ -37,6 +42,7 @@ test("home reloads its video after CMS replacement and removal", async ({
             video: version
               ? { url: `/uploads/${version}.mp4`, mime: "video/mp4" }
               : null,
+            videoCaption: "Презентация из CMS",
           },
         }),
       );
@@ -81,6 +87,38 @@ test("home reloads its video after CMS replacement and removal", async ({
         video.evaluate((element: HTMLVideoElement) => element.currentSrc),
       )
       .toBe(`${cmsOrigin}/uploads/1.mp4`);
+    await expect(video).toHaveAttribute("controls", "");
+    await expect(video).toHaveAttribute("playsinline", "");
+    await expect(page.locator("figcaption")).toHaveText("Презентация из CMS");
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await video.evaluate(async (element: HTMLVideoElement) => {
+        element.currentTime = 0;
+        element.muted = false;
+        element.volume = 0.5;
+        await element.play();
+      });
+      await expect
+        .poll(() =>
+          video.evaluate((element: HTMLVideoElement) => element.currentTime),
+        )
+        .toBeGreaterThan(0);
+      await video.evaluate((element: HTMLVideoElement) => {
+        element.pause();
+        element.currentTime = element.duration / 2;
+      });
+      await expect
+        .poll(() =>
+          video.evaluate((element: HTMLVideoElement) => element.seeking),
+        )
+        .toBe(false);
+      expect(
+        await video.evaluate((element: HTMLVideoElement) => element.muted),
+      ).toBe(false);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(width);
+    }
     version = 2;
     await page.locator(".brand").click();
     await expect(
@@ -108,13 +146,26 @@ test("home reloads its video after CMS replacement and removal", async ({
     await expect(
       page.getByRole("heading", { name: "Видео удалено", exact: true }),
     ).toBeVisible();
-    await expect
-      .poll(() =>
-        video.evaluate((element: HTMLVideoElement) => element.currentSrc),
-      )
-      .toMatch(
-        new RegExp(`/assets/${encodeURI("Презентация_1")}\\.1.*\\.mp4$`),
-      );
+    await expect(video.locator("source")).toHaveCount(0);
+    await expect(video).not.toHaveAttribute("controls");
+    await expect(page.locator(".hero-video").getByRole("status")).toContainText(
+      "Видеопрезентация пока недоступна",
+    );
+    expect(
+      await video.evaluate((element: HTMLVideoElement) => element.currentSrc),
+    ).toBe("");
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    offline = true;
+    const unavailable = await page.goto(origin);
+    expect(unavailable?.status()).toBe(503);
+    await expect(page.locator("h1")).toHaveText("Не удалось открыть страницу");
+    await page.route("**/api/auth/session", (route) =>
+      route.fulfill({ status: 401, json: {} }),
+    );
+    await page.goto(`${origin}/auth/admin`);
+    await expect(
+      page.getByRole("heading", { name: "Вход администратора" }),
+    ).toBeVisible();
   } finally {
     const exited = once(server, "exit");
     server.kill("SIGTERM");

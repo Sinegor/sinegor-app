@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import presentation from "../../assets/Презентация_1.1.mp4";
 import presentationPoster from "../../assets/заставка.jpg";
 import { Notice } from "./ui";
 import { useAnalytics } from "./public-analytics";
 
 // Remount the media state when an editor replaces the CMS video.
 export function VideoPresentation({
-  src = presentation,
+  src,
   type = "video/mp4",
   poster = presentationPoster,
   caption = "Видеопрезентация SINEGOR LAB.",
@@ -18,8 +17,8 @@ export function VideoPresentation({
 }) {
   return (
     <PresentationMedia
-      key={src}
-      src={src}
+      key={src?.trim() || undefined}
+      src={src?.trim() || undefined}
       type={type}
       poster={poster}
       caption={caption}
@@ -33,7 +32,7 @@ function PresentationMedia({
   poster,
   caption,
 }: {
-  src: string;
+  src?: string;
   type: string;
   poster: string;
   caption: string;
@@ -45,11 +44,12 @@ function PresentationMedia({
     // SSR media requests can fail before React attaches the error handlers.
     const video = videoRef.current;
     if (
-      video?.error ||
-      video?.networkState === HTMLMediaElement.NETWORK_NO_SOURCE
+      src &&
+      (video?.error ||
+        video?.networkState === HTMLMediaElement.NETWORK_NO_SOURCE)
     )
       setFailed(true);
-  }, []);
+  }, [src]);
   return (
     <figure className="hero-video">
       <div className="video-heading">
@@ -58,7 +58,7 @@ function PresentationMedia({
       </div>
       <video
         ref={videoRef}
-        controls
+        controls={!!src}
         playsInline
         preload="metadata"
         poster={poster}
@@ -66,11 +66,16 @@ function PresentationMedia({
         onPlaying={() => analytics("video_presentation_view")}
         onError={() => setFailed(true)}
       >
-        <source src={src} type={type} onError={() => setFailed(true)} />
-        Ваш браузер не поддерживает видео. <a href={src}>Скачать ролик</a>
+        {src && (
+          <>
+            <source src={src} type={type} onError={() => setFailed(true)} />
+            Ваш браузер не поддерживает видео. <a href={src}>Скачать ролик</a>
+          </>
+        )}
       </video>
       <figcaption>{caption}</figcaption>
-      {failed && (
+      {!src && <Notice>Видеопрезентация пока недоступна.</Notice>}
+      {src && failed && (
         <Notice error>
           Не удалось загрузить видео. <a href={src}>Открыть видео отдельно</a>
           {" или обновите страницу, чтобы повторить загрузку."}

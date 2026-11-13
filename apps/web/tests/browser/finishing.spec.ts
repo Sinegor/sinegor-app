@@ -2,20 +2,19 @@ import { test, expect } from "@playwright/test";
 import { mockApi, customerId, orderId } from "./mock-api";
 import { customerApi, customerOrderId } from "./customer-api";
 
-test("an unavailable presentation explains the failure and offers its direct URL", async ({
+test("a missing CMS presentation keeps the layout without a broken download link", async ({
   page,
 }) => {
-  await page.route("**/assets/*.mp4", (route) => route.abort());
   await page.goto("/");
-  const error = page.getByRole("alert");
-  await expect(error).toContainText("Не удалось загрузить видео");
-  await expect(
-    error.getByRole("link", { name: "Открыть видео отдельно" }),
-  ).toHaveAttribute(
-    "href",
-    new RegExp(`${encodeURI("Презентация_1")}\\.1.*\\.mp4$`),
+  await expect(page.locator(".hero-video").getByRole("status")).toContainText(
+    "Видеопрезентация пока недоступна",
   );
-  await expect(page.locator("video")).toHaveAttribute("controls", "");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator("video source")).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Открыть видео отдельно" }),
+  ).toHaveCount(0);
+  await expect(page.locator(".hero-video")).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Запросить консультацию", exact: true }),
   ).toBeVisible();
