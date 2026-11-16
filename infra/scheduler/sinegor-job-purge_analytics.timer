@@ -1,0 +1,12 @@
+[Unit]
+Description=SINEGOR analytics retention daily
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 Europe/Moscow
+OnBootSec=5min
+AccuracySec=1s
+Persistent=true
+Unit=sinegor-job@purge_analytics.service
+
+[Install]
+WantedBy=timers.target

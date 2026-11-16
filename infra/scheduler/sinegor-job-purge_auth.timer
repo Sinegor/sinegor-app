@@ -1,0 +1,12 @@
+[Unit]
+Description=SINEGOR expired authentication state daily
+
+[Timer]
+OnCalendar=*-*-* 03:05:00 Europe/Moscow
+OnBootSec=4min
+AccuracySec=1s
+Persistent=true
+Unit=sinegor-job@purge_auth.service
+
+[Install]
+WantedBy=timers.target

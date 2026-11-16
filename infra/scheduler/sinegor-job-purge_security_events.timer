@@ -1,0 +1,12 @@
+[Unit]
+Description=SINEGOR restricted security journal retention daily
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 Europe/Moscow
+OnBootSec=6min
+AccuracySec=1s
+Persistent=true
+Unit=sinegor-job@purge_security_events.service
+
+[Install]
+WantedBy=timers.target

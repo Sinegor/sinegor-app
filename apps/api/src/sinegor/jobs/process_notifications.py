@@ -9,18 +9,16 @@ from sinegor.db import models  # noqa: F401
 from sinegor.db.session import create_db_engine, create_session_factory
 from sinegor.integrations.email.smtp import SMTPAuthMailer
 from sinegor.integrations.telegram.client import TelegramNotifier
+from sinegor.jobs.runtime import run_job
 from sinegor.modules.notifications.service import process_pending, queue_deletion_reminders
 
 logger = logging.getLogger(__name__)
 
 
-def main() -> int:
-    # Set safe logging before settings validation: validation errors can contain secrets.
-    configure_logging("INFO")
+def _run(settings) -> int:
     started = perf_counter()
     logger.info("notifications_run_started")
     try:
-        settings = load_settings()
         configure_logging(settings.log_level)
         logger.setLevel(logging.INFO)
         engine = create_db_engine(settings)
@@ -48,6 +46,10 @@ def main() -> int:
         extra={"duration_ms": round((perf_counter() - started) * 1000, 2)},
     )
     return 0
+
+
+def main() -> int:
+    return run_job("process_notifications", load_settings, _run)
 
 
 if __name__ == "__main__":

@@ -7,11 +7,11 @@ from sqlalchemy import delete
 from sinegor.core.config import load_settings
 from sinegor.db import models  # noqa: F401 -- register relationships in this standalone CLI
 from sinegor.db.session import create_db_engine, create_session_factory
+from sinegor.jobs.runtime import run_job
 from sinegor.modules.auth.models import AuthRateLimit, AuthToken, Session
 
 
-def main() -> None:
-    settings = load_settings()
+def _run(settings) -> None:
     now = datetime.now(UTC)
     engine = create_db_engine(settings)
     try:
@@ -30,5 +30,9 @@ def main() -> None:
     print("Expired authentication state removed")
 
 
+def main() -> int:
+    return run_job("purge_auth", load_settings, _run)
+
+
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

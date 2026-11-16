@@ -1,0 +1,12 @@
+[Unit]
+Description=SINEGOR temporary PDF cleanup every ten minutes
+
+[Timer]
+OnCalendar=*-*-* *:0/10:00 Europe/Moscow
+OnBootSec=3min
+AccuracySec=1s
+Persistent=true
+Unit=sinegor-job@cleanup_agreements.service
+
+[Install]
+WantedBy=timers.target

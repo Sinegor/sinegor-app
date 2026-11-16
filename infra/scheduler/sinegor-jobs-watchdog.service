@@ -1,0 +1,18 @@
+[Unit]
+Description=SINEGOR scheduler and queue read-only diagnostic
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/sinegor/jobs.env
+ExecStart=/usr/bin/python3 /usr/local/lib/sinegor/run_jobs.py check
+TimeoutStartSec=180s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sinegor-jobs-watchdog

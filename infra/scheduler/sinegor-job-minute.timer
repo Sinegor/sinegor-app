@@ -1,0 +1,12 @@
+[Unit]
+Description=SINEGOR orders then notifications every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00 Europe/Moscow
+OnBootSec=2min
+AccuracySec=1s
+Persistent=true
+Unit=sinegor-job@minute.service
+
+[Install]
+WantedBy=timers.target

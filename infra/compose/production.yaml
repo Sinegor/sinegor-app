@@ -36,7 +36,7 @@ services:
 
   api:
     <<: *app
-    image: sinegor-api:${IMAGE_TAG:-local}
+    image: sinegor-api:${API_IMAGE_TAG:-${IMAGE_TAG:-local}}
     build: ../../apps/api
     env_file: ["${API_ENV_FILE:?required}"]
     environment:
@@ -52,7 +52,7 @@ services:
   # Explicit one-shot operation; never runs automatically with the HTTP server.
   migrate:
     <<: *app
-    image: sinegor-api:${IMAGE_TAG:-local}
+    image: sinegor-api:${API_IMAGE_TAG:-${IMAGE_TAG:-local}}
     profiles: ["tools"]
     restart: "no"
     env_file: ["${API_ENV_FILE:?required}"]
@@ -62,6 +62,19 @@ services:
     networks: [database]
     depends_on:
       postgres: {condition: service_healthy}
+    healthcheck: {disable: true}
+
+  # Same image/UID and lock volume; only this one-shot uses the restricted cleanup role.
+  security_cleanup:
+    <<: *app
+    image: sinegor-api:${API_IMAGE_TAG:-${IMAGE_TAG:-local}}
+    profiles: ["tools"]
+    restart: "no"
+    env_file: ["${API_ENV_FILE:?required}", "${SECURITY_CLEANUP_ENV_FILE:-/dev/null}"]
+    command: ["python", "-m", "sinegor.jobs.purge_security_events"]
+    volumes:
+      - agreements:/var/lib/sinegor/agreements
+    networks: [database]
     healthcheck: {disable: true}
 
   cms:

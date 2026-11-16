@@ -67,12 +67,19 @@ def is_referenced(db: Session, key: str) -> bool:
     )
 
 
-def cleanup_files(db: Session, storage: AgreementStorage, order_id: UUID | None = None) -> int:
+def cleanup_files(
+    db: Session,
+    storage: AgreementStorage,
+    order_id: UUID | None = None,
+    *,
+    raise_on_error: bool = False,
+) -> int:
     statement = select(AgreementFileDeletion).order_by(AgreementFileDeletion.id)
     if order_id is not None:
         statement = statement.where(AgreementFileDeletion.order_id == order_id)
     pending = db.scalars(statement.with_for_update(skip_locked=True)).all()
     removed = 0
+    failed = False
     for item in pending:
         if is_referenced(db, item.file_key):
             continue  # Even an erroneous queue item must never delete an active/final PDF.
@@ -80,11 +87,15 @@ def cleanup_files(db: Session, storage: AgreementStorage, order_id: UUID | None 
             storage.delete(item.file_key)
         except AgreementStorageError:
             logger.error("agreement_file_cleanup_failed")
+            failed = True
             continue
         db.delete(item)
         record_event(db, db.get(Order, item.order_id), "agreement_file_deleted")
         removed += 1
     db.commit()
+    if failed and raise_on_error:
+        # Successful removals stay committed; failed entries remain available for retry.
+        raise AgreementStorageError("Obsolete PDF cleanup incomplete")
     return removed
 
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=Check SINEGOR scheduler and queues every minute
+
+[Timer]
+OnBootSec=8min
+OnUnitActiveSec=1min
+AccuracySec=1s
+Unit=sinegor-jobs-watchdog.service
+
+[Install]
+WantedBy=timers.target

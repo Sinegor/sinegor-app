@@ -1,0 +1,12 @@
+[Unit]
+Description=SINEGOR approved business retention daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Europe/Moscow
+OnBootSec=7min
+AccuracySec=1s
+Persistent=true
+Unit=sinegor-job@cleanup_business.service
+
+[Install]
+WantedBy=timers.target
