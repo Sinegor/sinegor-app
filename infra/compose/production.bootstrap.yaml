@@ -1,0 +1,5 @@
+services:
+  proxy:
+    command: ["nginx", "-c", "/etc/nginx/sinegor/nginx.bootstrap.conf", "-g", "daemon off;"]
+    ports: !override
+      - "185.250.46.93:80:8080"

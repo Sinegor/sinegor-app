@@ -158,7 +158,18 @@ class RetentionTests(unittest.TestCase):
         from unittest.mock import patch
 
         tool = self.module()
-        with patch.object(tool, "restic_environment"), patch.object(tool, "run") as run:
+        snapshot, old_snapshot = "a" * 64, "b" * 64
+        def external(command, **kwargs):
+            if command[1] == "forget" and "--dry-run" in command:
+                return json.dumps([{"keep": [{"id": snapshot}],
+                                    "remove": [{"id": old_snapshot}]}]).encode()
+            return b""
+        with (
+            patch.object(tool, "restic_environment"),
+            patch.object(tool, "run", side_effect=external) as run,
+            patch.object(tool, "managed_snapshot_ids", return_value={snapshot, old_snapshot}),
+            patch.object(tool, "verify_snapshot"),
+        ):
             tool.rotate(SimpleNamespace(execute=False))
             command = run.call_args.args[0]
             self.assertIn("--dry-run", command)

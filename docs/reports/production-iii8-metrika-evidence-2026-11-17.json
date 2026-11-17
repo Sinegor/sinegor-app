@@ -1,0 +1,241 @@
+{
+  "deployment": {
+    "counter_id": 114298562,
+    "code_changed": false,
+    "build_required": false,
+    "applied": true,
+    "rollback_performed": false,
+    "kept_enabled": true,
+    "original_environment": {
+      "YANDEX_METRIKA_ENABLED": "false",
+      "YANDEX_METRIKA_ID": ""
+    },
+    "before": {
+      "web": {
+        "id": "396e3a9765ff75383cfa403b161db3fda5741f0d59487010ae5e403e6b2ca864",
+        "image": "sha256:14974bbd98593514e92a9fe0f229598d3fb075cc153ea576524a014565998b81",
+        "status": "running",
+        "health": "healthy"
+      },
+      "proxy": {
+        "id": "6cafd5fd4cbbc36ec8ceb7c3cd73d2e6fbfe59cbfc3ff70b0e52bb7ba1736816",
+        "image": "sha256:c97ff0bf7cbae369953c6da1232ec14ad9f971d66360c5698db0856a4cd657a0",
+        "status": "running",
+        "health": "healthy"
+      },
+      "api": {
+        "id": "1c3ce486ee4e0d857002cfe9e508a6a10abf30896cfc58117a0cae7258d55ead",
+        "image": "sha256:5e0106f6a5b0c99b693301dc31c8b872afcbeac76248a1c81d66b068cd4a7488",
+        "status": "running",
+        "health": "healthy"
+      },
+      "cms": {
+        "id": "885be4e4de6bf33212a3d58e08eae68cc7061f422cd228e7c2f4d986751ab560",
+        "image": "sha256:7dce90c402009116cea26cb36c4eb615862274f138fbd14bd7c7c2774eef3802",
+        "status": "running",
+        "health": "healthy"
+      },
+      "postgres": {
+        "id": "f763c12955fa09136abc37f1530628a1367c4684866e647e7b0ba8203333c3ee",
+        "image": "sha256:4b7183ac05f8ef417db21fd72d71047a4238340c261d3cc3ddb6d579ab5071ae",
+        "status": "running",
+        "health": "healthy"
+      }
+    },
+    "running_bundle_preflight": {
+      "runtime": true,
+      "features": true
+    },
+    "https_checks": [
+      {
+        "enabled_expected": false,
+        "attempts": [
+          {
+            "/": 200,
+            "/publications": 200,
+            "/documents": 200,
+            "/auth/login": 200,
+            "/api/health/live": 200,
+            "/api/health/ready": 200
+          }
+        ]
+      },
+      {
+        "enabled_expected": true,
+        "attempts": [
+          {
+            "/": 200,
+            "/publications": 200,
+            "/documents": 200,
+            "/auth/login": 200,
+            "/api/health/live": 200,
+            "/api/health/ready": 200
+          }
+        ]
+      },
+      {
+        "enabled_expected": true,
+        "attempts": [
+          {
+            "/": 200,
+            "/publications": 200,
+            "/documents": 200,
+            "/auth/login": 200,
+            "/api/health/live": 200,
+            "/api/health/ready": 200
+          }
+        ]
+      }
+    ],
+    "ssr_counter_id_present": true,
+    "before_site": {
+      "/": 200,
+      "/publications": 200,
+      "/documents": 200,
+      "/auth/login": 200,
+      "/api/health/live": 200,
+      "/api/health/ready": 200
+    },
+    "phase": "accepted_enabled",
+    "compose_changes_only_two_metrika_parameters": true,
+    "after": {
+      "web": {
+        "id": "4b64a1aded840249d04aaf4b643cfcc11b1af4cd97681fd063ff206a4e26287a",
+        "image": "sha256:14974bbd98593514e92a9fe0f229598d3fb075cc153ea576524a014565998b81",
+        "status": "running",
+        "health": "healthy"
+      },
+      "proxy": {
+        "id": "6cafd5fd4cbbc36ec8ceb7c3cd73d2e6fbfe59cbfc3ff70b0e52bb7ba1736816",
+        "image": "sha256:c97ff0bf7cbae369953c6da1232ec14ad9f971d66360c5698db0856a4cd657a0",
+        "status": "running",
+        "health": "healthy"
+      },
+      "api": {
+        "id": "1c3ce486ee4e0d857002cfe9e508a6a10abf30896cfc58117a0cae7258d55ead",
+        "image": "sha256:5e0106f6a5b0c99b693301dc31c8b872afcbeac76248a1c81d66b068cd4a7488",
+        "status": "running",
+        "health": "healthy"
+      },
+      "cms": {
+        "id": "885be4e4de6bf33212a3d58e08eae68cc7061f422cd228e7c2f4d986751ab560",
+        "image": "sha256:7dce90c402009116cea26cb36c4eb615862274f138fbd14bd7c7c2774eef3802",
+        "status": "running",
+        "health": "healthy"
+      },
+      "postgres": {
+        "id": "f763c12955fa09136abc37f1530628a1367c4684866e647e7b0ba8203333c3ee",
+        "image": "sha256:4b7183ac05f8ef417db21fd72d71047a4238340c261d3cc3ddb6d579ab5071ae",
+        "status": "running",
+        "health": "healthy"
+      }
+    },
+    "after_site": {
+      "/": 200,
+      "/publications": 200,
+      "/documents": 200,
+      "/auth/login": 200,
+      "/api/health/live": 200,
+      "/api/health/ready": 200
+    },
+    "active_environment": {
+      "YANDEX_METRIKA_ENABLED": "true",
+      "YANDEX_METRIKA_ID": "114298562"
+    },
+    "final": {
+      "web": {
+        "id": "4b64a1aded840249d04aaf4b643cfcc11b1af4cd97681fd063ff206a4e26287a",
+        "image": "sha256:14974bbd98593514e92a9fe0f229598d3fb075cc153ea576524a014565998b81",
+        "status": "running",
+        "health": "healthy"
+      },
+      "proxy": {
+        "id": "6cafd5fd4cbbc36ec8ceb7c3cd73d2e6fbfe59cbfc3ff70b0e52bb7ba1736816",
+        "image": "sha256:c97ff0bf7cbae369953c6da1232ec14ad9f971d66360c5698db0856a4cd657a0",
+        "status": "running",
+        "health": "healthy"
+      },
+      "api": {
+        "id": "1c3ce486ee4e0d857002cfe9e508a6a10abf30896cfc58117a0cae7258d55ead",
+        "image": "sha256:5e0106f6a5b0c99b693301dc31c8b872afcbeac76248a1c81d66b068cd4a7488",
+        "status": "running",
+        "health": "healthy"
+      },
+      "cms": {
+        "id": "885be4e4de6bf33212a3d58e08eae68cc7061f422cd228e7c2f4d986751ab560",
+        "image": "sha256:7dce90c402009116cea26cb36c4eb615862274f138fbd14bd7c7c2774eef3802",
+        "status": "running",
+        "health": "healthy"
+      },
+      "postgres": {
+        "id": "f763c12955fa09136abc37f1530628a1367c4684866e647e7b0ba8203333c3ee",
+        "image": "sha256:4b7183ac05f8ef417db21fd72d71047a4238340c261d3cc3ddb6d579ab5071ae",
+        "status": "running",
+        "health": "healthy"
+      }
+    },
+    "final_site": {
+      "/": 200,
+      "/publications": 200,
+      "/documents": 200,
+      "/auth/login": 200,
+      "/api/health/live": 200,
+      "/api/health/ready": 200
+    }
+  },
+  "regression": {
+    "exit_code": 0,
+    "passed": 19,
+    "expected": 19,
+    "node_version": "24.11.0",
+    "vitest_version": "3.2.7",
+    "duration_seconds": 1.161,
+    "source": "VPS authoritative tests; diagnostic dependencies only",
+    "suite": [
+      "tests/analytics.test.ts",
+      "tests/analytics-consent.test.ts"
+    ]
+  },
+  "source_files_unchanged": true,
+  "source_file_count": 12,
+  "temporary_tooling_removed": [
+    "node-v24.11.0-linux-x64",
+    "node-v24.11.0-linux-x64.tar.xz",
+    "web-tools",
+    "npm-cache",
+    "vite-cache",
+    "npm.user.conf",
+    "npm.global.conf"
+  ],
+  "diagnostic_directory": "/home/sinegoradmin/apps/sinegor-app-artifacts/diagnostics/III-8-metrika-20261117",
+  "counter_id": 114298562,
+  "metrika_task_accepted": true,
+  "overall_iii8_complete": false,
+  "date_moscow": "2026-11-17",
+  "browser_evidence_file": "production-iii8-metrika-browser-evidence-2026-11-17.json",
+  "browser_required_tests": {
+    "withoutConsent": true,
+    "afterConsent": true,
+    "privateRoutes": true,
+    "withdrawal": true
+  },
+  "additional_ui_return_passed": true,
+  "authenticated_private_pages_checked": false,
+  "published_tags_absent_owner_confirmation": true,
+  "counter_ui_statistics_checked": false,
+  "manual_goals_created": false,
+  "existing_goal_identifiers": [
+    "consultation_open",
+    "consultation_submit",
+    "service_view",
+    "video_presentation_view"
+  ],
+  "remarks": [
+    "Auxiliary SDK requests to mdd.yandex.net failed with ERR_CERT_AUTHORITY_INVALID; no TLS bypass; main pageviews received HTTP 200.",
+    "Some preliminary browser runs had transport failures and diagnostic classification errors; original observations retained.",
+    "Authorized private pages were unavailable; unauthenticated transitions and source restrictions were checked."
+  ],
+  "application_code_changed": false,
+  "git_modified": false,
+  "total_web_recreations": 3
+}

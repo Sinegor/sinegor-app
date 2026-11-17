@@ -1,0 +1,411 @@
+{
+  "task": "production-storage-final",
+  "date": "2026-11-17",
+  "phases": [
+    "preflight_verified",
+    "proxy_recreated_using_repository_config",
+    "comprehensive_checks_passed",
+    "five_originals_removed_and_dependencies_verified"
+  ],
+  "application_source_modified": false,
+  "git_mutations": false,
+  "migrations_run": false,
+  "certbot_renewal_run": false,
+  "docker_restart": false,
+  "vps_reboot": false,
+  "success": true,
+  "observed_at": "2026-11-17T01:20:26.929006+03:00",
+  "deleted_originals": [
+    "/home/sinegoradmin/apps/sinegor-app-private/https/production.https.yaml",
+    "/home/sinegoradmin/apps/sinegor-app-private/https/production.bootstrap.yaml",
+    "/home/sinegoradmin/apps/sinegor-app-private/https/nginx/nginx.https.conf",
+    "/home/sinegoradmin/apps/sinegor-app-private/https/nginx/nginx.bootstrap.conf",
+    "/home/sinegoradmin/apps/sinegor-app-private/https/deploy-tls.py"
+  ],
+  "compatibility_link": {
+    "path": "/home/sinegoradmin/apps/sinegor-app-private/https/production.https.yaml",
+    "target": "/home/sinegoradmin/apps/sinegor-app/infra/compose/production.https.yaml"
+  },
+  "empty_nginx_directory_removed": true,
+  "checks": {
+    "compose_final": true,
+    "compose_bootstrap": true,
+    "nginx_syntax": true,
+    "https": {
+      "fastapi": 200,
+      "ssr": 200,
+      "strapi": 204,
+      "public_content": 200,
+      "admin_without_client_certificate": 403
+    },
+    "mtls_admin_with_certificate": 200,
+    "native_strapi_without_login": 401,
+    "certbot_timer_enabled_active": true,
+    "renewal_config_preserved": true,
+    "tls_certificate_valid_over_24h": true,
+    "system_hook_unchanged": true,
+    "scheduler_host_issues": [],
+    "scheduler_status": "ok",
+    "other_four_containers_unchanged": true,
+    "all_images_unchanged": true,
+    "volumes_unchanged": true,
+    "internal_ports_unpublished": true,
+    "container_compose_references_resolve": true,
+    "category_c_old_paths_absent": true
+  },
+  "containers_after": {
+    "sinegor-lab-prod-api-1": {
+      "id": "1c3ce486ee4e0d857002cfe9e508a6a10abf30896cfc58117a0cae7258d55ead",
+      "image": "sha256:5e0106f6a5b0c99b693301dc31c8b872afcbeac76248a1c81d66b068cd4a7488",
+      "ports": {},
+      "user": "10001:10001",
+      "read_only": false,
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "cmd": [
+        "python",
+        "-m",
+        "uvicorn",
+        "sinegor.main:create_app",
+        "--factory",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--no-access-log",
+        "--proxy-headers"
+      ],
+      "labels": {
+        "com.docker.compose.project.config_files": "/home/sinegoradmin/apps/sinegor-app/infra/compose/production.yaml,/home/sinegoradmin/apps/sinegor-app-private/https/production.https.yaml",
+        "com.docker.compose.project.working_dir": "/home/sinegoradmin/apps/sinegor-app/infra/compose"
+      },
+      "mounts": [
+        {
+          "source": "/var/lib/docker/volumes/sinegor-lab-prod_agreements/_data",
+          "target": "/var/lib/sinegor/agreements",
+          "type": "volume",
+          "name": "sinegor-lab-prod_agreements",
+          "rw": true
+        },
+        {
+          "source": "/var/lib/docker/volumes/sinegor-lab-prod_destruction/_data",
+          "target": "/var/lib/sinegor/destruction",
+          "type": "volume",
+          "name": "sinegor-lab-prod_destruction",
+          "rw": true
+        }
+      ],
+      "networks": {
+        "sinegor-lab-prod_application": "172.30.85.130",
+        "sinegor-lab-prod_database": "172.18.0.4",
+        "sinegor-lab-prod_outbound": "172.19.0.2"
+      }
+    },
+    "sinegor-lab-prod-postgres-1": {
+      "id": "f763c12955fa09136abc37f1530628a1367c4684866e647e7b0ba8203333c3ee",
+      "image": "sha256:4b7183ac05f8ef417db21fd72d71047a4238340c261d3cc3ddb6d579ab5071ae",
+      "ports": {},
+      "user": "",
+      "read_only": false,
+      "security_opt": null,
+      "cap_drop": null,
+      "cmd": [
+        "postgres",
+        "-c",
+        "log_min_messages=warning",
+        "-c",
+        "log_min_error_statement=panic",
+        "-c",
+        "log_error_verbosity=terse",
+        "-c",
+        "log_statement=none",
+        "-c",
+        "log_parameter_max_length_on_error=0"
+      ],
+      "labels": {
+        "com.docker.compose.project.config_files": "/home/sinegoradmin/apps/sinegor-app/infra/compose/production.yaml",
+        "com.docker.compose.project.working_dir": "/home/sinegoradmin/apps/sinegor-app/infra/compose"
+      },
+      "mounts": [
+        {
+          "source": "/home/sinegoradmin/apps/sinegor-app/infra/postgres/init-production.sh",
+          "target": "/docker-entrypoint-initdb.d/10-sinegor.sh",
+          "type": "bind",
+          "name": null,
+          "rw": false
+        },
+        {
+          "source": "/var/lib/docker/volumes/sinegor-lab-prod_postgres_data/_data",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "name": "sinegor-lab-prod_postgres_data",
+          "rw": true
+        }
+      ],
+      "networks": {
+        "sinegor-lab-prod_database": "172.18.0.2"
+      }
+    },
+    "sinegor-lab-prod-cms-1": {
+      "id": "885be4e4de6bf33212a3d58e08eae68cc7061f422cd228e7c2f4d986751ab560",
+      "image": "sha256:7dce90c402009116cea26cb36c4eb615862274f138fbd14bd7c7c2774eef3802",
+      "ports": {},
+      "user": "node",
+      "read_only": false,
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "cmd": [
+        "npm",
+        "run",
+        "start"
+      ],
+      "labels": {
+        "com.docker.compose.project.config_files": "/home/sinegoradmin/apps/sinegor-app/infra/compose/production.yaml,/home/sinegoradmin/apps/sinegor-app-private/https/production.https.yaml",
+        "com.docker.compose.project.working_dir": "/home/sinegoradmin/apps/sinegor-app/infra/compose"
+      },
+      "mounts": [
+        {
+          "source": "/var/lib/docker/volumes/sinegor-lab-prod_cms_uploads/_data",
+          "target": "/app/public/uploads",
+          "type": "volume",
+          "name": "sinegor-lab-prod_cms_uploads",
+          "rw": true
+        }
+      ],
+      "networks": {
+        "sinegor-lab-prod_application": "172.30.85.131",
+        "sinegor-lab-prod_database": "172.18.0.3"
+      }
+    },
+    "sinegor-lab-prod-web-1": {
+      "id": "f4d4c9333c2d7230dee7b01ed708813a056299bbf837c294ea4fe668dc5fd303",
+      "image": "sha256:14974bbd98593514e92a9fe0f229598d3fb075cc153ea576524a014565998b81",
+      "ports": {},
+      "user": "node",
+      "read_only": false,
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "cmd": [
+        "node",
+        "server/index.js"
+      ],
+      "labels": {
+        "com.docker.compose.project.config_files": "/home/sinegoradmin/apps/sinegor-app/infra/compose/production.yaml",
+        "com.docker.compose.project.working_dir": "/home/sinegoradmin/apps/sinegor-app/infra/compose"
+      },
+      "mounts": [],
+      "networks": {
+        "sinegor-lab-prod_application": "172.30.85.129"
+      }
+    },
+    "sinegor-lab-prod-proxy-1": {
+      "id": "6cafd5fd4cbbc36ec8ceb7c3cd73d2e6fbfe59cbfc3ff70b0e52bb7ba1736816",
+      "image": "sha256:c97ff0bf7cbae369953c6da1232ec14ad9f971d66360c5698db0856a4cd657a0",
+      "ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "185.250.46.93",
+            "HostPort": "80"
+          }
+        ],
+        "8443/tcp": [
+          {
+            "HostIp": "185.250.46.93",
+            "HostPort": "443"
+          }
+        ]
+      },
+      "user": "101",
+      "read_only": true,
+      "security_opt": [
+        "no-new-privileges:true"
+      ],
+      "cap_drop": [
+        "ALL"
+      ],
+      "cmd": [
+        "nginx",
+        "-c",
+        "/etc/nginx/sinegor/nginx.https.conf",
+        "-g",
+        "daemon off;"
+      ],
+      "labels": {
+        "com.docker.compose.project.config_files": "/home/sinegoradmin/apps/sinegor-app/infra/compose/production.yaml,/home/sinegoradmin/apps/sinegor-app/infra/compose/production.https.yaml",
+        "com.docker.compose.project.working_dir": "/home/sinegoradmin/apps/sinegor-app/infra/compose"
+      },
+      "mounts": [
+        {
+          "source": "/home/sinegoradmin/apps/sinegor-app/infra/proxy",
+          "target": "/etc/nginx/sinegor",
+          "type": "bind",
+          "name": null,
+          "rw": false
+        },
+        {
+          "source": "/var/lib/sinegor-lab-prod/client-ca",
+          "target": "/etc/nginx/sinegor-ca",
+          "type": "bind",
+          "name": null,
+          "rw": false
+        },
+        {
+          "source": "/var/lib/sinegor-lab-prod/tls",
+          "target": "/etc/nginx/sinegor-tls",
+          "type": "bind",
+          "name": null,
+          "rw": false
+        },
+        {
+          "source": "/var/lib/sinegor-lab-prod/acme",
+          "target": "/var/www/acme",
+          "type": "bind",
+          "name": null,
+          "rw": false
+        }
+      ],
+      "networks": {
+        "sinegor-lab-prod_application": "172.30.85.2",
+        "sinegor-lab-prod_edge": "172.20.0.2"
+      }
+    }
+  },
+  "scheduler_application": {
+    "event": "jobs_status",
+    "observed_at": "2026-11-16T22:20:24.066931+00:00",
+    "status": "ok",
+    "issues": [],
+    "jobs": {
+      "process_orders": {
+        "issues": [],
+        "started_at": "2026-11-16T22:20:06.341429+00:00",
+        "finished_at": "2026-11-16T22:20:06.667958+00:00",
+        "last_success_at": "2026-11-16T22:20:06.667958+00:00",
+        "status": "success",
+        "exit_code": 0,
+        "duration_ms": 313.62
+      },
+      "process_notifications": {
+        "issues": [],
+        "started_at": "2026-11-16T22:20:09.705541+00:00",
+        "finished_at": "2026-11-16T22:20:09.977700+00:00",
+        "last_success_at": "2026-11-16T22:20:09.977700+00:00",
+        "status": "success",
+        "exit_code": 0,
+        "duration_ms": 268.06
+      },
+      "cleanup_agreements": {
+        "issues": [],
+        "started_at": "2026-11-16T22:20:06.184729+00:00",
+        "finished_at": "2026-11-16T22:20:06.463059+00:00",
+        "last_success_at": "2026-11-16T22:20:06.463059+00:00",
+        "status": "success",
+        "exit_code": 0,
+        "duration_ms": 274.4
+      },
+      "purge_auth": {
+        "issues": [],
+        "started_at": "2026-11-16T17:02:45.134398+00:00",
+        "finished_at": "2026-11-16T17:02:45.416323+00:00",
+        "last_success_at": "2026-11-16T17:02:45.416323+00:00",
+        "status": "success",
+        "exit_code": 0,
+        "duration_ms": 278.43
+      },
+      "purge_analytics": {
+        "issues": [],
+        "started_at": "2026-11-16T17:03:44.681509+00:00",
+        "finished_at": "2026-11-16T17:03:44.915843+00:00",
+        "last_success_at": "2026-11-16T17:03:44.915843+00:00",
+        "status": "success",
+        "exit_code": 0,
+        "duration_ms": 226.2
+      },
+      "purge_security_events": {
+        "issues": [],
+        "started_at": "2026-11-16T17:04:44.880623+00:00",
+        "finished_at": "2026-11-16T17:04:45.238444+00:00",
+        "last_success_at": "2026-11-16T17:04:45.238444+00:00",
+        "status": "success",
+        "exit_code": 0,
+        "duration_ms": 354.63
+      },
+      "cleanup_business": {
+        "issues": [],
+        "started_at": "2026-11-16T17:05:45.512621+00:00",
+        "finished_at": "2026-11-16T17:05:45.827178+00:00",
+        "last_success_at": "2026-11-16T17:05:45.827178+00:00",
+        "status": "success",
+        "exit_code": 0,
+        "duration_ms": 309.5
+      }
+    },
+    "queues": {
+      "notifications_total": 0,
+      "notifications_ready": 0,
+      "notifications_late_ready": 0,
+      "notifications_late_unattempted": 0,
+      "notifications_past_deadline": 0,
+      "notifications_stale_leases": 0,
+      "notifications_failed": 0,
+      "notifications_expired": 0,
+      "agreement_file_deletions": 0,
+      "agreement_file_deletions_late": 0,
+      "retention_file_deletions": 0,
+      "retention_file_deletions_late": 0,
+      "destruction_documents_pending": 0,
+      "destruction_documents_late": 0,
+      "auth_tokens_expired": 0,
+      "auth_sessions_expired": 0,
+      "order_transitions_late": 0,
+      "deletion_requests_missing_late": 0,
+      "deletion_deferrals_late": 0
+    }
+  },
+  "client_proof": "/home/sinegoradmin/apps/sinegor-app-artifacts/diagnostics/production-layout-final-20261117-client-b6f5f3fe661f3b7d.json",
+  "new_audit_performed": false,
+  "unrelated_files_deleted": false,
+  "scheduler_timers_enabled_active": {
+    "sinegor-job-minute.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "sinegor-job-cleanup_agreements.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "sinegor-job-purge_auth.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "sinegor-job-purge_analytics.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "sinegor-job-purge_security_events.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "sinegor-job-cleanup_business.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    },
+    "sinegor-jobs-watchdog.timer": {
+      "ActiveState": "active",
+      "UnitFileState": "enabled"
+    }
+  },
+  "final_path_check_observed_at": "2026-11-17T01:22:33.589345+03:00"
+}

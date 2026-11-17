@@ -1,18 +1,50 @@
 # Инфраструктура
 
-Сейчас здесь dev-конфигурация PostgreSQL, подготовка отдельной CMS-БД и примеры расписаний. Полное развёртывание одного VPS по утверждённой архитектуре относится к T2.
+## Production: конфигурация в репозитории
 
-- `compose/backend.dev.yaml` — PostgreSQL 16, loopback-порт 5432 (или `POSTGRES_PORT`), постоянный dev-том и healthcheck.
-- `compose/cms.dev.yaml` — дополнение к backend Compose с `postgres/init-cms.sh`: создаёт отдельную роль и БД Strapi при первом старте пустого тома. Для существующего тома — `scripts/init-cms-db.sh` по [инструкции CMS](../apps/cms/README.md).
-- `caddy/`, `postgres/init/` — зарезервированные каталоги; готовых production-конфигураций в них нет.
-- `scheduler/` — образцы вызова CLI: `orders.cron.example` для переходов заказов, запросов удаления и истечения отсрочек B8; `agreements.cron.example` для очистки устаревших PDF B5; `notifications.cron.example` для очереди email/Telegram и напоминаний B7. Образцы не устанавливают расписание автоматически. Используйте рабочий dotenv и БД приложения; TEST_DATABASE_URL предназначен только для тестов. `purge_auth` можно запускать ежедневно для очистки истёкшей авторизации.
+Production работает на VPS в `/home/sinegoradmin/apps/sinegor-app`, Compose project — `sinegor-lab-prod`.
 
-Production Compose для web/api/cms/proxy пока отсутствует. Планируемые отдельные хранилища — PostgreSQL, закрытые соглашения и публичные CMS uploads. Соглашения доступны только через авторизованные API-маршруты. Публичный proxy должен направлять `/api/*` в FastAPI, остальные маршруты в SSR и не раскрывать CMS Admin. Vite делает API proxy только в dev; `npm start` web этого не делает.
+- `compose/production.yaml` — основной набор сервисов, сетей и постоянных томов.
+- `compose/production.https.yaml` — HTTPS override с конфигурацией Nginx из `infra/proxy`.
+- `compose/production.bootstrap.yaml` — override первоначального HTTP/ACME bootstrap.
+- `proxy/nginx.https.conf` и `proxy/nginx.bootstrap.conf` — соответствующие конфигурации Nginx.
+- `proxy/nginx.conf` — существующая базовая конфигурация; сохраняется.
+- `../scripts/deployment/deploy-tls.py` — исходник действующего Certbot deploy hook.
 
-Удаление материалов заказа на Диске требует отдельного подтверждения администратора и проверки безопасного disk_path. Очистка предварительных/отклонённых PDF соглашения выполняется автоматически после решения; окончательный PDF исключён из очистки. Redis, Celery и Kubernetes не требуются.
+Секреты и рабочие env остаются в `/home/sinegoradmin/apps/sinegor-app-private`, TLS/CA/ACME — в `/var/lib/sinegor-lab-prod`, Certbot accounts/renewal/live/archive — в `/etc/letsencrypt`. Эти данные не включаются в Git. Постоянные Docker volumes не перемещаются.
 
-Перед production нужны конфигурация сервисов и доверия proxy, TLS, секреты, установка расписаний, резервирование и проверка восстановления. Lock-файлы приложений уже существуют; image PostgreSQL в dev закреплён по major-тегу `postgres:16`. Он не является неизменяемым digest.
+Штатная команда из корня серверного репозитория:
 
-[E2E-контур](../tests/e2e/README.md) создаёт свой контейнер PostgreSQL с tmpfs и не использует dev Compose/тома.
+```bash
+docker compose \
+  -p sinegor-lab-prod \
+  --env-file /home/sinegoradmin/apps/sinegor-app-private/compose.env \
+  -f infra/compose/production.yaml \
+  -f infra/compose/production.https.yaml \
+  <операция>
+```
 
-Уведомления: подготовлены `scheduler/sinegor-notifications.{service,timer}` и независимый watchdog с `check_notifications.py`. Timer вызывает существующий CLI через Compose; перед включением требуется проверка очереди и явный `NOTIFICATION_QUEUE_REVIEWED=yes`. Конфигурация ссылается на будущий production Compose и требует адаптации на T2. Dev-сервер ничего не включает. Режимы, мониторинг и установка — в [инструкции](../docs/development/notification-scheduler.md).
+Относительные пути Compose считаются от каталога первого файла — `infra/compose`: build `../../apps/...`, Nginx bind `../proxy`. Не добавлять `--project-directory` с корнем репозитория: это меняет разрешение относительных путей.
+
+## Рабочие пути после реорганизации 17.11.2026
+
+Production использует infra/compose/production.https.yaml и read-only bind infra/proxy. В /etc/sinegor/jobs.env выбран этот же override. Пять прежних исходных файлов private/https удалены после проверки сохранённых экземпляров и приёмки production.
+
+Для исторических Docker labels API/CMS/web/DB оставлена одна совместимая ссылка private/https/production.https.yaml на YAML в репозитории. Это ссылка, а не дополнительная копия конфигурации. Пересоздан только proxy; образы и остальные четыре контейнера сохранены.
+
+Исходные экземпляры B сохранены в /home/sinegoradmin/sinegor-app-deployment-originals/category-b-20261117. Архив C находится в /home/sinegoradmin/apps/sinegor-app-artifacts/archive/ по этапам. Системный /usr/local/sbin/sinegor-lab-prod-deploy-tls и Certbot/TLS state не изменялись.
+
+Откат является отдельно согласуемой операцией: восстановить четыре прежних Compose/Nginx файла из сохранённых оригиналов, вернуть прежний selector /etc/sinegor/jobs.env и пересоздать только proxy со старым override. Ссылку заменять атомарно, не записывать через неё в Git-файл. БД, volumes, Git и приложение автоматически не откатывать.
+
+## Development и прочие инструменты
+
+- `compose/backend.dev.yaml` — dev PostgreSQL; `compose/cms.dev.yaml` добавляет подготовку CMS-БД.
+- `postgres/init-cms.sh` и `../scripts/init-cms-db.sh` — подготовка CMS; существующие БД при переносе не изменяются.
+- `scheduler/` — launcher и примеры systemd timers/CLI; наличие файлов не разрешает включать дополнительные расписания.
+- `../tests/e2e` — изолированный тестовый контур. При переносе категории B он не запускается.
+
+Существующие ограничения архитектуры, подтверждения удаления материалов и защиты итоговых соглашений сохраняются.
+
+## Исторические материалы этапов
+
+Целевое хранилище C — `/home/sinegoradmin/apps/sinegor-app-artifacts/archive/`, по каталогам `III-5/`, `III-6/`, `III-7/`. Материалы C, уже находящиеся вне private, этим переносом не затрагиваются. Актуальные пути III-7 и порядок разрешения старых архивных ссылок — в [инструкции восстановления scheduler](scheduler/RECOVERY.md). Сам перенос не переключает работающий production.

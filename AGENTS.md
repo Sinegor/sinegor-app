@@ -27,6 +27,27 @@ For subsequent user tasks, create completion reports in `docs/reports/`.
 This is standing authorization to create these reports without a separate request or confirmation.
 This authorization does not extend to changes to other project documentation.
 
+Уточнение владельца от 17.11.2026: документы о выполнении заданий ИИ-агентом
+(отчёты и сопровождающие материалы проверок без секретов) передавать на локальный
+хост Fedora в `/home/sinegor/documents/IT/Pet_project/sinegor-app/docs/reports/`,
+как и ранее. В итоговом ответе давать ссылки на фактически переданные локальные файлы.
+Копии на VPS могут сохраняться, но не заменяют передачу владельцу на локальный хост.
+Это разрешённое исключение из правила работы только на VPS для отчётных документов:
+исходный код, рабочие конфигурации и служебные скрипты продолжают изменяться на VPS.
+Секреты, ключи и приватные эксплуатационные архивы в комплект отчётов не включать.
+
+## Project File Storage
+
+Постоянные правила хранения владельца от 17.11.2026:
+
+- Файлы, подлежащие версионированию, включая исходный код, конфигурации, постоянные скрипты и техническую документацию, размещать в Git-репозитории `/home/sinegoradmin/apps/sinegor-app` на VPS.
+- В `/home/sinegoradmin/apps/sinegor-app-private` размещать только файлы, которые не должны попадать в Git и необходимы для приватной конфигурации приложения.
+- Временные, тестовые, диагностические и архивные материалы размещать в соответствующих каталогах `/home/sinegoradmin/apps/sinegor-app-artifacts`, а не в private. Исторические материалы последующих этапов хранить в `archive/`, по каталогам этапов, например `archive/III-7/`.
+- Действующие системные файлы и состояния служб сохранять в предназначенных для них системных каталогах.
+
+Правило передачи отчётов на локальный хост из раздела Task Reports сохраняется.
+Правила хранения сами по себе не разрешают удалять или перемещать существующие файлы вне порученного объёма.
+
 ## Architecture & Business Boundaries
 
 - Keep business logic in the modular FastAPI backend.
@@ -64,20 +85,16 @@ This authorization does not extend to changes to other project documentation.
 
 Do not load unrelated documentation solely because it is listed here.
 
-## Git Operations
+## SINEGOR LAB — правила работы ИИ-агента с исходным кодом и Git
 
-Git staging and commits are managed exclusively by the user.
+Постоянные правила владельца от 17.11.2026.
 
-- Read-only Git operations are allowed, including
-  `git status`, `git diff`, `git log`, and `git show`.
-- Do not stage or unstage files (`git add`, `git restore --staged`,
-  `git reset`).
-- Do not create, amend, or delete commits.
-- Do not perform Git operations that modify the index,
-  commit history, branches, or repository metadata.
-- Do not bypass these restrictions through scripts,
-  Skills, subagents, plugins, or MCP tools.
+1. Единственная рабочая среда разработки — VPS. Все дальнейшие изменения исходного кода, конфигураций и служебных скриптов выполнять непосредственно в репозитории `/home/sinegoradmin/apps/sinegor-app` на VPS.
+2. Локальная копия проекта на Fedora не является источником актуального кода. Агент должен игнорировать её отставание от серверной версии, не требовать синхронизации и не предлагать замену серверного кода локальным. За основу работы принимать фактическое состояние репозитория на VPS.
+3. Git — зона ответственности владельца проекта. Агент не выполняет самостоятельно `commit`, `push`, `pull`, `fetch`, `merge`, `rebase`, `reset`, `checkout` и другие операции Git, изменяющие состояние репозитория или его историю, если владелец прямо не поручил соответствующую операцию.
+4. Не запрашивать согласования по обычным вопросам Git. Агент самостоятельно выполняет порученные изменения файлов, не ожидая создания коммита или доставки изменений владельцем. Не требовать commit ID для продолжения работы, если это не обусловлено реальной технической необходимостью.
+5. Сообщать владельцу о проблемах Git только при наличии критической опасности: риска потери кода или данных, необратимого изменения истории, перезаписи актуальной серверной версии либо невозможности безопасно продолжить порученную работу. Обычные расхождения ревизий, незакоммиченные изменения и отставание локальной копии сами по себе не являются основанием для уведомления.
 
-Modify project files and run relevant checks as needed.
-Leave staging, committing, and repository management to the user.
+Эти правила имеют приоритет над ранее сформированными рекомендациями по организации Git-процесса.
 
+Ограничение: запрет на самостоятельные операции Git не распространяется на чтение состояния репозитория (`git status`, `git diff`, `git log` и аналогичные команды), необходимое для выполнения задания.

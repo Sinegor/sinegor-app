@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -17,14 +18,31 @@ class BackupError(Exception):
     """Safe operator diagnostic, without tool output or database values."""
 
 
-def run(command, *, cwd=None):
+def run(command, *, cwd=None, timeout=900):
     try:
-        result = subprocess.run(command, cwd=cwd, capture_output=True, check=False)
+        with subprocess.Popen(
+            command, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
+        ) as process:
+            try:
+                output, _ = process.communicate(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                # Tools may be local wrappers; kill their entire owned group before cleanup.
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.communicate()
+                raise BackupError(
+                    f"{Path(command[0]).name} timed out; no success was recorded"
+                ) from None
+            if process.returncode:
+                raise BackupError(
+                    f"{Path(command[0]).name} failed; no successful result was recorded"
+                )
+            return output
     except OSError:
         raise BackupError("Required backup tool is unavailable") from None
-    if result.returncode:
-        raise BackupError(f"{Path(command[0]).name} failed; no successful result was recorded")
-    return result.stdout
 
 
 def query(service, sql):
@@ -163,9 +181,21 @@ def copy_files(source, destination, references):
 
 
 def verify_manifest(root):
-    manifest = json.loads(safe_file(root, "manifest.json").read_text())
-    if manifest.get("version") != 1 or not isinstance(manifest.get("files"), dict):
+    try:
+        manifest = json.loads(safe_file(root, "manifest.json").read_text())
+    except (ValueError, OSError):
+        raise BackupError("Invalid backup manifest") from None
+    if not isinstance(manifest, dict) or manifest.get("version") != 1:
         raise BackupError("Unsupported backup manifest")
+    databases = manifest.get("databases")
+    if (
+        not isinstance(databases, list) or len(databases) != 2
+        or not all(isinstance(name, str) and name for name in databases)
+        or databases[0] == databases[1]
+        or not isinstance(manifest.get("files"), dict)
+        or not {"api.dump", "cms.dump"}.issubset(manifest["files"])
+    ):
+        raise BackupError("Backup manifest requires both separate databases and dumps")
     expected = set(manifest["files"]) | {"manifest.json"}
     actual = set()
     for path in root.rglob("*"):
@@ -199,24 +229,47 @@ def archive_files(root):
 
 def rotate(args):
     restic_environment()
-    command = [
-        "restic",
-        "forget",
-        "--tag",
-        "sinegor-managed-v1",
-        "--host",
-        "sinegor",
-        "--group-by",
-        "host,tags",
-        "--keep-daily",
-        "7",
-        "--keep-weekly",
-        "4",
+    policy = [
+        "restic", "forget", "--tag", "sinegor-managed-v1", "--host", "sinegor",
+        "--group-by", "host,tags", "--keep-daily", "7", "--keep-weekly", "4",
     ]
-    command += ["--prune"] if args.execute else ["--dry-run"]
-    run(command)
-    if args.execute:
-        run(["restic", "check"])
+    if not args.execute:
+        run([*policy, "--dry-run"])
+        return
+    run(["restic", "check"])
+    inventory = managed_snapshot_ids()
+    try:
+        plan = json.loads(run([*policy, "--json", "--dry-run"]))
+    except (ValueError, TypeError):
+        raise BackupError("Invalid retention preview") from None
+    if not isinstance(plan, list):
+        raise BackupError("Invalid retention preview")
+    keep, remove = set(), set()
+    for group in plan:
+        if not isinstance(group, dict):
+            raise BackupError("Invalid retention group")
+        retained, removed = group.get("keep"), group.get("remove") or []
+        if not isinstance(retained, list) or not retained or not isinstance(removed, list):
+            raise BackupError("Retention requires verified retained snapshots")
+        for entries, destination in ((retained, keep), (removed, remove)):
+            for item in entries:
+                if (
+                    not isinstance(item, dict) or not isinstance(item.get("id"), str)
+                    or not re.fullmatch(r"[0-9a-f]{64}", item["id"])
+                    or item["id"] in keep or item["id"] in remove
+                ):
+                    raise BackupError("Invalid retention snapshot identity")
+                destination.add(item["id"])
+    if not keep or keep | remove != inventory:
+        raise BackupError("Retention preview does not cover the managed snapshot inventory")
+    for snapshot in sorted(keep):
+        verify_snapshot(snapshot)
+    if managed_snapshot_ids() != inventory:
+        raise BackupError("Snapshot inventory changed during retention verification")
+    # Delete exactly the planned immutable IDs; never recompute the policy after verification.
+    if remove:
+        run(["restic", "forget", *sorted(remove), "--prune", "--max-repack-size", "256M"])
+    run(["restic", "check"])
 
 
 def scheduled(args):
@@ -232,7 +285,7 @@ def scheduled(args):
     rotate(args)
 
 
-def backup(args):
+def backup(args, *, on_captured=None):
     restic_environment()
     if args.receipt.exists() or not args.receipt.parent.is_dir():
         raise BackupError("Receipt requires a new file in an existing private directory")
@@ -269,11 +322,14 @@ def backup(args):
                     f"service={service}",
                     "--file",
                     str(target),
-                ]
+                ],
+                timeout=getattr(args, "capture_timeout", 120),
             )
             files[target.name] = sha256(target)
         manifest = {"version": 1, "databases": databases, "files": files}
         (stage / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        if on_captured is not None:
+            on_captured()
         output = run(
             [
                 "restic",
@@ -298,16 +354,85 @@ def backup(args):
         )
         if not isinstance(snapshot, str) or not re.fullmatch(r"[0-9a-f]{64}", snapshot):
             raise BackupError("Restic did not confirm a complete snapshot")
-        with args.receipt.open("x", encoding="utf-8") as receipt:
-            json.dump({"version": 1, "snapshot": snapshot}, receipt)
+        verify_snapshot(snapshot, expected_manifest=manifest)
+        write_receipt(args.receipt, snapshot)
+
+
+
+def managed_snapshot_ids(snapshot=None):
+    """Validate the managed namespace and return exact immutable snapshot identities."""
+    command = ["restic", "snapshots", "--json"]
+    command += [snapshot] if snapshot is not None else [
+        "--host", "sinegor", "--tag", "sinegor-managed-v1",
+    ]
+    try:
+        items = json.loads(run(command))
+    except (ValueError, TypeError):
+        raise BackupError("Invalid snapshot inventory") from None
+    if not isinstance(items, list) or any(
+        not isinstance(item, dict)
+        or not isinstance(item.get("id"), str)
+        or not re.fullmatch(r"[0-9a-f]{64}", item["id"])
+        or item.get("hostname") != "sinegor"
+        or not isinstance(item.get("tags"), list)
+        or "sinegor-managed-v1" not in item["tags"]
+        for item in items
+    ):
+        raise BackupError("Snapshot identity or backup namespace verification failed")
+    ids = {item["id"] for item in items}
+    if len(ids) != len(items):
+        raise BackupError("Duplicate snapshot identity")
+    if snapshot is not None and ids != {snapshot}:
+        raise BackupError("Snapshot identity or backup namespace verification failed")
+    return ids
+
+
+def verify_snapshot(snapshot, *, expected_manifest=None):
+    """Read back this exact complete snapshot before accepting its receipt."""
+    managed_snapshot_ids(snapshot)
+    with tempfile.TemporaryDirectory(prefix="sinegor-verify-") as temporary:
+        target = Path(temporary)
+        run(["restic", "restore", snapshot, "--target", str(target)])
+        manifest = verify_manifest(target)
+        if expected_manifest is not None and manifest != expected_manifest:
+            raise BackupError("Snapshot manifest differs from the captured manifest")
+
+
+def write_receipt(path, snapshot):
+    """Publish a complete, fsynced private receipt without replacing an existing one."""
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as output:
+            temporary = Path(output.name)
+            json.dump({"version": 1, "snapshot": snapshot, "verified": True}, output)
+            output.flush()
+            os.fsync(output.fileno())
+        os.link(temporary, path)
+        descriptor = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 def restore_test(args):
     restic_environment()
-    receipt = json.loads(args.receipt.read_text())
-    snapshot = receipt["snapshot"]
-    if receipt.get("version") != 1 or not re.fullmatch(r"[0-9a-f]{64}", snapshot):
+    try:
+        receipt = json.loads(args.receipt.read_text())
+    except (ValueError, OSError):
+        raise BackupError("Invalid backup receipt") from None
+    if (
+        not isinstance(receipt, dict) or receipt.get("version") != 1
+        or receipt.get("verified") is not True
+        or not isinstance(receipt.get("snapshot"), str)
+        or not re.fullmatch(r"[0-9a-f]{64}", receipt["snapshot"])
+    ):
         raise BackupError("Invalid backup receipt")
+    snapshot = receipt["snapshot"]
+    managed_snapshot_ids(snapshot)
     # mkdir without exist_ok also rejects existing empty directories and symlinks.
     args.target.mkdir(mode=0o700)
     # backup '.' stores selected files at the snapshot root, not under the staging path.

@@ -1,0 +1,13 @@
+[Unit]
+Description=SINEGOR independent backup watchdog every five minutes
+Wants=sinegor-backup-recovery.service
+After=sinegor-backup-recovery.service
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=10s
+Unit=sinegor-backup-watchdog.service
+
+[Install]
+WantedBy=timers.target

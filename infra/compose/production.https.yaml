@@ -1,0 +1,16 @@
+services:
+  proxy:
+    command: ["nginx", "-c", "/etc/nginx/sinegor/nginx.https.conf", "-g", "daemon off;"]
+    ports: !override
+      - "185.250.46.93:80:8080"
+      - "185.250.46.93:443:8443"
+    volumes: !override
+      - ../proxy:/etc/nginx/sinegor:ro
+      - /var/lib/sinegor-lab-prod/tls:/etc/nginx/sinegor-tls:ro
+      - /var/lib/sinegor-lab-prod/client-ca:/etc/nginx/sinegor-ca:ro
+      - /var/lib/sinegor-lab-prod/acme:/var/www/acme:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8081/proxy-health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

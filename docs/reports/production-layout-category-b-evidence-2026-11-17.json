@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-17",
+  "timezone": "Europe/Moscow",
+  "task": "category-B-only",
+  "files": [
+    {
+      "path": "infra/compose/production.https.yaml",
+      "sha256": "88b22ad8655d6f17ddeded9f2426d7cfe4efa3a77b236d44e46d8e05e0180532"
+    },
+    {
+      "path": "infra/compose/production.bootstrap.yaml",
+      "sha256": "1665164f524a0244b9c70f8379cc787253970b1f92a0fa263f7251ac007951da"
+    },
+    {
+      "path": "infra/proxy/nginx.https.conf",
+      "sha256": "3e136c3fa071360d57168700f817e3ef1486f3569906337ead19a123a888e53a"
+    },
+    {
+      "path": "infra/proxy/nginx.bootstrap.conf",
+      "sha256": "5ed98fac01e0d070afcc9eecc5285d1c02ed12838f7acccd3fb4413f53852144"
+    },
+    {
+      "path": "scripts/deployment/deploy-tls.py",
+      "sha256": "1ef924b0a781c69a7e03aeee6dfde30274659d09d52b3bb4df7126009626249e"
+    }
+  ],
+  "preserved_originals": [
+    {
+      "original_private_path": "/home/sinegoradmin/apps/sinegor-app-private/https/production.https.yaml",
+      "saved_original": "/home/sinegoradmin/sinegor-app-deployment-originals/category-b-20261117/https/production.https.yaml",
+      "sha256": "2242a73b396a8211ae1ba61798a500af7ed7788dbf21442c053c8f1e3c3a8d9a"
+    },
+    {
+      "original_private_path": "/home/sinegoradmin/apps/sinegor-app-private/https/production.bootstrap.yaml",
+      "saved_original": "/home/sinegoradmin/sinegor-app-deployment-originals/category-b-20261117/https/production.bootstrap.yaml",
+      "sha256": "1665164f524a0244b9c70f8379cc787253970b1f92a0fa263f7251ac007951da"
+    },
+    {
+      "original_private_path": "/home/sinegoradmin/apps/sinegor-app-private/https/nginx/nginx.https.conf",
+      "saved_original": "/home/sinegoradmin/sinegor-app-deployment-originals/category-b-20261117/https/nginx/nginx.https.conf",
+      "sha256": "3e136c3fa071360d57168700f817e3ef1486f3569906337ead19a123a888e53a"
+    },
+    {
+      "original_private_path": "/home/sinegoradmin/apps/sinegor-app-private/https/nginx/nginx.bootstrap.conf",
+      "saved_original": "/home/sinegoradmin/sinegor-app-deployment-originals/category-b-20261117/https/nginx/nginx.bootstrap.conf",
+      "sha256": "5ed98fac01e0d070afcc9eecc5285d1c02ed12838f7acccd3fb4413f53852144"
+    },
+    {
+      "original_private_path": "/home/sinegoradmin/apps/sinegor-app-private/https/deploy-tls.py",
+      "saved_original": "/home/sinegoradmin/sinegor-app-deployment-originals/category-b-20261117/https/deploy-tls.py",
+      "sha256": "1ef924b0a781c69a7e03aeee6dfde30274659d09d52b3bb4df7126009626249e"
+    }
+  ],
+  "checks": {
+    "hook_python_ast": true,
+    "audited_sources_match": true,
+    "saved_originals_verified": true,
+    "production_compose": {
+      "parse_valid": true,
+      "relative_build_paths_correct": true,
+      "no_daemon_calls": true
+    },
+    "bootstrap_compose": {
+      "parse_valid": true,
+      "relative_build_paths_correct": true,
+      "no_daemon_calls": true
+    },
+    "unchanged_nginx_and_hook_bytes": true,
+    "private_runtime_files_unchanged": true,
+    "system_hook_metadata_unchanged": true,
+    "diff_and_new_files_whitespace": true,
+    "git_head_and_index_unchanged": true
+  },
+  "system_hook_path": "/usr/local/sbin/sinegor-lab-prod-deploy-tls",
+  "system_hook_current_bytes_read": false,
+  "system_hook_source_matches_prior_root_audit_sha256": true,
+  "private_working_copies_retained": true,
+  "production_activated": false,
+  "runtime_selectors_modified": false,
+  "services_restarted": false,
+  "comprehensive_production_checks_run": false,
+  "other_categories_modified": false,
+  "git_mutations": false,
+  "nginx_validation": "byte-identical to previously validated running configuration; nginx -t not rerun"
+}

@@ -1,0 +1,85 @@
+{
+  "task": "category-C-only",
+  "date": "2026-11-17",
+  "timezone": "Europe/Moscow",
+  "classification_source": "production-layout-classification-2026-11-16.json",
+  "moved_files": 54,
+  "moved_classified_directories": 26,
+  "rename_operations": 7,
+  "archive_root": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive",
+  "moves": [
+    {
+      "from": "/home/sinegoradmin/apps/sinegor-app-private/iii5-reboot-baseline-2026-11-15.json",
+      "to": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-5/iii5-reboot-baseline-2026-11-15.json"
+    },
+    {
+      "from": "/home/sinegoradmin/apps/sinegor-app-private/iii6-ip-r-74cc255b61332b32cbcd72002fd5eae6/connection.json",
+      "to": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-6/iii6-ip-r-74cc255b61332b32cbcd72002fd5eae6/connection.json"
+    },
+    {
+      "from": "/home/sinegoradmin/apps/sinegor-app-private/iii6-ip-r-8a078cd57a33bf8635398c30d6c249d6/connection.json",
+      "to": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-6/iii6-ip-r-8a078cd57a33bf8635398c30d6c249d6/connection.json"
+    },
+    {
+      "from": "/home/sinegoradmin/apps/sinegor-app-private/iii6-ip-r-8a078cd57a33bf8635398c30d6c249d6/result.json",
+      "to": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-6/iii6-ip-r-8a078cd57a33bf8635398c30d6c249d6/result.json"
+    },
+    {
+      "from": "/home/sinegoradmin/apps/sinegor-app-private/iii6-c3-28a33d70c17d4101018bb67fb1648f86/browser-result.json",
+      "to": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-6/iii6-c3-28a33d70c17d4101018bb67fb1648f86/browser-result.json"
+    },
+    {
+      "from": "/home/sinegoradmin/apps/sinegor-app-private/https/cms-client-ca.pem",
+      "to": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-6/https/cms-client-ca.pem"
+    },
+    {
+      "from": "/home/sinegoradmin/apps/sinegor-app-private/iii7",
+      "to": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7"
+    }
+  ],
+  "checks": {
+    "same_filesystem": true,
+    "same_inodes_and_contents": true,
+    "ownership_modes_mtime_preserved": true,
+    "source_paths_absent": true,
+    "historical_bundle_checksums_valid": true,
+    "rollback_manifest_checksum_valid": true,
+    "existing_recovery_targets_resolve_at_new_paths": true
+  },
+  "iii7_absolute_path_references": [
+    {
+      "file": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7/deploy-20261116/deployment-evidence.json",
+      "historical_path": "/home/sinegoradmin/apps/sinegor-app-private/iii7/rollback-iii7-20261116-1-144931",
+      "current_path": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7/rollback-iii7-20261116-1-144931",
+      "target_existed_before": true
+    },
+    {
+      "file": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7/deploy-20261116/manifest.json",
+      "historical_path": "/home/sinegoradmin/apps/sinegor-app-private/iii7/rollback-iii7-20261116-1-144931",
+      "current_path": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7/rollback-iii7-20261116-1-144931",
+      "target_existed_before": true
+    },
+    {
+      "file": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7/restart-acceptance-20261116/acceptance.service",
+      "historical_path": "/home/sinegoradmin/apps/sinegor-app-private/iii7/restart-acceptance-20261116/deploy.py",
+      "current_path": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7/restart-acceptance-20261116/deploy.py",
+      "target_existed_before": true
+    },
+    {
+      "file": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7/restart-acceptance-20261116/acceptance.service",
+      "historical_path": "/home/sinegoradmin/apps/sinegor-app-private/iii7/restart-acceptance-20261116/pending-reboot.json",
+      "current_path": "/home/sinegoradmin/apps/sinegor-app-artifacts/archive/III-7/restart-acceptance-20261116/pending-reboot.json",
+      "target_existed_before": false
+    }
+  ],
+  "historical_test_scripts_modified": false,
+  "historical_manifest_bytes_modified": false,
+  "additional_archive_copies_created": false,
+  "external_category_c_modified": false,
+  "production_files_modified": false,
+  "services_restarted": false,
+  "new_audit_performed": false,
+  "production_comprehensive_checks_performed": false,
+  "git_mutations": false,
+  "recovery_instructions": "/home/sinegoradmin/apps/sinegor-app/infra/scheduler/RECOVERY.md"
+}

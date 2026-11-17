@@ -1,0 +1,24 @@
+[Unit]
+Description=SINEGOR recover interrupted backup before scheduled writers
+Wants=docker.service network-online.target
+After=docker.service network-online.target
+Before=sinegor-job-minute.timer sinegor-job-cleanup_agreements.timer sinegor-job-purge_security_events.timer sinegor-job-purge_auth.timer sinegor-job-purge_analytics.timer sinegor-job-cleanup_business.timer sinegor-backup.timer sinegor-backup-watchdog.service
+OnFailure=sinegor-backup-watchdog.service
+
+[Service]
+Type=oneshot
+User=root
+RemainAfterExit=true
+UMask=0077
+Environment=PATH=/usr/local/lib/sinegor/backup/bin:/usr/local/bin:/usr/bin:/bin
+Environment=SINEGOR_BACKUP_CONFIG=/etc/sinegor/backup/config.json
+ExecStart=/usr/bin/python3 /usr/local/lib/sinegor/backup/production.py recover --config /etc/sinegor/backup/config.json
+TimeoutStartSec=180s
+TimeoutStopSec=15s
+KillMode=control-group
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sinegor-backup-recovery
+
+[Install]
+WantedBy=multi-user.target
