@@ -340,7 +340,7 @@ def notify(configuration, event):
             fields[key] = value if re.fullmatch(r"[A-Za-z0-9_.:-]{1,100}", value) else "redacted"
         message = EmailMessage()
         message["From"], message["To"] = mail["from"], mail["recipient"]
-        message["Subject"] = "SINEGOR backup: " + fields["event"]
+        message["Subject"] = ("SINEGOR monitor: " if fields["stage"] == "monitor" else "SINEGOR backup: ") + fields["event"]
         message.set_content("SINEGOR LAB backup control\n" + "\n".join(
             f"{key}: {value}" for key, value in fields.items()) + "\nUTC: " + now_iso() +
             "\nInspect the private backup state on the VPS.\n")
@@ -562,6 +562,8 @@ def run_backup(configuration):
         finally:
             state["finished_at"] = now_iso()
             save()
+            if state["status"] == "success" and state["verified"] is True:
+                atomic_json(state_root / "last-success.json", state)
         print(json.dumps({key: state[key] for key in ("run_id", "status", "stage", "verified", "rotation")}))
         return 0 if state["status"] == "success" else 1
 
@@ -589,6 +591,131 @@ def load_config(path):
 def timer_properties():
     output = command(["systemctl", "show", "sinegor-backup.timer", "--property=LoadState,ActiveState,UnitFileState"])
     return dict(line.split("=", 1) for line in output.splitlines() if "=" in line)
+
+
+def controlled_window(pending, run, active, now):
+    try:
+        created = datetime.fromisoformat(pending["created_at"])
+        started = datetime.fromisoformat(run["started_at"])
+        entries = pending["entries"]
+        return (active and pending.get("version") == 1 and run["status"] == "running"
+                and created.tzinfo is not None and started.tzinfo is not None
+                and started.timestamp() <= created.timestamp()
+                and 0 <= now - created.timestamp() <= 480
+                and 0 <= now - started.timestamp() <= 1200
+                and len(entries) == 2 and {v["service"] for v in entries} == {"api", "cms"}
+                and all(re.fullmatch(r"[0-9a-f]{64}", v["id"])
+                        and re.fullmatch(r"sha256:[0-9a-f]{64}", v["image"]) for v in entries))
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def pending_in_controlled_window(configuration, pending, run):
+    try:
+        output = command(["systemctl", "show", "sinegor-backup.service", "--property=ActiveState"], timeout=5)
+        active = any(line in ("ActiveState=activating", "ActiveState=active") for line in output.splitlines())
+        if not controlled_window(pending, run, active, time.time()):
+            return False
+        docker = Docker(configuration)
+        for entry in pending["entries"]:
+            item = docker.service(entry["service"])
+            if (item["id"] != entry["id"] or item["image"] != entry["image"]
+                    or item["image"] != configuration["images"][entry["service"]]):
+                return False
+        return True
+    except (BackupError, OSError, KeyError, ValueError, TypeError):
+        return False
+
+
+def last_accepted(configuration):
+    root = Path(configuration["state_dir"])
+    paths = [root / "last-success.json", root / "last-run.json"]
+    if not (root / "last-success.json").exists():
+        paths.extend((root / "runs").glob("*.json"))
+    accepted = []
+    for path in paths:
+        try:
+            if not path.exists():
+                continue
+            value = read_private(path)
+            run_id = str(value.get("run_id", ""))
+            if (value.get("status") != "success" or value.get("verified") is not True
+                    or value.get("rotation") != "success"
+                    or not re.fullmatch(r"[0-9a-f]{32}", run_id)
+                    or not re.fullmatch(r"[0-9a-f]{64}", str(value.get("snapshot", "")))):
+                continue
+            receipt = read_private(root / "receipts" / (run_id + ".json"))
+            if (receipt.get("version") != 1 or receipt.get("verified") is not True
+                    or receipt.get("snapshot") != value["snapshot"]):
+                continue
+            timestamp = datetime.fromisoformat(value["finished_at"]).timestamp()
+            accepted.append((timestamp, value))
+        except (OSError, ValueError, KeyError, TypeError, BackupError):
+            continue
+    return max(accepted, key=lambda item: item[0])[1] if accepted else None
+
+
+def accepted_freshness(accepted, now):
+    try:
+        age = now - datetime.fromisoformat(accepted["finished_at"]).timestamp()
+        return None if 0 <= age <= 26 * 3600 else "run_stale"
+    except (KeyError, TypeError, ValueError):
+        return "never_completed"
+
+
+def alert_transition(configuration, verdict, token, now, notify_fn=None):
+    path = Path(configuration["state_dir"]) / "alert-state.json"
+    previous = read_private(path) if path.exists() else {}
+    send = notify_fn or (lambda event: notify(configuration, event))
+    active = verdict["status"] != "ok"
+    accepted = previous.get("accepted", bool(previous.get("sent_at")))
+    if active:
+        identity = verdict["reason"] + ":" + token
+        changed = identity != previous.get("token") or previous.get("active") is False
+        state = previous | {"token": identity, "active": True,
+                            "accepted": False if changed else accepted,
+                            "pending_recovery": False, "reason": verdict["reason"]}
+        due = changed or now - previous.get("last_attempt", previous.get("sent_at", 0)) >= (
+            21600 if accepted else 300)
+        event = {"event": verdict["reason"], "stage": "watchdog", "error_type": "StateError", "run_id": token}
+    else:
+        state = previous | {"active": False, "accepted": accepted,
+                            "pending_recovery": accepted}
+        due = accepted and (previous.get("active", True) or now - previous.get("last_attempt", 0) >= 300)
+        event = {"event": "backup_recovered", "stage": "watchdog", "error_type": "None", "run_id": token}
+    if due:
+        state["last_attempt"] = now
+    atomic_json(path, state)
+    if not due:
+        return None
+    try:
+        sent = bool(send(event))
+    except Exception:
+        sent = False
+    state["smtp_accepted"] = sent
+    if sent:
+        state.update(accepted=active, sent_at=now, pending_recovery=False)
+    atomic_json(path, state)
+    return sent
+
+
+def monitor_liveness(configuration):
+    if configuration.get("monitoring_enabled") is not True:
+        return None
+    if not Path("/usr/local/lib/sinegor/monitoring/production.py").exists():
+        return "monitor_unavailable"
+    try:
+        output = command(["systemctl", "show", "sinegor-monitor.timer",
+                          "--property=LoadState,ActiveState,UnitFileState"], timeout=5)
+        timer = dict(line.split("=", 1) for line in output.splitlines() if "=" in line)
+        state = read_private(Path("/var/lib/sinegor-monitor/state.json"))
+        age = time.time() - state["checked_at"]
+        if (timer.get("LoadState") == "loaded" and timer.get("ActiveState") == "active"
+                and timer.get("UnitFileState") == "enabled" and 0 <= age <= 180):
+            return None
+    except (BackupError, OSError, ValueError, KeyError, TypeError):
+        pass
+    return "monitor_unavailable"
 
 
 def watchdog(configuration):
@@ -625,17 +752,25 @@ def watchdog(configuration):
         except BackupError:
             pass
         if (root / "pending.json").exists():
-            verdict = {"status": "critical", "reason": "recovery_pending"}
-    if verdict["status"] != "ok":
-        alert_path = root / "alert-state.json"
-        previous = read_private(alert_path) if alert_path.exists() else {}
-        token = verdict["reason"] + ":" + str((state or {}).get("run_id", "none"))
-        if token != previous.get("token") or time.time() - previous.get("sent_at", 0) > 6 * 3600:
-            sent = notify(configuration, {"event": verdict["reason"], "stage": "watchdog",
-                                          "error_type": "StateError", "run_id": (state or {}).get("run_id", "none")})
-            if sent:
-                atomic_json(alert_path, {"token": token, "sent_at": time.time()})
-            verdict["alert_sent"] = sent
+            pending = read_private(root / "pending.json")
+            if not pending_in_controlled_window(configuration, pending, state or {}):
+                verdict = {"status": "critical", "reason": "recovery_pending"}
+    accepted = last_accepted(configuration)
+    stale = accepted_freshness(accepted, time.time())
+    if verdict["status"] == "ok" and stale:
+        verdict = {"status": "critical", "reason": stale}
+    monitor_issue = monitor_liveness(configuration)
+    if monitor_issue:
+        if verdict["status"] != "ok":
+            verdict["backup_reason"] = verdict["reason"]
+        verdict.update(status="critical", reason=monitor_issue)
+    verdict["checked_at"] = time.time()
+    verdict["last_success_at"] = (accepted or {}).get("finished_at")
+    atomic_json(root / "watchdog-state.json", verdict)
+    sent = alert_transition(configuration, verdict, str((state or {}).get("run_id", "none")), time.time())
+    if sent is not None:
+        verdict["alert_sent"] = sent
+    atomic_json(root / "watchdog-state.json", verdict)
     print(json.dumps(verdict))
     return 0 if verdict["status"] == "ok" else 1
 

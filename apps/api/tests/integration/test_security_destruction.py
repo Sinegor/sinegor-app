@@ -25,7 +25,9 @@ def destruction_roles(roles):  # noqa: F811
 
 
 def old_stamp():
-    return datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=91)
+    return datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+        days=220
+    )
 
 
 def batches(connection):
@@ -153,7 +155,7 @@ def test_security_migration_roundtrip_preserves_acl_and_configuration(
         identifier = insert_event(connection, old_stamp())
         connection.exec_driver_sql(
             "ALTER FUNCTION public.purge_security_events() "
-            "SET sinegor.security_retention_days TO '89'"
+            "SET sinegor.security_retention_months TO '6'"
         )
         original_acl = connection.scalar(
             text(
@@ -181,7 +183,7 @@ def test_security_migration_roundtrip_preserves_acl_and_configuration(
                 "WHERE oid='public.purge_security_events()'::regprocedure"
             )
         )
-        assert "sinegor.security_retention_days=89" in config
+        assert "sinegor.security_retention_months=6" in config
         assert "search_path=pg_catalog" in config
         assert "TimeZone=UTC" in config
     from sinegor.modules.security_events.permissions import verify_runtime_permissions

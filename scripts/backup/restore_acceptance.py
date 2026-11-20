@@ -389,6 +389,12 @@ def acceptance(args, fixture, report):
     deadline = time.monotonic() + 60
     while True:
         try:
+            # The entrypoint bootstrap server answers sockets before its final restart.
+            fixture.inspect(pg)
+            call(["docker", "exec", pg["id"], "timeout", "5",
+                  "pg_isready", "-q", "-t", "2", "-h", "127.0.0.1",
+                  "-p", "5432", "-U", "fixture", "-d", "postgres"],
+                 env=env, timeout=10)
             if fixture.sql("postgres", "SELECT 1").strip() == b"1":
                 break
         except AcceptanceError:

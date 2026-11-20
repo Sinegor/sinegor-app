@@ -1,9 +1,8 @@
 # Separate from dev. Always choose an explicit project and private --env-file.
 x-logging: &logging
-  driver: json-file
+  driver: journald
   options:
-    max-size: "10m"
-    max-file: "3"
+    tag: "{{.Name}}"
 x-app: &app
   restart: unless-stopped
   init: true

@@ -1,0 +1,13 @@
+[Unit]
+Description=SINEGOR production monitor every minute
+
+[Timer]
+OnBootSec=1min
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+RandomizedDelaySec=0
+Persistent=true
+Unit=sinegor-monitor.service
+
+[Install]
+WantedBy=timers.target

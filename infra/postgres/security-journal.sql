@@ -17,6 +17,6 @@ GRANT SELECT, INSERT ON TABLE public.security_events TO :"runtime_role";
 REVOKE ALL ON FUNCTION public.purge_security_events() FROM PUBLIC, :"runtime_role", :"maintenance_role";
 GRANT EXECUTE ON FUNCTION public.purge_security_events() TO :"maintenance_role";
 COMMIT;
--- Owner-only retention configuration (UTC calendar days, default 90):
--- ALTER FUNCTION public.purge_security_events() SET sinegor.security_retention_days TO '90';
+-- Owner-only retention configuration (UTC calendar months, approved value 6):
+-- ALTER FUNCTION public.purge_security_events() SET sinegor.security_retention_months TO '6';
 -- Run this script again after migrations that introduce tables or recreate this function.

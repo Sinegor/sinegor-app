@@ -1,0 +1,17 @@
+# Proposed cutover: requires the separately approved container recreation window.
+# No env/labels options: production environment values must never enter the journal.
+x-journald: &journald
+  driver: journald
+  options: !override
+    tag: "{{.Name}}"
+services:
+  api:
+    logging: *journald
+  cms:
+    logging: *journald
+  postgres:
+    logging: *journald
+  web:
+    logging: *journald
+  proxy:
+    logging: *journald

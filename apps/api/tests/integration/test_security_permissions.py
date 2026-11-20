@@ -68,7 +68,7 @@ def roles(database_settings, alembic_config):
                 )
             connection.exec_driver_sql(
                 "ALTER FUNCTION public.purge_security_events() "
-                "SET sinegor.security_retention_days TO '90'"
+                "SET sinegor.security_retention_months TO '6'"
             )
             for role in [runtime, maintenance]:
                 connection.exec_driver_sql(f"DROP OWNED BY {role}")
@@ -118,7 +118,8 @@ def test_runtime_cannot_mutate_journal_or_invoke_retention_and_other_dml_works(r
         "ALTER TABLE public.security_events ADD COLUMN secret text",
         "DROP TABLE public.security_events",
         "SELECT public.purge_security_events()",
-        "ALTER FUNCTION public.purge_security_events() SET sinegor.security_retention_days TO '1'",
+        "ALTER FUNCTION public.purge_security_events() "
+        "SET sinegor.security_retention_months TO '1'",
         "CREATE OR REPLACE FUNCTION public.purge_security_events() "
         "RETURNS bigint LANGUAGE sql AS $$ SELECT 0::bigint $$",
     ]:
@@ -140,30 +141,20 @@ def test_runtime_cannot_mutate_journal_or_invoke_retention_and_other_dml_works(r
 
 def test_cleanup_boundary_configuration_and_caller_cannot_override(roles):
     owner, runtime, maintenance, _, _ = roles
-    boundary = datetime.now(UTC).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
-        days=90
-    )
+    with owner.connect() as connection:
+        boundary = connection.scalar(text("SELECT statement_timestamp() - interval '6 months'"))
     with owner.begin() as connection:
-        old = insert_event(connection, boundary - timedelta(microseconds=1))
-        edge = insert_event(connection, boundary)
+        old = insert_event(connection, boundary - timedelta(days=1))
         recent = insert_event(connection, boundary + timedelta(days=1))
+        ninety_one_days = insert_event(connection, datetime.now(UTC) - timedelta(days=91))
     with maintenance.begin() as connection:
-        connection.exec_driver_sql("SET LOCAL sinegor.security_retention_days='1'")
+        connection.exec_driver_sql("SET LOCAL sinegor.security_retention_months='0'")
         connection.exec_driver_sql("SET LOCAL TIME ZONE 'Pacific/Honolulu'")
         assert connection.scalar(text("SELECT public.purge_security_events()")) == 1
         assert connection.scalar(text("SELECT public.purge_security_events()")) == 0
     with runtime.connect() as connection:
         remaining = set(connection.scalars(text("SELECT id FROM public.security_events")))
-        assert old not in remaining and remaining == {edge, recent}
-    with owner.begin() as connection:
-        connection.exec_driver_sql(
-            "ALTER FUNCTION public.purge_security_events() "
-            "SET sinegor.security_retention_days TO '89'"
-        )
-    with maintenance.begin() as connection:
-        assert connection.scalar(text("SELECT public.purge_security_events()")) == 1
-    with runtime.connect() as connection:
-        assert set(connection.scalars(text("SELECT id FROM public.security_events"))) == {recent}
+        assert old not in remaining and remaining == {recent, ninety_one_days}
 
 
 def test_startup_rejects_owner_and_inherited_or_column_update_privilege(roles):
